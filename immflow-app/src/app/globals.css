@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Brand: Navy Mirage palette ──────────────────────────────
+     Navy     — Deep midnight   #141E30  (depth, hover, footer)
+     Mirage   — Steel blue      #35577D  (primary brand, buttons)
+     Light    — Mist tint       #D0DCE8  (card highlights, active bg)
+     Medium   — Soft steel      #6B8BAE  (borders, subtle accents)
+     Surface  — Mirage wash     #E8F0F7  (cards — light tinted lift)
+     Page bg  — mirage wash     #D8E4EF  (visible light primary tint)
+  ─────────────────────────────────────────────────────────── */
+  --color-green:         #35577D;
+  --color-green-dark:    #141E30;
+  --color-green-deepest: #0D1420;
+  --color-green-light:   #D0DCE8;
+  --color-green-medium:  #6B8BAE;
+  --color-surface:       #E8F0F7;
+
+  /* ── Navy Mirage gradients — #141E30 ↔ #35577D ── */
+  --gradient-brand:       linear-gradient(90deg, #141E30 0%, #35577D 100%);
+  --gradient-brand-deep:  linear-gradient(90deg, #35577D 0%, #141E30 100%);
+  --gradient-hero:        linear-gradient(135deg, #0D1420 0%, #141E30 30%, #35577D 65%, #4A6A8C 100%);
+  --gradient-hero-light:  linear-gradient(135deg, #E8F0F7 0%, #D8E4EF 40%, #CDDAE8 75%, #C2D2E3 100%);
+  --gradient-page:        linear-gradient(165deg, #E8F0F7 0%, #D8E4EF 45%, #CDDAE8 100%);
+  --gradient-glow:        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(53, 87, 125, 0.22) 0%, transparent 70%);
+  --gradient-nav:         linear-gradient(180deg, #E8F0F7 0%, #D8E4EF 100%);
+
+  /* ── Neutral surface ── */
+  --color-bg:           #D8E4EF;
+  --color-text:         #141E30;
+  --color-muted:        #5C6B7E;
+  --color-muted-high:   #8A9BB0;
+  --color-white:        #E8F0F7;
+
+  /* ── Semantic colors ── */
+  --color-amber:        #BA7517;
+  --color-amber-light:  #FAEEDA;
+  --color-red:          #A32D2D;
+  --color-red-light:    #FCEBEB;
+  --color-blue:         #35577D;
+  --color-blue-light:   #D0DCE8;
+
+  --border-light:  rgba(20, 30, 48, 0.10);
+  --border-medium: rgba(53, 87, 125, 0.20);
+
+  /* ── Typography ── */
+  --font-dm-sans: var(--font-body-loaded), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-syne:    var(--font-display-loaded), Georgia, 'Times New Roman', serif;
+
+  /* ── Elevation — navy-tinted shadows ── */
+  --shadow-sm: 0 1px 3px rgba(20, 30, 48, 0.10);
+  --shadow-md: 0 4px 16px rgba(20, 30, 48, 0.12), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 30, 48, 0.14), 0 4px 8px rgba(0,0,0,0.05);
+  --shadow-glow: 0 4px 24px rgba(53, 87, 125, 0.32);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --animate-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html, body {
+  height: 100%;
+  background-color: var(--color-bg);
+  background-image: var(--gradient-page);
+  background-attachment: fixed;
+  color: var(--color-text);
+  font-family: var(--font-dm-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Navy Mirage gradient surfaces ── */
+.bg-brand-gradient      { background-image: var(--gradient-brand); }
+.bg-brand-gradient-deep { background-image: var(--gradient-brand-deep); }
+.bg-hero-gradient       { background-image: var(--gradient-hero); }
+.bg-hero-light          { background-image: var(--gradient-hero-light); }
+.bg-nav                 { background-image: var(--gradient-nav); }
+
+/* Tinted surfaces — no stark white anywhere */
+.bg-white {
+  background-color: var(--color-surface) !important;
+}
+nav {
+  background-image: var(--gradient-nav) !important;
+  background-color: var(--color-bg) !important;
+  border-color: rgba(20, 30, 48, 0.12) !important;
+}
+
+/* Override Tailwind utilities — mirage sheen on primary surfaces */
+.bg-green {
+  background-image: var(--gradient-brand) !important;
+  background-color: var(--color-green) !important;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.25s ease, filter 0.25s ease;
+}
+.bg-green:hover,
+.hover\:bg-green-dark:hover {
+  background-image: var(--gradient-brand-deep) !important;
+  background-color: var(--color-green-dark) !important;
+  box-shadow: var(--shadow-glow);
+  filter: brightness(1.04);
+}
+footer.bg-green-dark,
+.bg-green-dark.bg-hero-gradient {
+  background-image: var(--gradient-hero) !important;
+  background-color: var(--color-green-deepest) !important;
+}
+
+/* Navy-tinted scrollbar */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-green-medium);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-green); }
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  width: 100%;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font-family: inherit; font-size: inherit; }

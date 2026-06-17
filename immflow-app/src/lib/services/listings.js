@@ -1,0 +1,106 @@
+import { prisma } from "@/lib/db";
+import { parseJsonArray, stringifyJsonArray } from "@/lib/utils/json-fields";
+import { formatRelativeTime, getBadgeStyle } from "@/lib/utils/format";
+import { AuthError } from "@/lib/auth/guards.js";
+
+export async function listListings() {
+  const listings = await prisma.listing.findMany({ orderBy: { postedAt: "desc" } });
+  return listings.map(formatListing);
+}
+
+export function formatListing(l) {
+  const tags = parseJsonArray(l.tags);
+  const badgeStyle = getBadgeStyle(l.badge);
+
+  return {
+    id: l.id,
+    title: l.title,
+    org: l.org || "Independent",
+    location: l.location || "Remote",
+    type: l.type || "Contract",
+    badge: l.badge || "New",
+    bb: badgeStyle.bg,
+    bc: badgeStyle.fg,
+    tags,
+    pay: l.pay || "DOE",
+    applicants: l.applicantsCount || 0,
+    posted: formatRelativeTime(l.postedAt),
+    postedById: l.postedById,
+    status: l.status,
+  };
+}
+
+function buildListingTags(type, location) {
+  const tags = [];
+  if (type) tags.push(type);
+  if (location?.toLowerCase().includes("remote")) {
+    tags.push("Remote");
+  } else if (location) {
+    tags.push(location.split(",")[0].trim());
+  }
+  return tags;
+}
+
+export async function createListing(userId, input) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isPro: true },
+  });
+
+  if (!user) {
+    throw new AuthError("User not found.", 404, "NOT_FOUND");
+  }
+
+  if (!user.isPro) {
+    const listingCount = await prisma.listing.count({
+      where: { postedById: userId, status: "open" },
+    });
+    if (listingCount >= 1) {
+      throw new AuthError(
+        "You have reached the limit for the Free tier (1 active listing). Please upgrade to Pro for unlimited listings.",
+        403,
+        "PRO_UPGRADE_REQUIRED"
+      );
+    }
+  }
+
+  const tags = input.tags?.length ? input.tags : buildListingTags(input.type, input.location);
+
+  const listing = await prisma.listing.create({
+    data: {
+      title: input.title,
+      org: input.org,
+      location: input.location,
+      description: input.description,
+      pay: input.pay,
+      type: input.type,
+      badge: input.badge || "New",
+      tags: stringifyJsonArray(tags),
+      postedById: userId,
+    },
+  });
+
+  return formatListing(listing);
+}
+
+export async function updateListing(listingId, input, { userId, isAdmin = false } = {}) {
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing) throw new AuthError("Listing not found.", 404, "NOT_FOUND");
+  if (!isAdmin && listing.postedById !== userId) {
+    throw new AuthError("You can only edit your own listings.", 403, "FORBIDDEN");
+  }
+
+  const data = {};
+  if (input.title !== undefined) data.title = input.title;
+  if (input.org !== undefined) data.org = input.org;
+  if (input.location !== undefined) data.location = input.location;
+  if (input.description !== undefined) data.description = input.description;
+  if (input.pay !== undefined) data.pay = input.pay;
+  if (input.type !== undefined) data.type = input.type;
+  if (input.badge !== undefined) data.badge = input.badge;
+  if (input.status !== undefined) data.status = input.status;
+  if (input.tags !== undefined) data.tags = stringifyJsonArray(input.tags);
+
+  const updated = await prisma.listing.update({ where: { id: listingId }, data });
+  return formatListing(updated);
+}
