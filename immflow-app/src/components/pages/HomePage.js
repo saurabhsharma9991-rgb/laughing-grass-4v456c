@@ -350,7 +350,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                 <li>✓ Browse attorneys</li>
                 <li>✓ Apply to listings</li>
                 <li>✓ Basic profile</li>
-                <li>✓ 1 listing/month</li>
+                <li>✓ 1 active listing</li>
               </ul>
               <button
                 onClick={() => setShowAuth(true)}
@@ -375,9 +375,9 @@ export default function HomePage({ setPage, setShowAuth }) {
               </ul>
               <button
                 onClick={() => setShowAuth(true)}
-                className="bg-green text-white w-full py-2.5 px-4 rounded-lg border-none cursor-pointer text-sm font-medium hover:bg-green-dark transition-all"
+                className="bg-transparent text-text w-full py-2.5 px-4 rounded-lg border border-[rgba(0,0,0,0.15)] cursor-pointer text-sm font-medium hover:bg-bg transition-all"
               >
-                Upgrade to Pro
+                Contact us to upgrade
               </button>
             </div>
           </div>

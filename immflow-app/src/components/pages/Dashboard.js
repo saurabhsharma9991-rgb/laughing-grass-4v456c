@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { authHeaders, setStoredSession } from "@/lib/client/auth-storage";
 import ProfileEditor from "./ProfileEditor";
+import { usePlatform } from "@/components/PlatformContext";
+import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 
 export default function Dashboard({ user, setUser, onLogout, setPage }) {
+  const { testMode, canAccess, freeListingLimit } = usePlatform();
+  const hasMessaging = canAccess("direct_messaging", user?.isPro);
+  const hasMatcher = canAccess("ai_matcher", user?.isPro);
+  const hasUnlimitedListings = canAccess("unlimited_listings", user?.isPro);
   // Attorney tabs: overview, messages, billing
   const [userTab, setUserTab] = useState("overview");
   const [listingCount, setListingCount] = useState(0);
   const [applicationCount, setApplicationCount] = useState(0);
 
   // Subscription state
-  const [promoCode, setPromoCode] = useState("");
-  const [promoError, setPromoError] = useState("");
-  const [promoSuccess, setPromoSuccess] = useState("");
-  const [subscribingStripe, setSubscribingStripe] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [activatingSubscription, setActivatingSubscription] = useState(false);
 
   // Chat State
   const [conversations, setConversations] = useState([]);
@@ -81,61 +85,12 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     }
   };
 
-  const handleApplyPromo = async () => {
-    setPromoError("");
-    setPromoSuccess("");
-    if (promoCode.trim().toUpperCase() !== "IMMFLOW2026") {
-      setPromoError("Invalid promo code. Please check your spelling.");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/user/subscription", {
-        method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ promoCode: promoCode.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setPromoSuccess("Success! Code applied. 3 months free ImmFlow Pro has been activated.");
-        setPromoCode("");
-        const updatedUser = { ...user, isPro: true, subscriptionPlan: "Pro (Promo)" };
-        setUser(updatedUser);
-        setStoredSession(updatedUser, null);
-      } else {
-        setPromoError(data.error?.message || "Failed to apply code.");
-      }
-    } catch (e) {
-      setPromoError("Connection error.");
-    }
-  };
-
-  const handleUpgradeStripe = async () => {
-    setSubscribingStripe(true);
-    try {
-      const res = await fetch("/api/user/subscription", {
-        method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ activateStripe: true }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        const updatedUser = { ...user, isPro: true, subscriptionPlan: "Pro (Stripe)" };
-        setUser(updatedUser);
-        setStoredSession(updatedUser);
-        alert("Stripe Sandbox Subscription active! ImmFlow Pro activated successfully.");
-      } else {
-        alert("Upgrade failed: " + (data.error?.message || "Unknown error"));
-      }
-    } catch (e) {
-      alert("Upgrade failed. Connection error.");
-    } finally {
-      setSubscribingStripe(false);
-    }
-  };
-
   const handleCancelSubscription = async () => {
-    if (!confirm("Are you sure you want to cancel your ImmFlow Pro subscription? Your listings limit will return to 1, and AI Matcher/messaging will be locked.")) {
+    if (
+      !confirm(
+        `Are you sure you want to cancel your ImmFlow Pro subscription? Your listings limit will return to ${freeListingLimit}, and premium features may be locked.`
+      )
+    ) {
       return;
     }
     setCancellingSubscription(true);
@@ -157,6 +112,30 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       alert("Cancellation failed. Connection error.");
     } finally {
       setCancellingSubscription(false);
+    }
+  };
+
+  const handleTestUpgrade = async (body) => {
+    setActivatingSubscription(true);
+    try {
+      const res = await fetch("/api/user/subscription", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        const updatedUser = { ...user, ...data.user };
+        setUser(updatedUser);
+        setStoredSession(updatedUser);
+        alert("Upgraded to Pro (test mode).");
+      } else {
+        alert(data.error?.message || "Upgrade failed.");
+      }
+    } catch {
+      alert("Upgrade failed. Connection error.");
+    } finally {
+      setActivatingSubscription(false);
     }
   };
 
@@ -480,7 +459,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
                     {/* Input Field */}
                     <form onSubmit={handleSendMessage} className="flex gap-2 mt-auto">
-                      {user.isPro ? (
+                      {hasMessaging ? (
                         <>
                           <input
                             type="text"
@@ -524,120 +503,104 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         {userTab === "billing" && (
           <div>
             <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
-              Stripe Subscription Management
+              Billing &amp; Subscriptions
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Current Subscription Status */}
-              <div className="border border-[rgba(0,0,0,0.09)] rounded-xl p-5">
-                <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-                  Subscription Status
-                </h3>
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <span className="text-xs text-muted block mb-1">Active Plan</span>
-                    <span className="text-xl font-bold text-text font-syne flex items-center gap-2">
-                      {user?.isPro ? "🌟 ImmFlow Pro ($29/month)" : "📄 Free Plan"}
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${user?.isPro ? "bg-green-light text-green-dark" : "bg-bg text-muted"}`}>
-                        {user?.isPro ? "Active" : "Standard"}
-                      </span>
+            <div className="border border-[rgba(0,0,0,0.09)] rounded-xl p-6 max-w-xl">
+              <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
+                Current Plan
+              </h3>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <span className="text-xl font-bold text-text font-syne flex items-center gap-2">
+                    {user?.isPro ? "ImmFlow Pro" : "Free Plan"}
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${user?.isPro ? "bg-green-light text-green-dark" : "bg-bg text-muted"}`}>
+                      {user?.isPro ? "Active" : "Standard"}
                     </span>
-                  </div>
-
-                  {user?.isPro ? (
-                    <div>
-                      <span className="text-xs text-muted block mb-0.5">Billing Method</span>
-                      <span className="text-xs text-text font-medium block">
-                        {user.subscriptionPlan}
-                      </span>
-                      {user.subscriptionExpires && (
-                        <span className="text-[11px] text-green font-medium block mt-1">
-                          Promo expiry: {new Date(user.subscriptionExpires).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <span className="text-xs text-muted block mb-1">Free Tier Limits</span>
-                      <ul className="text-xs text-muted space-y-1 pl-4 list-disc">
-                        <li>Maximum of 1 active job board listing</li>
-                        <li>No access to the AI Matcher</li>
-                        <li>Direct Messaging locked</li>
-                      </ul>
-                    </div>
+                  </span>
+                  {user?.isPro && user.subscriptionPlan && (
+                    <p className="text-xs text-muted mt-2">{user.subscriptionPlan}</p>
                   )}
+                </div>
 
-                  {user?.isPro ? (
+                {!user?.isPro ? (
+                  <>
+                    <ul className="text-xs text-muted space-y-1 pl-4 list-disc">
+                      <li>
+                        Maximum of {freeListingLimit} active job board listing
+                        {freeListingLimit !== 1 ? "s" : ""}
+                        {!hasUnlimitedListings && " (unless unlimited listings is enabled for your plan)"}
+                      </li>
+                      {!hasMatcher && <li>No access to the AI Matcher</li>}
+                      {!hasMessaging && <li>Direct messaging locked</li>}
+                    </ul>
+                    {testMode ? (
+                      <div className="border border-amber/40 bg-amber-light rounded-lg p-4 space-y-3">
+                        <p className="text-xs text-[#633806] font-semibold">
+                          Test mode is on — use staging tools below to simulate Pro.
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value)}
+                            placeholder={`Promo code (e.g. ${PROMO_CODE_TEST})`}
+                            className="flex-1 py-2 px-3 text-xs border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
+                          />
+                          <button
+                            type="button"
+                            disabled={activatingSubscription || !promoCode.trim()}
+                            onClick={() => handleTestUpgrade({ promoCode: promoCode.trim() })}
+                            className="bg-green hover:bg-green-dark text-white font-semibold text-xs py-2 px-4 rounded-lg border-none cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                          >
+                            Apply promo
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={activatingSubscription}
+                          onClick={() => handleTestUpgrade({ activateStripe: true })}
+                          className="bg-transparent hover:bg-bg text-text border border-[rgba(0,0,0,0.15)] text-xs py-2 px-4 rounded-lg cursor-pointer disabled:opacity-50"
+                        >
+                          Simulate Stripe checkout
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted leading-relaxed">
+                        ImmFlow Pro ($29/month) unlocks premium features. Online checkout is coming
+                        soon — contact{" "}
+                        <a
+                          href="mailto:support@myimmflow.com"
+                          className="text-green font-medium hover:underline"
+                        >
+                          support@myimmflow.com
+                        </a>{" "}
+                        to upgrade.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <ul className="text-xs text-muted space-y-1 pl-4 list-disc">
+                      {hasUnlimitedListings && <li>Unlimited listings</li>}
+                      {hasMatcher && <li>AI matcher access</li>}
+                      {hasMessaging && <li>Direct messaging</li>}
+                    </ul>
+                    {user.subscriptionExpires && (
+                      <p className="text-[11px] text-green font-medium">
+                        Access expires: {new Date(user.subscriptionExpires).toLocaleDateString()}
+                      </p>
+                    )}
                     <button
+                      type="button"
                       onClick={handleCancelSubscription}
                       disabled={cancellingSubscription}
-                      className="bg-transparent hover:bg-red-light text-red border border-red py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all mt-4 w-fit"
+                      className="bg-transparent hover:bg-red-light text-red border border-red py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all w-fit"
                     >
-                      {cancellingSubscription ? "Cancelling..." : "Cancel Subscription"}
+                      {cancellingSubscription ? "Cancelling…" : "Downgrade to Free"}
                     </button>
-                  ) : (
-                    <div className="flex flex-col gap-3 mt-4">
-                      <a
-                        href="https://buy.stripe.com/test_eVq6oz8mJbIi5Lh8z9aVa00"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-green hover:bg-green-dark text-white font-bold text-xs py-3 px-5 rounded-lg border-none text-center block transition-all"
-                      >
-                        Upgrade to Pro via Stripe Sandbox
-                      </a>
-                      <button
-                        type="button"
-                        onClick={handleUpgradeStripe}
-                        disabled={subscribingStripe}
-                        className="bg-transparent border border-green text-green hover:bg-green-light font-bold text-xs py-2.5 px-4 rounded-lg cursor-pointer transition-all text-center block"
-                      >
-                        Simulate Payment Success & Activate Pro
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Promo Code Redeemer */}
-              <div className="border border-[rgba(0,0,0,0.09)] rounded-xl p-5 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                    Apply Promotion Code
-                  </h3>
-                  <p className="text-xs text-muted leading-relaxed mb-4">
-                    Enter a valid discount code or promotion voucher to unlock premium access without charge.
-                  </p>
-
-                  <div className="flex flex-col gap-3">
-                    <div>
-                      <input
-                        type="text"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value)}
-                        placeholder="e.g. IMMFLOW2026"
-                        className="w-full text-xs p-2.5 border border-[rgba(0,0,0,0.15)] rounded-lg bg-transparent text-text focus:outline-none focus:border-green"
-                      />
-                    </div>
-                    {promoError && (
-                      <div className="bg-red-light border border-red text-red text-xs p-2 rounded-lg">
-                        ⚠️ {promoError}
-                      </div>
-                    )}
-                    {promoSuccess && (
-                      <div className="bg-green-light border border-green-medium text-green-dark text-xs p-2 rounded-lg">
-                        ✓ {promoSuccess}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleApplyPromo}
-                  className="bg-text hover:bg-black text-white font-bold text-xs py-2.5 rounded-lg border-none cursor-pointer mt-4 transition-all"
-                >
-                  Apply Promo Code
-                </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

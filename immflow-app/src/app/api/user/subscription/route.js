@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
-
-const PROMO_CODE = process.env.IMMFLOW_PROMO_CODE || "IMMFLOW2026";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
+import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 
 export async function GET(req) {
   try {
@@ -29,25 +29,35 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const session = requireAuth(req);
+    const settings = await getPlatformSettings();
+
+    if (!settings.testMode) {
+      return apiError(
+        "Self-serve billing is not available yet. Contact support@myimmflow.com to upgrade.",
+        501,
+        "BILLING_NOT_AVAILABLE"
+      );
+    }
+
     const { promoCode, activateStripe } = await req.json();
     let updateData = null;
 
     if (promoCode) {
-      if (promoCode.trim().toUpperCase() !== PROMO_CODE) {
+      if (promoCode.trim().toUpperCase() !== PROMO_CODE_TEST) {
         return apiError("Invalid promo code.", 400, "INVALID_PROMO");
       }
       const expiresAt = new Date();
       expiresAt.setMonth(expiresAt.getMonth() + 3);
       updateData = {
         isPro: true,
-        subscriptionPlan: "Pro (Promo)",
-        promoUsed: PROMO_CODE,
+        subscriptionPlan: "Pro (Test promo)",
+        promoUsed: PROMO_CODE_TEST,
         subscriptionExpires: expiresAt,
       };
     } else if (activateStripe) {
       updateData = {
         isPro: true,
-        subscriptionPlan: "Pro (Stripe)",
+        subscriptionPlan: "Pro (Test Stripe)",
         promoUsed: null,
         subscriptionExpires: null,
       };
@@ -68,7 +78,7 @@ export async function POST(req) {
       },
     });
 
-    return apiSuccess({ success: true, user });
+    return apiSuccess({ success: true, user, testMode: true });
   } catch (error) {
     return handleApiError(error, "Failed to update subscription.");
   }

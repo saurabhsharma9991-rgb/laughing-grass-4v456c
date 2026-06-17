@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateEmail } from "@/lib/validators/auth";
-import { generateToken, appBaseUrl } from "@/lib/auth-tokens";
+import { generateToken } from "@/lib/auth-tokens";
 
 export async function POST(req) {
   try {
@@ -22,14 +22,7 @@ export async function POST(req) {
           resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
         },
       });
-
-      if (process.env.NODE_ENV !== "production") {
-        return apiSuccess({
-          success: true,
-          message: "If an account exists for that email, a password reset link has been sent.",
-          resetUrl: `${appBaseUrl()}/?reset=${resetToken}`,
-        });
-      }
+      // Password reset email delivery is configured separately (ZeptoMail, etc.)
     }
 
     return apiSuccess({

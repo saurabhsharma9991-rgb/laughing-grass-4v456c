@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { parseJsonArray, stringifyJsonArray } from "@/lib/utils/json-fields";
 import { formatRelativeTime, getBadgeStyle } from "@/lib/utils/format";
 import { AuthError } from "@/lib/auth/guards.js";
+import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings.js";
 
 export async function listListings() {
   const listings = await prisma.listing.findMany({ orderBy: { postedAt: "desc" } });
@@ -51,13 +52,24 @@ export async function createListing(userId, input) {
     throw new AuthError("User not found.", 404, "NOT_FOUND");
   }
 
-  if (!user.isPro) {
+  const postAccess = await assertFeatureAccess(userId, "post_listings");
+  if (!postAccess.allowed) {
+    throw new AuthError(
+      "Posting listings is not available on your plan.",
+      403,
+      "FEATURE_NOT_AVAILABLE"
+    );
+  }
+
+  const unlimited = await assertFeatureAccess(userId, "unlimited_listings");
+  if (!unlimited.allowed) {
+    const settings = postAccess.settings || (await getPlatformSettings());
     const listingCount = await prisma.listing.count({
       where: { postedById: userId, status: "open" },
     });
-    if (listingCount >= 1) {
+    if (listingCount >= settings.freeListingLimit) {
       throw new AuthError(
-        "You have reached the limit for the Free tier (1 active listing). Please upgrade to Pro for unlimited listings.",
+        `You have reached the limit for the Free tier (${settings.freeListingLimit} active listing). Please upgrade to Pro for unlimited listings.`,
         403,
         "PRO_UPGRADE_REQUIRED"
       );

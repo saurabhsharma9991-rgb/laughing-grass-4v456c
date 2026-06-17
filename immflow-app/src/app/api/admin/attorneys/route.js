@@ -25,34 +25,58 @@ export async function PATCH(req) {
   try {
     requireAdmin(req);
     const body = await req.json();
-    const { id, isVerified, ...profileFields } = body;
+    const { id, isVerified, isPro, ...profileFields } = body;
 
     if (!id) return apiError("id is required.", 400, "VALIDATION_ERROR");
 
-    if (Object.keys(profileFields).length > 0) {
-      const validation = validateAttorneyProfile({ ...profileFields, name: profileFields.name || "Attorney" });
-      if (!validation.valid && profileFields.name) {
+    const attorneyId = parseInt(id, 10);
+    const existing = await prisma.attorney.findUnique({
+      where: { id: attorneyId },
+      select: { userId: true },
+    });
+    if (!existing) return apiError("Attorney not found.", 404, "NOT_FOUND");
+
+    if (isPro !== undefined) {
+      await prisma.user.update({
+        where: { id: existing.userId },
+        data: {
+          isPro: Boolean(isPro),
+          subscriptionPlan: Boolean(isPro) ? "Pro (Admin)" : "Free",
+          ...(Boolean(isPro) ? {} : { promoUsed: null, subscriptionExpires: null }),
+        },
+      });
+    }
+
+    if (isVerified !== undefined) {
+      await prisma.attorney.update({
+        where: { id: attorneyId },
+        data: { isVerified: Boolean(isVerified) },
+      });
+    }
+
+    if (profileFields.name) {
+      const validation = validateAttorneyProfile({
+        ...profileFields,
+        name: profileFields.name || "Attorney",
+      });
+      if (!validation.valid) {
         const firstError = Object.values(validation.errors)[0];
         return apiError(firstError, 400, "VALIDATION_ERROR", validation.errors);
       }
 
       const data = { ...validation.data };
       if (isVerified !== undefined) data.isVerified = Boolean(isVerified);
-      if (profileFields.name) {
-        const attorney = await updateAttorneyProfile(parseInt(id, 10), data);
-        return apiSuccess({ success: true, attorney });
-      }
+      await updateAttorneyProfile(attorneyId, data);
     }
 
-    if (isVerified !== undefined) {
-      const attorney = await prisma.attorney.update({
-        where: { id: parseInt(id, 10) },
-        data: { isVerified: Boolean(isVerified) },
-      });
-      return apiSuccess({ success: true, attorney });
-    }
+    const attorney = await prisma.attorney.findUnique({
+      where: { id: attorneyId },
+      include: {
+        user: { select: { email: true, isPro: true, subscriptionPlan: true } },
+      },
+    });
 
-    return apiError("No valid fields to update.", 400, "VALIDATION_ERROR");
+    return apiSuccess({ success: true, attorney });
   } catch (error) {
     return handleApiError(error, "Failed to update attorney.");
   }

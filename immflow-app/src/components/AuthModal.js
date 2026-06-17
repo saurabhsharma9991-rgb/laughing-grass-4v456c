@@ -55,15 +55,11 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
 
         if (res.error) {
           setError(res.error.message);
+        } else if (res.access_token) {
+          onAuth(res.user, res.access_token);
+          onClose();
         } else {
-          const devHint = res.verificationUrl
-            ? ` Dev link: ${res.verificationUrl}`
-            : "";
-          setSuccess(
-            (res.message ||
-              "Account created! Please check your email to confirm, then log in.") +
-              devHint
-          );
+          setSuccess(res.message || "Account created successfully.");
         }
       } else {
         const response = await fetch("/api/auth/login", {
@@ -103,8 +99,7 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
       if (res.error) {
         setError(res.error.message);
       } else {
-        const devHint = res.resetUrl ? ` Dev link: ${res.resetUrl}` : "";
-        setSuccess(res.message + devHint);
+        setSuccess(res.message);
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");

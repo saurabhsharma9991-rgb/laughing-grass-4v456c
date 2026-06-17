@@ -3,8 +3,12 @@ import Avatar from "../Avatar";
 import Tag from "../Tag";
 import { rankAttorneysForMatch } from "@/lib/utils/matcher";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
+import { usePlatform } from "@/components/PlatformContext";
 
 export default function MatcherPage({ user, setPage, setShowAuth }) {
+  const { canAccess } = usePlatform();
+  const hasMatcher = canAccess("ai_matcher", user?.isPro);
+  const hasMessaging = canAccess("direct_messaging", user?.isPro);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [checks, setChecks] = useState([false, false, false, false, false]);
@@ -36,9 +40,9 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
   ];
 
   const runMatch = () => {
-    if (!user?.isPro) {
+    if (!hasMatcher) {
       alert(
-        "The AI Matcher requires ImmFlow Pro. Upgrade from Dashboard → Billing & Subscriptions."
+        "The AI Matcher is not available on your plan. Upgrade from Dashboard → Billing & Subscriptions."
       );
       setPage("dashboard");
       return;
@@ -67,11 +71,11 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
   const handleContactRedirect = (m) => {
     startChatWithAttorney(
       { userId: m.userId, name: m.name, initials: m.initials },
-      { user, setShowAuth, setPage }
+      { user, setShowAuth, setPage, canAccessMessaging: hasMessaging }
     );
   };
 
-  if (!user?.isPro) {
+  if (!hasMatcher) {
     return (
       <div className="max-w-[680px] mx-auto my-16 px-6 text-center">
         <div className="text-4xl mb-4">✦</div>
@@ -79,8 +83,8 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
           AI Matcher — ImmFlow Pro
         </h2>
         <p className="text-sm text-muted mb-6 leading-relaxed">
-          Smart attorney matching is available on ImmFlow Pro ($29/month). Free accounts can
-          browse the attorney directory and job board.
+          Smart attorney matching requires a plan upgrade. Free accounts can browse the attorney
+          directory and job board.
         </p>
         <button
           onClick={() => (user ? setPage("dashboard") : setShowAuth(true))}

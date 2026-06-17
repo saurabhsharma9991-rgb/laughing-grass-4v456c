@@ -21,13 +21,13 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 
 | Method | Path | Body | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/signup` | `{ email, password, data: { full_name, bar_number, bar_state } }` | Create account; dev returns `verificationUrl` |
+| POST | `/api/auth/signup` | `{ email, password, data: { full_name, bar_number, bar_state } }` | Create account; returns `{ user, access_token }` |
 | POST | `/api/auth/login` | `{ email, password }` | Login; returns `{ user, access_token }` |
-| POST | `/api/auth/verify-email` | `{ token }` | Confirm email verification token |
-| POST | `/api/auth/forgot-password` | `{ email }` | Issue password reset token (logged in dev) |
+| POST | `/api/auth/verify-email` | `{ token }` | Legacy endpoint (verification no longer required at signup) |
+| POST | `/api/auth/forgot-password` | `{ email }` | Issue reset token (email delivery requires provider) |
 | POST | `/api/auth/reset-password` | `{ token, password }` | Reset password with token |
 
-**Error codes:** `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `VALIDATION_ERROR`
+**Error codes:** `INVALID_CREDENTIALS`, `VALIDATION_ERROR`, `EMAIL_EXISTS`
 
 ---
 
@@ -47,11 +47,15 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/listings` | Create listing (Free: 1 active max) |
+| PATCH | `/api/listings/[id]` | Update own listing |
 | GET/POST | `/api/applications` | Application count / apply to listing |
+| GET/PATCH | `/api/user/profile` | Attorney profile |
 | GET/POST | `/api/messages` | List conversations / send message (Pro) |
-| GET/POST/DELETE | `/api/user/subscription` | Status, promo, Stripe sim, cancel |
+| GET/DELETE | `/api/user/subscription` | Read plan / downgrade to Free |
 
-**Error codes:** `PRO_UPGRADE_REQUIRED`, `MISSING_TOKEN`, `INVALID_TOKEN`
+`POST /api/user/subscription` returns `501 BILLING_NOT_AVAILABLE` (no simulated upgrades).
+
+**Error codes:** `PRO_UPGRADE_REQUIRED`, `MISSING_TOKEN`, `INVALID_TOKEN`, `BILLING_NOT_AVAILABLE`
 
 ---
 
@@ -63,13 +67,10 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 | GET/PATCH/DELETE | `/api/admin/attorneys` | Verify or remove attorneys |
 | DELETE | `/api/admin/listings` | Moderate listings |
 | GET | `/api/admin/analytics` | Platform stats |
-| POST | `/api/admin/announcements` | Broadcast email stub |
-
-Middleware returns `401` when `Authorization` header is missing on `/api/admin/*`. Full JWT + role check runs in each route via `requireAdmin`.
+| POST | `/api/admin/announcements` | Broadcast (requires `EMAIL_API_KEY`; sending not wired) |
 
 ---
 
 ## Testing credentials
 
 - **Admin:** `admin@myimmflow.com` / `password` → use `/admin`
-- **Promo code:** `IMMFLOW2026` (3 months Pro, testing only)

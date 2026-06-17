@@ -2,7 +2,7 @@
 
 ## Overview
 
-ImmFlow is a Next.js 16 application in **testing phase**: feature-complete against the original prototype and live site reference, with simulated integrations where production services are not yet wired.
+ImmFlow is a Next.js 16 application with a production-ready Phase 1 core: real MySQL data, JWT auth, admin CMS, and attorney marketplace features. External billing and email delivery are intentionally not simulated.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -34,27 +34,25 @@ ImmFlow is a Next.js 16 application in **testing phase**: feature-complete again
 
 ## Routing model
 
-Public pages use **client-side state** (`page` in `page.js`) rather than App Router segments (`/jobs`, `/attorneys`). This matches the original single-page prototype. Admin is a real route at `/admin`.
-
-**Future:** migrate to `src/app/(marketing)/jobs/page.js` etc. when SEO and deep links become a priority.
+Public pages use **client-side state** (`page` in `page.js`) rather than App Router segments (`/jobs`, `/attorneys`). Admin is a real route at `/admin`.
 
 ## Authentication
 
 - Passwords hashed with `bcryptjs`
-- Sessions are **JWT in localStorage** (acceptable for testing; production should use httpOnly cookies)
-- `POST /api/listings` derives `userId` from JWT — never from request body (IDOR fix)
-- Admin users redirect to `/admin` on login; attorney dashboard is separate
+- Sessions are **JWT in localStorage** (upgrade to httpOnly cookies recommended for production hardening)
+- Signup creates verified accounts immediately — no email verification gate
+- `POST /api/listings` derives `userId` from JWT — never from request body
 
-## Feature matrix (testing vs production)
+## Feature matrix (Phase 1)
 
 | Feature | Status |
 |---------|--------|
 | Attorney directory, job board, CMS | Live DB |
-| Signup / login / email verify / reset | Implemented (email is console/log stub) |
-| AI matcher | Client-side demo data |
-| Stripe billing | Sandbox link + simulated activation |
+| Signup / login / password reset APIs | Live (reset email needs provider) |
+| AI matcher | Ranks real attorneys; Pro-gated |
+| Stripe billing | Not wired — contact support / future webhooks |
 | Direct messaging | Real DB; Pro-gated |
-| Announcements broadcast | Stub (no SendGrid) |
+| Announcements broadcast | Requires email provider configuration |
 
 ## Directory layout
 

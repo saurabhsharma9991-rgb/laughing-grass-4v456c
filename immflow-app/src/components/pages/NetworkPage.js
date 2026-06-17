@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
 import AttorneyCard from "../AttorneyCard";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
+import { usePlatform } from "@/components/PlatformContext";
 
 export default function NetworkPage({ user, setPage, setShowAuth }) {
+  const { canAccess } = usePlatform();
+  const hasNetwork = canAccess("attorney_network", user?.isPro);
+  const hasMessaging = canAccess("direct_messaging", user?.isPro);
   const [attorneys, setAttorneys] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -19,8 +23,33 @@ export default function NetworkPage({ user, setPage, setShowAuth }) {
   }, []);
 
   const handleContact = (attorney) => {
-    startChatWithAttorney(attorney, { user, setShowAuth, setPage });
+    startChatWithAttorney(attorney, {
+      user,
+      setShowAuth,
+      setPage,
+      canAccessMessaging: hasMessaging,
+    });
   };
+
+  if (!hasNetwork) {
+    return (
+      <div className="max-w-[680px] mx-auto my-16 px-6 text-center">
+        <div className="text-4xl mb-4">🤝</div>
+        <h2 className="font-syne text-2xl font-extrabold mb-3 text-text">
+          Attorney network
+        </h2>
+        <p className="text-sm text-muted mb-6 leading-relaxed">
+          The attorney network is not available on your current plan.
+        </p>
+        <button
+          onClick={() => (user ? setPage("dashboard") : setShowAuth(true))}
+          className="bg-green hover:bg-green-dark text-white py-3 px-6 rounded-lg border-none cursor-pointer text-sm font-medium"
+        >
+          {user ? "View billing in Dashboard" : "Sign up to get started"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

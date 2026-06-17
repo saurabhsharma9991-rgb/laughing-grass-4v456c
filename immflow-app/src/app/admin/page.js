@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import CmsPreview from "@/components/admin/CmsPreview";
+import CmsEditor from "@/components/admin/CmsEditor";
+import PlatformSettingsPanel from "@/components/admin/PlatformSettingsPanel";
 import AttorneyEditorModal from "@/components/admin/AttorneyEditorModal";
 import ListingEditorModal from "@/components/admin/ListingEditorModal";
 import JobCard from "@/components/JobCard";
 
 export default function AdminPage() {
   const [adminUser, setAdminUser] = useState(null);
+  const [authToken, setAuthToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -56,6 +58,7 @@ export default function AdminPage() {
         const parsed = JSON.parse(savedUserStr);
         if (parsed.role === "admin") {
           setAdminUser(parsed);
+          setAuthToken(token);
           loadAllData(token);
         }
       } catch (e) {
@@ -136,6 +139,7 @@ export default function AdminPage() {
         setAdminUser(data.user);
         localStorage.setItem("immflow_user", JSON.stringify(data.user));
         localStorage.setItem("immflow_token", data.access_token);
+        setAuthToken(data.access_token);
         loadAllData(data.access_token);
       }
     } catch (err) {
@@ -148,6 +152,7 @@ export default function AdminPage() {
   const handleLogout = () => {
     localStorage.removeItem("immflow_user");
     localStorage.removeItem("immflow_token");
+    setAuthToken("");
     setAdminUser(null);
     setEmail("");
     setPassword("");
@@ -181,7 +186,44 @@ export default function AdminPage() {
     }
   };
 
-  // 2. Toggle Attorney Verification Status
+  // 2. Toggle Attorney Pro status
+  const handleToggleAttorneyPro = async (attorney) => {
+    try {
+      const token = localStorage.getItem("immflow_token");
+      const targetPro = !attorney.user?.isPro;
+      const res = await fetch("/api/admin/attorneys", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: attorney.id, isPro: targetPro }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAttorneys(
+          attorneys.map((a) =>
+            a.id === attorney.id
+              ? {
+                  ...a,
+                  user: {
+                    ...a.user,
+                    isPro: targetPro,
+                    subscriptionPlan: targetPro ? "Pro (Admin)" : "Free",
+                  },
+                }
+              : a
+          )
+        );
+      } else {
+        alert(data.error?.message || "Failed to update plan.");
+      }
+    } catch {
+      alert("Failed to update plan. Connection error.");
+    }
+  };
+
+  // 3. Toggle Attorney Verification Status
   const handleToggleAttorneyVerification = async (id, currentVerified) => {
     try {
       const token = localStorage.getItem("immflow_token");
@@ -276,11 +318,11 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Broadcast simulation success! Recipient count: ${data.recipients.length}\nEmails printed to server stdout.`);
+        alert(`Announcement queued for ${data.recipientCount} recipients.`);
         setAnnouncementSubject("");
         setAnnouncementContent("");
       } else {
-        alert("Broadcast failed: " + (data.error || ""));
+        alert(data.error?.message || data.error || "Broadcast failed.");
       }
     } catch (e) {
       console.error(e);
@@ -413,18 +455,12 @@ export default function AdminPage() {
     );
   }
 
-  // Group CMS items by section
-  const groupedCms = {};
-  cmsItems.forEach(item => {
-    if (!groupedCms[item.section]) {
-      groupedCms[item.section] = [];
-    }
-    groupedCms[item.section].push(item);
-  });
+  // Group CMS items by section — removed; CmsEditor handles grouping
 
   const navItems = [
     ["overview", "📊 Overview"],
     ["cms", "✏️ Site content"],
+    ["settings", "⚙️ Features & test mode"],
     ["attorneys", "⚖️ Attorneys"],
     ["listings", "📋 Listings"],
     ["broadcast", "📢 Broadcast"],
@@ -482,36 +518,33 @@ export default function AdminPage() {
 
         {activeTab === "cms" && (
           <div>
-            <div className="flex justify-between items-start mb-6 gap-4 flex-wrap">
+            <div className="mb-6">
               <h1 className="font-syne text-2xl font-extrabold text-text">Site content</h1>
-              <button type="button" onClick={handleSaveCms} disabled={savingCms || loadingCms} className="bg-green text-white py-2.5 px-5 rounded-lg border-none text-sm font-semibold cursor-pointer disabled:opacity-60">
-                {savingCms ? "Publishing…" : "Publish changes"}
-              </button>
+              <p className="text-sm text-muted mt-1">
+                Pick a section on the left, edit fields in the center, and watch the full homepage
+                preview update on the right.
+              </p>
             </div>
-            {loadingCms ? (
-              <div className="text-center py-16 text-muted">Loading…</div>
-            ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div className="space-y-4 max-h-[75vh] overflow-y-auto">
-                  {Object.entries(groupedCms).map(([section, items]) => (
-                    <div key={section} className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5">
-                      <h3 className="text-xs font-bold text-green-dark uppercase mb-3">{section.replace(/\./g, " / ")}</h3>
-                      {items.map((item) => (
-                        <div key={item.key} className="mb-3">
-                          <label className="text-xs font-semibold text-text block mb-1">{item.label}</label>
-                          {item.type === "textarea" ? (
-                            <textarea value={cmsFormValues[item.key] || ""} onChange={(e) => setCmsFormValues({ ...cmsFormValues, [item.key]: e.target.value })} className="w-full p-2 text-xs border rounded-lg min-h-[64px] focus:outline-none focus:border-green" />
-                          ) : (
-                            <input type="text" value={cmsFormValues[item.key] || ""} onChange={(e) => setCmsFormValues({ ...cmsFormValues, [item.key]: e.target.value })} className="w-full p-2 text-xs border rounded-lg focus:outline-none focus:border-green" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-                <CmsPreview values={cmsFormValues} />
-              </div>
-            )}
+            <CmsEditor
+              cmsItems={cmsItems}
+              cmsFormValues={cmsFormValues}
+              setCmsFormValues={setCmsFormValues}
+              onPublish={handleSaveCms}
+              saving={savingCms}
+              loading={loadingCms}
+            />
+          </div>
+        )}
+
+        {activeTab === "settings" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">
+              Features &amp; test mode
+            </h1>
+            <p className="text-sm text-muted mb-6">
+              Manage Free vs Pro feature access and enable test mode for staging.
+            </p>
+            <PlatformSettingsPanel authToken={authToken} />
           </div>
         )}
 
@@ -599,6 +632,17 @@ export default function AdminPage() {
                                 className="border-none bg-green text-white cursor-pointer font-semibold text-[11px] py-1.5 px-3 rounded-lg hover:bg-green-dark transition-all"
                               >
                                 Edit profile
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAttorneyPro(a)}
+                                className={`border-none bg-transparent cursor-pointer font-bold text-[11px] ${
+                                  a.user?.isPro
+                                    ? "text-muted hover:text-text"
+                                    : "text-green hover:text-green-dark"
+                                }`}
+                              >
+                                {a.user?.isPro ? "Revoke Pro" : "Grant Pro"}
                               </button>
                               <button
                                 type="button"

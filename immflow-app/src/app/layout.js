@@ -1,5 +1,6 @@
 import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import { SiteContentProvider } from "@/components/SiteContentContext";
+import { PlatformProvider } from "@/components/PlatformContext";
 import "./globals.css";
 
 /**
@@ -30,9 +31,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${jakarta.variable} ${playfair.variable}`}>
       <body>
-        <SiteContentProvider>
-          {children}
-        </SiteContentProvider>
+        <PlatformProvider>
+          <SiteContentProvider>
+            {children}
+          </SiteContentProvider>
+        </PlatformProvider>
       </body>
     </html>
   );

@@ -1,12 +1,15 @@
 /** Start an in-platform chat from any attorney card or matcher result. */
-export function startChatWithAttorney(attorney, { user, setShowAuth, setPage }) {
+export function startChatWithAttorney(
+  attorney,
+  { user, setShowAuth, setPage, canAccessMessaging = false }
+) {
   if (!user) {
     setShowAuth(true);
     return;
   }
-  if (!user.isPro) {
+  if (!canAccessMessaging) {
     alert(
-      "Direct messaging requires ImmFlow Pro. Open Dashboard → Billing & Subscriptions to upgrade."
+      "Direct messaging is not available on your plan. Open Dashboard → Billing & Subscriptions to upgrade."
     );
     setPage("dashboard");
     return;

@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { signToken } from "@/lib/auth/jwt.js";
-import { generateToken } from "@/lib/auth-tokens.js";
 import { AuthError } from "@/lib/auth/guards.js";
 
 export function formatUserResponse(user, attorney) {
@@ -35,14 +34,6 @@ export async function loginUser(email, password) {
     throw new AuthError("Invalid email or password.", 401, "INVALID_CREDENTIALS");
   }
 
-  if (!user.emailVerified && user.role !== "admin") {
-    throw new AuthError(
-      "Please verify your email before logging in. Check your inbox for the confirmation link.",
-      403,
-      "EMAIL_NOT_VERIFIED"
-    );
-  }
-
   const token = signToken({
     userId: user.id,
     email: user.email,
@@ -64,7 +55,6 @@ export async function registerUser({ email, password, data }) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const verificationToken = generateToken();
   const fullName = data?.full_name?.trim() || normalizedEmail.split("@")[0];
   const initials = fullName
     .split(" ")
@@ -79,8 +69,8 @@ export async function registerUser({ email, password, data }) {
         email: normalizedEmail,
         passwordHash,
         role: "attorney",
-        emailVerified: false,
-        verificationToken,
+        emailVerified: true,
+        verificationToken: null,
       },
     });
 
@@ -98,5 +88,5 @@ export async function registerUser({ email, password, data }) {
     return newUser;
   });
 
-  return { user, verificationToken };
+  return { user };
 }

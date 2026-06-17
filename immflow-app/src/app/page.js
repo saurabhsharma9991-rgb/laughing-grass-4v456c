@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import AuthModal from "@/components/AuthModal";
+import TestModeBanner from "@/components/TestModeBanner";
 
 // Import pages
 import HomePage from "@/components/pages/HomePage";
@@ -36,28 +37,7 @@ export default function App() {
     }
 
     const params = new URLSearchParams(window.location.search);
-    const verifyToken = params.get("verify");
     const resetToken = params.get("reset");
-
-    if (verifyToken) {
-      fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: verifyToken }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) {
-            alert(data.message);
-            setAuthMode("login");
-            setShowAuth(true);
-          } else {
-            alert(data.error?.message || "Email verification failed.");
-          }
-        })
-        .catch(() => alert("Email verification failed. Please try again."));
-      window.history.replaceState({}, "", window.location.pathname);
-    }
 
     if (resetToken) {
       setAuthResetToken(resetToken);
@@ -105,7 +85,8 @@ export default function App() {
   return (
     <div className="flex flex-col min-h-screen bg-bg text-text">
       <div ref={topRef} />
-      
+      <TestModeBanner />
+
       <Nav
         page={page}
         setPage={setPage}

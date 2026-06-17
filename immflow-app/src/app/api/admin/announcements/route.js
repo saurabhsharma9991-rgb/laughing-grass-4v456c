@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/guards";
-import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
+import { handleApiError, apiError } from "@/lib/api/response";
 
 export async function POST(req) {
   try {
@@ -11,19 +11,19 @@ export async function POST(req) {
       return apiError("subject and content are required.", 400, "VALIDATION_ERROR");
     }
 
-    const recipientCount = await prisma.user.count({
-      where: { role: { not: "admin" } },
-    });
-
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[SIMULATED EMAIL]", { subject, recipientCount, content });
+    if (!process.env.EMAIL_API_KEY) {
+      return apiError(
+        "Email service is not configured. Set EMAIL_API_KEY to enable broadcasts.",
+        503,
+        "EMAIL_NOT_CONFIGURED"
+      );
     }
 
-    return apiSuccess({
-      success: true,
-      message: `Announcement queued for ${recipientCount} recipients.`,
-      recipientCount,
-    });
+    return apiError(
+      "Broadcast delivery is not wired yet. Email provider credentials are present but sending is pending implementation.",
+      501,
+      "BROADCAST_NOT_IMPLEMENTED"
+    );
   } catch (error) {
     return handleApiError(error, "Failed to send announcement.");
   }

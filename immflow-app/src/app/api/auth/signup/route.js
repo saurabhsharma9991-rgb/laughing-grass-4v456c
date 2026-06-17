@@ -1,7 +1,6 @@
 import { apiError, apiSuccess, handleApiError } from "@/lib/api/response";
 import { validateSignupBody } from "@/lib/validators/auth";
-import { registerUser } from "@/lib/services/auth";
-import { appBaseUrl } from "@/lib/auth-tokens";
+import { loginUser, registerUser } from "@/lib/services/auth";
 
 export async function POST(req) {
   try {
@@ -12,31 +11,22 @@ export async function POST(req) {
       return apiError(firstError, 400, "VALIDATION_ERROR", validation.errors);
     }
 
-    const { user, verificationToken } = await registerUser({
+    await registerUser({
       email: body.email,
       password: body.password,
       data: body.data,
     });
 
-    const response = {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        user_metadata: {
-          full_name: body.data?.full_name || user.email.split("@")[0],
-          bar_number: body.data?.bar_number || null,
-          bar_state: body.data?.bar_state || null,
-        },
+    const login = await loginUser(body.email, body.password);
+
+    return apiSuccess(
+      {
+        user: login.user,
+        access_token: login.access_token,
+        message: "Account created successfully. Welcome to ImmFlow.",
       },
-      message: "Account created! Please check your email to confirm, then log in.",
-    };
-
-    if (process.env.NODE_ENV !== "production") {
-      response.verificationUrl = `${appBaseUrl()}/?verify=${verificationToken}`;
-    }
-
-    return apiSuccess(response, 201);
+      201
+    );
   } catch (error) {
     return handleApiError(error, "An error occurred during signup.");
   }

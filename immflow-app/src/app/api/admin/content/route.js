@@ -6,6 +6,7 @@ export async function GET(req) {
   try {
     requireAdmin(req);
     const items = await prisma.siteContent.findMany({
+      where: { NOT: { key: { startsWith: "platform." } } },
       orderBy: [{ section: "asc" }, { label: "asc" }],
     });
     return apiSuccess(items);

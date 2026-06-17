@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import AttorneyCard from "../AttorneyCard";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
+import { usePlatform } from "@/components/PlatformContext";
 
 export default function AttorneysPage({ user, setPage, setShowAuth }) {
+  const { canAccess } = usePlatform();
+  const hasMessaging = canAccess("direct_messaging", user?.isPro);
   const [attorneys, setAttorneys] = useState([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]);
@@ -41,7 +44,12 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
   );
 
   const handleContact = (attorney) => {
-    startChatWithAttorney(attorney, { user, setShowAuth, setPage });
+    startChatWithAttorney(attorney, {
+      user,
+      setShowAuth,
+      setPage,
+      canAccessMessaging: hasMessaging,
+    });
   };
 
   return (

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth/guards";
 import { AuthError } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
+import { assertFeatureAccess } from "@/lib/services/platform-settings";
 
 export async function GET(req) {
   try {
@@ -86,18 +87,10 @@ export async function POST(req) {
       return apiError("receiverId and message content are required.", 400, "VALIDATION_ERROR");
     }
 
-    const senderUser = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { isPro: true },
-    });
-
-    if (!senderUser) {
-      return apiError("Sender user not found.", 404, "NOT_FOUND");
-    }
-
-    if (!senderUser.isPro) {
+    const messaging = await assertFeatureAccess(session.userId, "direct_messaging");
+    if (!messaging.allowed) {
       throw new AuthError(
-        "Direct messaging is an ImmFlow Pro feature. Upgrade to Pro to send messages.",
+        "Direct messaging is not available on your plan. Upgrade to Pro to send messages.",
         403,
         "PRO_UPGRADE_REQUIRED"
       );
