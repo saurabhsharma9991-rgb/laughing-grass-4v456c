@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/auth/guards.js";
 
-export async function applyToListing(userId, listingId) {
+export async function applyToListing(userId, listingId, message = null) {
   const applicantId = Number(userId);
   const listing = await prisma.listing.findUnique({
     where: { id: Number(listingId) },
@@ -19,10 +19,7 @@ export async function applyToListing(userId, listingId) {
   }
 
   const existing = await prisma.application.findFirst({
-    where: {
-      listingId: listing.id,
-      applicantId,
-    },
+    where: { listingId: listing.id, applicantId },
   });
   if (existing) {
     throw new AuthError("You have already applied to this listing.", 409, "ALREADY_APPLIED");
@@ -30,7 +27,11 @@ export async function applyToListing(userId, listingId) {
 
   await prisma.$transaction([
     prisma.application.create({
-      data: { listingId: listing.id, applicantId },
+      data: {
+        listingId: listing.id,
+        applicantId,
+        message: message?.trim() || null,
+      },
     }),
     prisma.listing.update({
       where: { id: listing.id },
@@ -43,6 +44,78 @@ export async function applyToListing(userId, listingId) {
 
 export async function countApplicationsForUser(userId) {
   return prisma.application.count({ where: { applicantId: userId } });
+}
+
+export async function listApplicationsForListing(listingId, ownerUserId) {
+  const listing = await prisma.listing.findUnique({
+    where: { id: Number(listingId) },
+    select: { postedById: true, title: true },
+  });
+  if (!listing) throw new AuthError("Listing not found.", 404, "NOT_FOUND");
+  if (listing.postedById !== ownerUserId) {
+    throw new AuthError("You can only view applications for your own listings.", 403, "FORBIDDEN");
+  }
+
+  const applications = await prisma.application.findMany({
+    where: { listingId: Number(listingId) },
+    include: {
+      applicant: {
+        include: {
+          attorney: true,
+        },
+      },
+    },
+    orderBy: { appliedAt: "desc" },
+  });
+
+  return applications.map((app) => ({
+    id: app.id,
+    status: app.status,
+    message: app.message,
+    appliedAt: app.appliedAt,
+    applicant: app.applicant.attorney
+      ? {
+          userId: app.applicantId,
+          name: app.applicant.attorney.name,
+          location: app.applicant.attorney.location,
+          rate: app.applicant.attorney.rate,
+          specialties: app.applicant.attorney.specialties,
+          stars: Number(app.applicant.attorney.stars).toFixed(1),
+          isVerified: app.applicant.attorney.isVerified,
+          attorneyId: app.applicant.attorney.id,
+        }
+      : { userId: app.applicantId, name: "Attorney", attorneyId: null },
+  }));
+}
+
+export async function updateApplicationStatus(applicationId, ownerUserId, status) {
+  const allowed = ["reviewed", "accepted", "rejected"];
+  if (!allowed.includes(status)) {
+    throw new AuthError("Invalid status.", 400, "VALIDATION_ERROR");
+  }
+
+  const app = await prisma.application.findUnique({
+    where: { id: Number(applicationId) },
+    include: { listing: { select: { postedById: true, id: true } } },
+  });
+  if (!app) throw new AuthError("Application not found.", 404, "NOT_FOUND");
+  if (app.listing.postedById !== ownerUserId) {
+    throw new AuthError("You can only manage applications for your own listings.", 403, "FORBIDDEN");
+  }
+
+  await prisma.application.update({
+    where: { id: app.id },
+    data: { status },
+  });
+
+  if (status === "accepted") {
+    await prisma.listing.update({
+      where: { id: app.listing.id },
+      data: { status: "filled" },
+    });
+  }
+
+  return { success: true, status };
 }
 
 export async function getPlatformStats() {

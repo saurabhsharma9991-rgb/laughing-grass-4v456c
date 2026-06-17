@@ -5,6 +5,19 @@ export function apiSuccess(data, status = 200) {
   return NextResponse.json(data, { status });
 }
 
+/** JSON response with httpOnly session cookie. */
+export function apiSuccessWithSession(data, token, status = 200) {
+  const response = NextResponse.json(data, { status });
+  response.cookies.set("immflow_session", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60,
+  });
+  return response;
+}
+
 export function apiError(message, status = 400, code = "BAD_REQUEST", details = null) {
   const body = {
     error: {

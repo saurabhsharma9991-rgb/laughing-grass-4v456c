@@ -26,3 +26,12 @@ export function extractBearerToken(request) {
   }
   return authHeader.slice(7).trim();
 }
+
+/** Bearer header takes precedence; falls back to httpOnly session cookie. */
+export function extractAuthToken(request) {
+  const bearer = extractBearerToken(request);
+  if (bearer) return bearer;
+
+  const cookie = request.cookies?.get?.("immflow_session")?.value;
+  return cookie?.trim() || null;
+}

@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateAttorneyProfile } from "@/lib/validators/attorney";
 import { updateAttorneyProfile } from "@/lib/services/attorneys";
 
 export async function GET(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "attorneys", "view");
     const attorneys = await prisma.attorney.findMany({
       include: {
         user: {
@@ -23,7 +23,7 @@ export async function GET(req) {
 
 export async function PATCH(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "attorneys", "edit");
     const body = await req.json();
     const { id, isVerified, isPro, ...profileFields } = body;
 
@@ -84,7 +84,7 @@ export async function PATCH(req) {
 
 export async function PUT(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "attorneys", "edit");
     const body = await req.json();
     const { id, isVerified, ...rest } = body;
     if (!id) return apiError("id is required.", 400, "VALIDATION_ERROR");
@@ -107,7 +107,7 @@ export async function PUT(req) {
 
 export async function DELETE(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "attorneys", "delete");
     const idStr = new URL(req.url).searchParams.get("id");
     if (!idStr) return apiError("Missing query parameter: id", 400, "VALIDATION_ERROR");
 

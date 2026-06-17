@@ -3,9 +3,16 @@ import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateCreateListing } from "@/lib/validators/listings";
 import { listListings, createListing } from "@/lib/services/listings";
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const listings = await listListings();
+    const { searchParams } = new URL(req.url);
+    const listings = await listListings({
+      status: searchParams.get("status") || "open",
+      q: searchParams.get("q") || "",
+      location: searchParams.get("location") || "",
+      language: searchParams.get("language") || "",
+      type: searchParams.get("type") || "",
+    });
     return apiSuccess(listings);
   } catch (error) {
     return handleApiError(error, "Failed to fetch listings.");

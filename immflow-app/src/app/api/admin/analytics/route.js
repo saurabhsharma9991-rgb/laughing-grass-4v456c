@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError } from "@/lib/api/response";
 
 export async function GET(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "analytics", "view");
 
     const [totalSignups, totalListings, openListings, filledListings, proSubscribers] =
       await Promise.all([

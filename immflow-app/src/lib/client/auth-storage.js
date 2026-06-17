@@ -1,35 +1,49 @@
 const USER_KEY = "immflow_user";
-const TOKEN_KEY = "immflow_token";
 
-export function getStoredToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-
+/** User profile cache only — JWT lives in httpOnly cookie. */
 export function getStoredUser() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = sessionStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-export function setStoredSession(user, token = null) {
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  if (token) localStorage.setItem(TOKEN_KEY, token);
+export function setStoredUser(user) {
+  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+/** @deprecated Use setStoredUser — kept for gradual migration */
+export function setStoredSession(user) {
+  setStoredUser(user);
 }
 
 export function clearStoredSession() {
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+}
+
+export async function logoutSession() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+  } catch {
+    // best-effort
+  }
+  clearStoredSession();
+}
+
+/** Authenticated fetch — relies on httpOnly session cookie. */
+export async function authFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    credentials: "same-origin",
+    headers: {
+      ...(options.headers || {}),
+    },
+  });
 }
 
 export function authHeaders(extra = {}) {
-  const token = getStoredToken();
-  return {
-    ...extra,
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  return { ...extra };
 }

@@ -24,8 +24,12 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 | POST | `/api/auth/signup` | `{ email, password, data: { full_name, bar_number, bar_state } }` | Create account; returns `{ user, access_token }` |
 | POST | `/api/auth/login` | `{ email, password }` | Login; returns `{ user, access_token }` |
 | POST | `/api/auth/verify-email` | `{ token }` | Legacy endpoint (verification no longer required at signup) |
-| POST | `/api/auth/forgot-password` | `{ email }` | Issue reset token (email delivery requires provider) |
+| POST | `/api/auth/forgot-password` | `{ email }` | Issue reset token; sends email when `EMAIL_API_KEY` is set |
 | POST | `/api/auth/reset-password` | `{ token, password }` | Reset password with token |
+| POST | `/api/auth/logout` | — | Clears httpOnly session cookie |
+| GET | `/api/auth/me` | — | Current user from session cookie |
+
+**Session:** Login/signup set `immflow_session` httpOnly cookie. Client uses `credentials: include` — no JWT in localStorage.
 
 **Error codes:** `INVALID_CREDENTIALS`, `VALIDATION_ERROR`, `EMAIL_EXISTS`
 
@@ -36,7 +40,7 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/attorneys` | Verified attorney profiles only |
-| GET | `/api/listings` | Open job board listings |
+| GET | `/api/listings` | Job board (`?status=open|filled|closed|all`, default `open`) |
 | GET | `/api/content` | CMS key/value map for public site |
 | GET | `/api/stats` | Live counts: attorneys, listings, languages |
 
@@ -50,10 +54,15 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 | PATCH | `/api/listings/[id]` | Update own listing |
 | GET/POST | `/api/applications` | Application count / apply to listing |
 | GET/PATCH | `/api/user/profile` | Attorney profile |
+| GET | `/api/user/listings` | Authenticated user's listings (all statuses) |
 | GET/POST | `/api/messages` | List conversations / send message (Pro) |
 | GET/DELETE | `/api/user/subscription` | Read plan / downgrade to Free |
+| POST | `/api/billing/checkout` | Start Stripe Checkout |
+| POST | `/api/billing/portal` | Stripe Customer Portal (manage subscription) |
 
-`POST /api/user/subscription` returns `501 BILLING_NOT_AVAILABLE` (no simulated upgrades).
+`POST /api/user/subscription` — promo/simulate only when admin **test mode** is ON.
+
+**Stripe webhook:** `POST /api/webhooks/stripe` — `checkout.session.completed`, `customer.subscription.*`
 
 **Error codes:** `PRO_UPGRADE_REQUIRED`, `MISSING_TOKEN`, `INVALID_TOKEN`, `BILLING_NOT_AVAILABLE`
 
@@ -67,7 +76,7 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 | GET/PATCH/DELETE | `/api/admin/attorneys` | Verify or remove attorneys |
 | DELETE | `/api/admin/listings` | Moderate listings |
 | GET | `/api/admin/analytics` | Platform stats |
-| POST | `/api/admin/announcements` | Broadcast (requires `EMAIL_API_KEY`; sending not wired) |
+| POST | `/api/admin/announcements` | Broadcast to all users (requires `EMAIL_API_KEY`) |
 
 ---
 

@@ -45,6 +45,7 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
         const response = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             email,
             password,
@@ -55,8 +56,8 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
 
         if (res.error) {
           setError(res.error.message);
-        } else if (res.access_token) {
-          onAuth(res.user, res.access_token);
+        } else if (res.user) {
+          onAuth(res.user);
           onClose();
         } else {
           setSuccess(res.message || "Account created successfully.");
@@ -65,14 +66,15 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
         const response = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({ email, password }),
         });
         const res = await response.json();
 
         if (res.error) {
           setError(res.error.message);
-        } else {
-          onAuth(res.user, res.access_token);
+        } else if (res.user) {
+          onAuth(res.user);
           onClose();
         }
       }

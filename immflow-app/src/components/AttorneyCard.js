@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { getAvailabilityDot } from "@/lib/utils/tags";
 import Avatar from "./Avatar";
 import Tag from "./Tag";
 
-export default function AttorneyCard({ a, onContact }) {
+export default function AttorneyCard({ a, onContact, href }) {
   let tags = [];
   if (a.tags) {
     try {
@@ -15,10 +16,10 @@ export default function AttorneyCard({ a, onContact }) {
   const avail = a.avail || a.availability || "Available now";
   const dot = a.dot || getAvailabilityDot(avail);
 
-  return (
-    <div className="bg-white border-[0.5px] border-solid border-[rgba(0,0,0,0.09)] rounded-lg p-5 shadow-sm hover:border-green-medium hover:shadow-md transition-all duration-300">
+  const cardInner = (
+    <>
       <div className="flex gap-3 mb-2.5">
-        <Avatar initials={a.initials} bg={a.bg} fg={a.fg} />
+        <Avatar initials={a.initials} bg={a.bg} fg={a.fg} photoUrl={a.photoUrl} />
         <div className="min-w-0">
           <div className="text-[15px] font-medium text-text">{a.name}</div>
           <div className="text-xs text-muted">
@@ -39,13 +40,14 @@ export default function AttorneyCard({ a, onContact }) {
           />
           <span className="text-muted">{avail}</span>
         </span>
-        <span className="text-amber shrink-0">★ {Number(a.stars || 5.0).toFixed(1)}</span>
+        <span className="text-amber shrink-0">★ {Number(a.stars || 5.0).toFixed(1)} ({a.reviews || 0})</span>
         <span className="font-medium text-text shrink-0">{a.rate}</span>
       </div>
       {onContact && (
         <button
           type="button"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             onContact(a);
           }}
@@ -54,6 +56,19 @@ export default function AttorneyCard({ a, onContact }) {
           Message Attorney
         </button>
       )}
-    </div>
+    </>
   );
+
+  const className =
+    "bg-white border-[0.5px] border-solid border-[rgba(0,0,0,0.09)] rounded-lg p-5 shadow-sm hover:border-green-medium hover:shadow-md transition-all duration-300 block";
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {cardInner}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{cardInner}</div>;
 }

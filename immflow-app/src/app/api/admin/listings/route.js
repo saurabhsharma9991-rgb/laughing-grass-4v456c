@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateUpdateListing } from "@/lib/validators/listings";
 import { updateListing } from "@/lib/services/listings";
 
 export async function PATCH(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "listings", "edit");
     const body = await req.json();
     const { id, ...fields } = body;
     if (!id) return apiError("id is required.", 400, "VALIDATION_ERROR");
@@ -26,7 +26,7 @@ export async function PATCH(req) {
 
 export async function DELETE(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "listings", "delete");
     const idStr = new URL(req.url).searchParams.get("id");
     if (!idStr) return apiError("Missing query parameter: id", 400, "VALIDATION_ERROR");
 

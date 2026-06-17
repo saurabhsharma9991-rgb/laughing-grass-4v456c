@@ -1,10 +1,10 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { updatePlatformSettings, getPlatformSettings } from "@/lib/services/platform-settings";
 
 export async function GET(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "settings", "view");
     const settings = await getPlatformSettings();
     return apiSuccess(settings);
   } catch (error) {
@@ -14,7 +14,7 @@ export async function GET(req) {
 
 export async function PATCH(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "settings", "edit");
     const body = await req.json();
 
     if (body.features && typeof body.features !== "object") {

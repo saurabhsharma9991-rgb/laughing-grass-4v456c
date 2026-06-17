@@ -4,8 +4,47 @@ import { formatRelativeTime, getBadgeStyle } from "@/lib/utils/format";
 import { AuthError } from "@/lib/auth/guards.js";
 import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings.js";
 
-export async function listListings() {
-  const listings = await prisma.listing.findMany({ orderBy: { postedAt: "desc" } });
+export async function listListings({ status, q, location, language, type } = {}) {
+  const where = {};
+  if (status && status !== "all") {
+    where.status = status;
+  }
+  if (type && type !== "all") {
+    where.type = { contains: type };
+  }
+  if (location) {
+    where.location = { contains: location };
+  }
+
+  let listings = await prisma.listing.findMany({
+    where,
+    orderBy: { postedAt: "desc" },
+  });
+
+  if (language) {
+    const lang = language.toLowerCase();
+    listings = listings.filter((l) => {
+      const tags = parseJsonArray(l.tags);
+      return tags.some((t) => t.toLowerCase().includes(lang)) ||
+        l.description?.toLowerCase().includes(lang);
+    });
+  }
+
+  if (q) {
+    const query = q.toLowerCase();
+    listings = listings.filter((l) => {
+      const tags = parseJsonArray(l.tags).join(" ").toLowerCase();
+      return (
+        l.title.toLowerCase().includes(query) ||
+        l.org?.toLowerCase().includes(query) ||
+        l.location?.toLowerCase().includes(query) ||
+        l.description?.toLowerCase().includes(query) ||
+        l.type?.toLowerCase().includes(query) ||
+        tags.includes(query)
+      );
+    });
+  }
+
   return listings.map(formatListing);
 }
 

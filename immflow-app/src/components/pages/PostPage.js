@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { authHeaders } from "@/lib/client/auth-storage";
+import { authFetch } from "@/lib/client/auth-storage";
 import { LISTING_TYPES } from "@/lib/constants/listing-types";
 import TagInput from "../TagInput";
 
@@ -25,9 +25,9 @@ export default function PostPage({ user, setShowAuth, setPage }) {
     setLoading(true);
     setIsUpgradeRequired(false);
     try {
-      const response = await fetch("/api/listings", {
+      const response = await authFetch("/api/listings", {
         method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           org,

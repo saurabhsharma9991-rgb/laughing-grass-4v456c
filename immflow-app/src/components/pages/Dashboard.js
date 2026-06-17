@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { authHeaders, setStoredSession } from "@/lib/client/auth-storage";
+import { authFetch, setStoredUser } from "@/lib/client/auth-storage";
 import ProfileEditor from "./ProfileEditor";
+import ListingManager from "./ListingManager";
 import { usePlatform } from "@/components/PlatformContext";
 import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 
@@ -18,6 +19,8 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [activatingSubscription, setActivatingSubscription] = useState(false);
+  const [startingCheckout, setStartingCheckout] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   // Chat State
   const [conversations, setConversations] = useState([]);
@@ -28,9 +31,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
   const loadConversations = async () => {
     try {
-      const res = await fetch("/api/messages", {
-        headers: authHeaders(),
-      });
+      const res = await authFetch("/api/messages");
       const data = await res.json();
       if (!data.error) {
         setConversations(data);
@@ -42,9 +43,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
   const loadChatHistory = async (contactId) => {
     try {
-      const res = await fetch(`/api/messages?userId=${contactId}`, {
-        headers: authHeaders(),
-      });
+      const res = await authFetch(`/api/messages?userId=${contactId}`);
       const data = await res.json();
       if (!data.error) {
         setChatMessages(data);
@@ -60,13 +59,13 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
     setSendingMessage(true);
     try {
-      const res = await fetch("/api/messages", {
+      const res = await authFetch("/api/messages", {
         method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           receiverId: activeConversation.contact.id,
-          content: chatInput
-        })
+          content: chatInput,
+        }),
       });
       const data = await res.json();
       
@@ -95,15 +94,12 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     }
     setCancellingSubscription(true);
     try {
-      const res = await fetch("/api/user/subscription", {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
+      const res = await authFetch("/api/user/subscription", { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         const updatedUser = { ...user, isPro: false, subscriptionPlan: "Free" };
         setUser(updatedUser);
-        setStoredSession(updatedUser);
+        setStoredUser(updatedUser);
         alert("Subscription cancelled successfully. You are now on the Free tier.");
       } else {
         alert("Cancellation failed: " + (data.error?.message || "Unknown error"));
@@ -118,16 +114,16 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const handleTestUpgrade = async (body) => {
     setActivatingSubscription(true);
     try {
-      const res = await fetch("/api/user/subscription", {
+      const res = await authFetch("/api/user/subscription", {
         method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.success && data.user) {
         const updatedUser = { ...user, ...data.user };
         setUser(updatedUser);
-        setStoredSession(updatedUser);
+        setStoredUser(updatedUser);
         alert("Upgraded to Pro (test mode).");
       } else {
         alert(data.error?.message || "Upgrade failed.");
@@ -139,9 +135,43 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     }
   };
 
+  const handleStripeCheckout = async () => {
+    setStartingCheckout(true);
+    try {
+      const res = await authFetch("/api/billing/checkout", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      alert(data.error?.message || "Unable to start checkout. Contact support@myimmflow.com.");
+    } catch {
+      alert("Unable to start checkout. Connection error.");
+    } finally {
+      setStartingCheckout(false);
+    }
+  };
+
+  const handleBillingPortal = async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await authFetch("/api/billing/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      alert(data.error?.message || "Unable to open billing portal.");
+    } catch {
+      alert("Unable to open billing portal.");
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
   useEffect(() => {
     if (user?.id) {
-      fetch("/api/listings")
+      authFetch("/api/listings?status=all")
         .then((r) => r.json())
         .then((data) => {
           if (Array.isArray(data)) {
@@ -152,7 +182,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         })
         .catch(() => {});
 
-      fetch("/api/applications", { headers: authHeaders() })
+      authFetch("/api/applications")
         .then((r) => r.json())
         .then((data) => {
           if (!data.error && typeof data.count === "number") {
@@ -161,7 +191,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         })
         .catch(() => {});
 
-      fetch("/api/user/subscription", { headers: authHeaders() })
+      authFetch("/api/user/subscription")
         .then((r) => r.json())
         .then((data) => {
           if (!data.error && data.isPro !== user.isPro) {
@@ -172,7 +202,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
               subscriptionExpires: data.subscriptionExpires,
             };
             setUser(updated);
-            setStoredSession(updated);
+            setStoredUser(updated);
           }
         })
         .catch(() => {});
@@ -244,6 +274,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {[
           ["overview", "🏠 Dashboard"],
+          ["listings", "📋 My listings"],
           ["profile", "👤 My profile"],
           ["messages", "💬 Chat & Messages"],
           ["billing", "💳 Billing & Subscriptions"],
@@ -350,6 +381,16 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
             Log out
           </button>
         </>
+      )}
+
+      {/* Tab: My listings */}
+      {userTab === "listings" && (
+        <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
+          <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
+            My listings
+          </h2>
+          <ListingManager user={user} />
+        </div>
       )}
 
       {/* Tab: Profile editor */}
@@ -566,17 +607,27 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         </button>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted leading-relaxed">
-                        ImmFlow Pro ($29/month) unlocks premium features. Online checkout is coming
-                        soon — contact{" "}
-                        <a
-                          href="mailto:support@myimmflow.com"
-                          className="text-green font-medium hover:underline"
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted leading-relaxed">
+                          ImmFlow Pro ($29/month) unlocks premium features. Upgrade securely with
+                          Stripe, or contact{" "}
+                          <a
+                            href="mailto:support@myimmflow.com"
+                            className="text-green font-medium hover:underline"
+                          >
+                            support@myimmflow.com
+                          </a>
+                          .
+                        </p>
+                        <button
+                          type="button"
+                          disabled={startingCheckout}
+                          onClick={handleStripeCheckout}
+                          className="bg-green hover:bg-green-dark text-white font-semibold text-sm py-2.5 px-5 rounded-lg border-none cursor-pointer disabled:opacity-50"
                         >
-                          support@myimmflow.com
-                        </a>{" "}
-                        to upgrade.
-                      </p>
+                          {startingCheckout ? "Redirecting…" : "Upgrade with Stripe — $29/mo"}
+                        </button>
+                      </div>
                     )}
                   </>
                 ) : (
@@ -591,14 +642,26 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         Access expires: {new Date(user.subscriptionExpires).toLocaleDateString()}
                       </p>
                     )}
-                    <button
-                      type="button"
-                      onClick={handleCancelSubscription}
-                      disabled={cancellingSubscription}
-                      className="bg-transparent hover:bg-red-light text-red border border-red py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all w-fit"
-                    >
-                      {cancellingSubscription ? "Cancelling…" : "Downgrade to Free"}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      {!testMode && (
+                        <button
+                          type="button"
+                          onClick={handleBillingPortal}
+                          disabled={openingPortal}
+                          className="bg-green hover:bg-green-dark text-white border-none py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          {openingPortal ? "Opening…" : "Manage subscription (Stripe)"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCancelSubscription}
+                        disabled={cancellingSubscription}
+                        className="bg-transparent hover:bg-red-light text-red border border-red py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        {cancellingSubscription ? "Cancelling…" : "Downgrade to Free"}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

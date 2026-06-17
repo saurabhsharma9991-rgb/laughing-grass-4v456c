@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { authHeaders } from "@/lib/client/auth-storage";
+import { authFetch } from "@/lib/client/auth-storage";
 import TagInput from "../TagInput";
 import AttorneyCard from "../AttorneyCard";
+import Avatar from "../Avatar";
 
 const AVAILABILITY_OPTIONS = [
   "Available now",
@@ -17,9 +18,10 @@ export default function ProfileEditor({ user, setUser }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [newSlotDate, setNewSlotDate] = useState("");
 
   useEffect(() => {
-    fetch("/api/user/profile", { headers: authHeaders() })
+    authFetch("/api/user/profile")
       .then((r) => r.json())
       .then((data) => {
         if (!data.error) {
@@ -34,6 +36,8 @@ export default function ProfileEditor({ user, setUser }) {
             stateBar: data.stateBar || "",
             specialties: data.specialties || [],
             languages: data.languages || [],
+            photoUrl: data.photoUrl || "",
+            availabilitySlots: Array.isArray(data.availabilitySlots) ? data.availabilitySlots : [],
           });
         }
       })
@@ -49,13 +53,39 @@ export default function ProfileEditor({ user, setUser }) {
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
+  const handlePhoto = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 400_000) {
+      alert("Please choose an image under 400KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => set("photoUrl", reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const addSlot = () => {
+    if (!newSlotDate) return;
+    if (form.availabilitySlots.some((s) => (s.date || s) === newSlotDate)) return;
+    set("availabilitySlots", [...form.availabilitySlots, { date: newSlotDate, note: "Available" }]);
+    setNewSlotDate("");
+  };
+
+  const removeSlot = (date) => {
+    set(
+      "availabilitySlots",
+      form.availabilitySlots.filter((s) => (s.date || s) !== date)
+    );
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/user/profile", {
+      const res = await authFetch("/api/user/profile", {
         method: "PATCH",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const data = await res.json();
@@ -87,6 +117,7 @@ export default function ProfileEditor({ user, setUser }) {
     initials: form.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
     bg: "#E1F5EE",
     fg: "#085041",
+    photoUrl: form.photoUrl,
     name: form.name,
     location: form.location,
     exp: `${form.experienceYears || 0} yrs`,
@@ -94,6 +125,7 @@ export default function ProfileEditor({ user, setUser }) {
     avail: form.availability,
     dot: "#0F6E56",
     stars: "5.0",
+    reviews: 0,
     rate: form.rate,
   };
 
@@ -103,15 +135,34 @@ export default function ProfileEditor({ user, setUser }) {
         Edit your public profile
       </h2>
       <p className="text-xs text-muted mb-6">
-        These details appear on Find Attorneys, Network, and AI Matcher results — same as{" "}
-        <a href="https://myimmflow.com/" className="text-green hover:underline" target="_blank" rel="noreferrer">
-          myimmflow.com
-        </a>
-        .
+        These details appear on your public profile, Find Attorneys, Network, and AI Matcher results.
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-text block mb-2">Profile photo</label>
+            <div className="flex items-center gap-4">
+              <Avatar
+                initials={previewCard.initials}
+                photoUrl={form.photoUrl}
+                size="lg"
+              />
+              <div>
+                <input type="file" accept="image/*" onChange={handlePhoto} className="text-xs" />
+                {form.photoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => set("photoUrl", "")}
+                    className="block mt-1 text-xs text-red bg-transparent border-none cursor-pointer"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {[
             ["Full name", "name"],
             ["Location", "location"],
@@ -139,7 +190,7 @@ export default function ProfileEditor({ user, setUser }) {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-text block mb-1">Availability</label>
+            <label className="text-xs font-semibold text-text block mb-1">General availability</label>
             <select
               value={form.availability}
               onChange={(e) => set("availability", e.target.value)}
@@ -149,6 +200,46 @@ export default function ProfileEditor({ user, setUser }) {
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-text block mb-1">Availability calendar</label>
+            <p className="text-[10px] text-muted mb-2">Add dates when you are available for hearings or coverage.</p>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="date"
+                value={newSlotDate}
+                onChange={(e) => setNewSlotDate(e.target.value)}
+                className="text-sm py-2 px-3 border rounded-lg flex-1"
+              />
+              <button
+                type="button"
+                onClick={addSlot}
+                className="text-xs bg-green text-white px-3 rounded-lg border-none cursor-pointer font-semibold"
+              >
+                Add date
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {form.availabilitySlots.map((slot) => {
+                const d = slot.date || slot;
+                return (
+                  <span
+                    key={d}
+                    className="text-xs bg-bg border px-2 py-1 rounded-lg flex items-center gap-1"
+                  >
+                    {d}
+                    <button
+                      type="button"
+                      onClick={() => removeSlot(d)}
+                      className="text-red bg-transparent border-none cursor-pointer text-sm leading-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
           </div>
 
           <TagInput

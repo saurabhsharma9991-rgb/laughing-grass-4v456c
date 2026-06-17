@@ -1,13 +1,27 @@
 import React from "react";
+import Link from "next/link";
 import { useContent } from "./SiteContentContext";
+import { pathForPage } from "@/lib/constants/routes";
 
-export default function Footer({ setPage }) {
+export default function Footer({ navigate, setPage }) {
+  const go = navigate || setPage;
   const { get } = useContent();
 
   const logoText = get("footer.logo_text", "ImmFlow");
   const description = get("footer.description", "The immigration attorney network. Find coverage, post listings, and connect with fellow practitioners.");
   const copyright = get("footer.copyright", "© 2026 ImmFlow. All rights reserved.");
   const notes = get("footer.notes", "Immigration attorneys only · Verified network");
+
+  const link = (label, pageKey) => (
+    <Link
+      key={label}
+      href={pathForPage(pageKey)}
+      onClick={() => go(pageKey)}
+      className="text-[13px] text-white/65 hover:text-white block mb-2 cursor-pointer transition-all duration-250 no-underline"
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <footer className="bg-green-dark bg-hero-gradient py-12 px-6 mt-auto">
@@ -22,9 +36,7 @@ export default function Footer({ setPage }) {
               logoText
             )}
           </div>
-          <p className="text-[13px] text-white/55 leading-relaxed max-w-sm">
-            {description}
-          </p>
+          <p className="text-[13px] text-white/55 leading-relaxed max-w-sm">{description}</p>
         </div>
         {[
           [
@@ -41,7 +53,7 @@ export default function Footer({ setPage }) {
             [
               ["Create profile", "home"],
               ["Post listing", "post"],
-              ["Pricing", "home"],
+              ["Pricing", "dashboard"],
             ],
           ],
           [
@@ -57,15 +69,7 @@ export default function Footer({ setPage }) {
             <div className="text-[11px] font-medium tracking-wider uppercase text-white/40 mb-4">
               {heading}
             </div>
-            {links.map(([label, key]) => (
-              <span
-                key={label}
-                onClick={() => setPage(key)}
-                className="text-[13px] text-white/65 hover:text-white block mb-2 cursor-pointer transition-all duration-250"
-              >
-                {label}
-              </span>
-            ))}
+            {links.map(([label, key]) => link(label, key))}
           </div>
         ))}
       </div>
