@@ -1,4 +1,4 @@
--- Indexes for applications and messages (subscription columns synced via schema/db push)
+-- Subscription fields on users (indexes for applications/messages were in the original migration name only)
 
 CREATE UNIQUE INDEX `applications_listing_id_applicant_id_key` ON `applications`(`listing_id`, `applicant_id`);
 CREATE INDEX `messages_sender_id_idx` ON `messages`(`sender_id`);
