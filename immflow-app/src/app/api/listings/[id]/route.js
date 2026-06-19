@@ -6,7 +6,8 @@ import { updateListing } from "@/lib/services/listings";
 export async function PATCH(req, { params }) {
   try {
     const session = requireAuth(req);
-    const listingId = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const listingId = parseInt(idParam, 10);
     if (Number.isNaN(listingId)) {
       return apiError("Invalid listing id.", 400, "VALIDATION_ERROR");
     }

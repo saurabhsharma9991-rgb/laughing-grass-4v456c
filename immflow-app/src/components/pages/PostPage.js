@@ -66,21 +66,33 @@ export default function PostPage({ user, setShowAuth, setPage }) {
           Listing posted!
         </h2>
         <p className="text-base text-muted mb-8">
-          Your listing is now live on ImmFlow.
+          Your listing is now live on the job board. Manage applicants from your dashboard.
         </p>
-        <button
-          onClick={() => {
-            setSuccess(false);
-            setTitle("");
-            setOrg("");
-            setLocation("");
-            setPay("");
-            setDesc("");
-          }}
-          className="bg-green hover:bg-green-dark text-white py-3 px-6 rounded-lg border-none cursor-pointer text-[15px] font-medium transition-all duration-200"
-        >
-          Post another
-        </button>
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              sessionStorage.setItem("immflow_dashboard_tab", "listings");
+              setPage("dashboard");
+            }}
+            className="bg-green hover:bg-green-dark text-white py-3 px-6 rounded-lg border-none cursor-pointer text-[15px] font-medium transition-all duration-200"
+          >
+            Manage my listing
+          </button>
+          <button
+            onClick={() => {
+              setSuccess(false);
+              setTitle("");
+              setOrg("");
+              setLocation("");
+              setPay("");
+              setDesc("");
+            }}
+            className="bg-white text-text py-3 px-6 rounded-lg border border-[rgba(0,0,0,0.15)] cursor-pointer text-[15px] font-medium"
+          >
+            Post another
+          </button>
+        </div>
       </div>
     );
 

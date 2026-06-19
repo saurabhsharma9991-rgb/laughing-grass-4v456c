@@ -40,6 +40,7 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("signup");
   const [authResetToken, setAuthResetToken] = useState("");
+  const [authInitialError, setAuthInitialError] = useState("");
   const [user, setUser] = useState(null);
   const [sessionReady, setSessionReady] = useState(false);
   const topRef = useRef(null);
@@ -97,6 +98,7 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const resetToken = params.get("reset");
+    const verifyToken = params.get("verify");
     const billing = params.get("billing");
 
     if (resetToken) {
@@ -104,6 +106,38 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
       setAuthMode("reset");
       setShowAuth(true);
       window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    if (verifyToken) {
+      window.history.replaceState({}, "", window.location.pathname);
+      (async () => {
+        try {
+          const res = await fetch("/api/auth/verify-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ token: verifyToken }),
+          });
+          const data = await res.json();
+          if (data.user) {
+            setStoredUser(data.user);
+            setUser(data.user);
+            if (data.user.role === "admin") {
+              window.location.href = "/admin";
+              return;
+            }
+            navigate("dashboard");
+          } else {
+            setAuthInitialError(data.error?.message || "Invalid or expired verification link.");
+            setAuthMode("verify");
+            setShowAuth(true);
+          }
+        } catch {
+          setAuthInitialError("Could not verify your email. Please try again or resend the link.");
+          setAuthMode("verify");
+          setShowAuth(true);
+        }
+      })();
     }
 
     if (billing === "success") {
@@ -150,10 +184,12 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
           onClose={() => {
             setShowAuth(false);
             setAuthResetToken("");
+            setAuthInitialError("");
           }}
           onAuth={handleAuth}
           initialMode={authMode}
           resetToken={authResetToken}
+          initialError={authInitialError}
         />
       )}
 

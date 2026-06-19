@@ -57,7 +57,7 @@ model Attorney {
   specialties        String?  @db.Text // JSON string
   languages          String?  @db.Text // JSON string
   photoUrl           String?  @map("photo_url") @db.Text
-  availabilitySlots  String?  @map("availability_slots") @db.Text // JSON [{date, note}]
+  availabilitySlots  Json?    @map("availability_slots")
   isVerified         Boolean  @default(false) @map("is_verified")
 
   reviews            Review[]

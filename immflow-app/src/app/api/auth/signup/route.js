@@ -1,14 +1,9 @@
-import { apiError, apiSuccessWithSession, handleApiError } from "@/lib/api/response";
+import { apiError, apiSuccess, handleApiError } from "@/lib/api/response";
 import { validateSignupBody } from "@/lib/validators/auth";
-import { loginUser, registerUser } from "@/lib/services/auth";
+import { registerUser } from "@/lib/services/auth";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit-auth";
-import {
-  sendEmail,
-  welcomeEmailHtml,
-  isEmailConfigured,
-  EmailNotConfiguredError,
-} from "@/lib/email/send";
-import { appBaseUrl } from "@/lib/auth-tokens";
+import { isEmailConfigured, buildVerificationUrl } from "@/lib/email/send";
+import { sendVerificationEmail } from "@/lib/email/notify";
 import { logEvent } from "@/lib/logger";
 
 export async function POST(req) {
@@ -23,41 +18,31 @@ export async function POST(req) {
       return apiError(firstError, 400, "VALIDATION_ERROR", validation.errors);
     }
 
-    await registerUser({
+    const { user, verificationToken, fullName } = await registerUser({
       email: body.email,
       password: body.password,
       data: body.data,
     });
 
-    const login = await loginUser(body.email, body.password);
-    const fullName = body.data?.full_name?.trim() || body.email.split("@")[0];
-
     if (isEmailConfigured()) {
-      try {
-        await sendEmail({
-          to: body.email.trim().toLowerCase(),
-          subject: "Welcome to ImmFlow",
-          html: welcomeEmailHtml({
-            name: fullName,
-            dashboardUrl: `${appBaseUrl()}/dashboard`,
-          }),
-          text: `Welcome to ImmFlow, ${fullName}! Open your dashboard: ${appBaseUrl()}/dashboard`,
-        });
-        logEvent("email", "welcome_sent", { email: body.email });
-      } catch (err) {
-        if (!(err instanceof EmailNotConfiguredError)) {
-          logEvent("email", "welcome_failed", { error: err.message });
-        }
-      }
+      await sendVerificationEmail({
+        email: user.email,
+        name: fullName,
+        verificationToken,
+      });
+      logEvent("email", "verification_sent", { userId: user.id });
+    } else if (process.env.NODE_ENV !== "production") {
+      console.info("[dev] Email verification link:", buildVerificationUrl(verificationToken));
     }
 
-    return apiSuccessWithSession(
+    return apiSuccess(
       {
-        user: login.user,
-        access_token: login.access_token,
-        message: "Account created successfully. Welcome to ImmFlow.",
+        success: true,
+        requiresVerification: true,
+        email: user.email,
+        message:
+          "Account created. Check your email for a verification link before logging in.",
       },
-      login.access_token,
       201
     );
   } catch (error) {

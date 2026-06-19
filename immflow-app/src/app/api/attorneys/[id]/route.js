@@ -3,7 +3,8 @@ import { getAttorneyPublicProfile } from "@/lib/services/reviews";
 
 export async function GET(req, { params }) {
   try {
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (Number.isNaN(id)) return apiError("Invalid attorney id.", 400, "VALIDATION_ERROR");
 
     const profile = await getAttorneyPublicProfile(id);

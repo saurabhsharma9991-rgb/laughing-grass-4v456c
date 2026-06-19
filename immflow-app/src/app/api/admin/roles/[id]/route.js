@@ -11,7 +11,8 @@ import { SUPER_ADMIN_SLUG } from "@/lib/constants/admin-permissions";
 export async function PATCH(req, { params }) {
   try {
     await requireAdminPermission(req, "roles", "edit");
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (Number.isNaN(id)) return apiError("Invalid role id.", 400, "VALIDATION_ERROR");
 
     const existing = await prisma.adminRole.findUnique({ where: { id } });
@@ -55,7 +56,8 @@ export async function PATCH(req, { params }) {
 export async function DELETE(req, { params }) {
   try {
     await requireAdminPermission(req, "roles", "delete");
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (Number.isNaN(id)) return apiError("Invalid role id.", 400, "VALIDATION_ERROR");
 
     const existing = await prisma.adminRole.findUnique({

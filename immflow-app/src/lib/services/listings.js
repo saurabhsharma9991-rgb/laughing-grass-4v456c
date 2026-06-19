@@ -65,9 +65,28 @@ export function formatListing(l) {
     pay: l.pay || "DOE",
     applicants: l.applicantsCount || 0,
     posted: formatRelativeTime(l.postedAt),
+    postedAt: l.postedAt,
     postedById: l.postedById,
     status: l.status,
+    description: l.description || "",
   };
+}
+
+export async function enrichListingsForUser(listings, userId) {
+  if (!userId || !listings.length) return listings;
+  const ids = listings.map((l) => l.id);
+  const apps = await prisma.application.findMany({
+    where: { applicantId: userId, listingId: { in: ids } },
+    select: { id: true, listingId: true, status: true },
+  });
+  const appMap = Object.fromEntries(
+    apps.map((a) => [a.listingId, { id: a.id, status: a.status }])
+  );
+  return listings.map((l) => ({
+    ...l,
+    isOwnListing: l.postedById === userId,
+    myApplication: appMap[l.id] || null,
+  }));
 }
 
 function buildListingTags(type, location) {

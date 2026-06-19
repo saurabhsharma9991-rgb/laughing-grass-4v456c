@@ -56,7 +56,8 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
     if (location) params.set("location", location);
     if (language) params.set("language", language);
 
-    fetch(`/api/listings?${params}`)
+    const fetcher = user ? authFetch : fetch;
+    fetcher(`/api/listings?${params}`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setListings(data);
@@ -68,11 +69,16 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
   useEffect(() => {
     const t = setTimeout(loadListings, 200);
     return () => clearTimeout(t);
-  }, [statusFilter, search, location, language]);
+  }, [statusFilter, search, location, language, user?.id]);
 
   const handleApplyClick = (listing) => {
     if (!user) {
       setShowAuth(true);
+      return;
+    }
+    if (listing.myApplication) return;
+    if (listing.isOwnListing) {
+      setPage("dashboard");
       return;
     }
     setApplyTarget(listing);
@@ -91,7 +97,6 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
       if (data.error) {
         alert(data.error.message || "Failed to apply.");
       } else {
-        alert("Application submitted successfully.");
         setApplyTarget(null);
         loadListings();
       }
@@ -118,6 +123,7 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
   ];
 
   const filtered = listings.filter((j) => listingMatchesTab(j.type, tab));
+  const myApplicationCount = listings.filter((j) => j.myApplication).length;
 
   return (
     <div>
@@ -129,6 +135,18 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
           <h1 className="font-syne text-3xl md:text-4xl font-extrabold mb-5 text-text">
             Immigration listings
           </h1>
+          {user && myApplicationCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem("immflow_dashboard_tab", "applications");
+                setPage("dashboard");
+              }}
+              className="mb-4 text-xs text-green font-semibold bg-green-light px-3 py-1.5 rounded-lg border-none cursor-pointer hover:underline"
+            >
+              You have {myApplicationCount} application{myApplicationCount !== 1 ? "s" : ""} on this page — view in Dashboard
+            </button>
+          )}
           <div className="flex flex-wrap gap-2 mb-4">
             <input
               value={search}
@@ -216,6 +234,10 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
                     j={j}
                     onApply={() => handleApplyClick(j)}
                     applying={applyingId === j.id}
+                    onManageListing={() => {
+                      sessionStorage.setItem("immflow_dashboard_tab", "listings");
+                      setPage("dashboard");
+                    }}
                   />
                 ))}
               </div>

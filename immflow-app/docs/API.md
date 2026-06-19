@@ -21,9 +21,10 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 
 | Method | Path | Body | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/signup` | `{ email, password, data: { full_name, bar_number, bar_state } }` | Create account; returns `{ user, access_token }` |
-| POST | `/api/auth/login` | `{ email, password }` | Login; returns `{ user, access_token }` |
-| POST | `/api/auth/verify-email` | `{ token }` | Legacy endpoint (verification no longer required at signup) |
+| POST | `/api/auth/signup` | `{ email, password, data: { full_name, bar_number, bar_state } }` | Create account; sends verification email; does not log in until verified |
+| POST | `/api/auth/login` | `{ email, password }` | Login; returns `{ user, access_token }` (requires verified email) |
+| POST | `/api/auth/verify-email` | `{ token }` | Verify email from link; logs user in |
+| POST | `/api/auth/resend-verification` | `{ email }` | Resend verification link |
 | POST | `/api/auth/forgot-password` | `{ email }` | Issue reset token; sends email when `EMAIL_API_KEY` is set |
 | POST | `/api/auth/reset-password` | `{ token, password }` | Reset password with token |
 | POST | `/api/auth/logout` | — | Clears httpOnly session cookie |

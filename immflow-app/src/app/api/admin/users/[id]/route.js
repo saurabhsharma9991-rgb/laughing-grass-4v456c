@@ -11,7 +11,8 @@ import {
 export async function PATCH(req, { params }) {
   try {
     const { session } = await requireAdminPermission(req, "users", "edit");
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (Number.isNaN(id)) return apiError("Invalid user id.", 400, "VALIDATION_ERROR");
 
     const existing = await prisma.user.findUnique({
@@ -73,7 +74,8 @@ export async function PATCH(req, { params }) {
 export async function DELETE(req, { params }) {
   try {
     const { session } = await requireAdminPermission(req, "users", "delete");
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (Number.isNaN(id)) return apiError("Invalid user id.", 400, "VALIDATION_ERROR");
 
     if (id === session.userId) {

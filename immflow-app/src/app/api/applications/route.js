@@ -2,7 +2,7 @@ import { requireAuth } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import {
   applyToListing,
-  countApplicationsForUser,
+  listApplicationsForUser,
   listApplicationsForListing,
 } from "@/lib/services/applications";
 
@@ -16,8 +16,8 @@ export async function GET(req) {
       return apiSuccess(applications);
     }
 
-    const count = await countApplicationsForUser(session.userId);
-    return apiSuccess({ count });
+    const applications = await listApplicationsForUser(session.userId);
+    return apiSuccess({ count: applications.length, applications });
   } catch (error) {
     return handleApiError(error, "Failed to fetch applications.");
   }

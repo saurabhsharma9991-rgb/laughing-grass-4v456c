@@ -41,7 +41,7 @@ export async function updateAttorneyProfile(attorneyId, input) {
   if (input.isVerified !== undefined) data.isVerified = input.isVerified;
   if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl;
   if (input.availabilitySlots !== undefined) {
-    data.availabilitySlots = JSON.stringify(input.availabilitySlots);
+    data.availabilitySlots = Array.isArray(input.availabilitySlots) ? input.availabilitySlots : [];
   }
 
   const attorney = await prisma.attorney.update({

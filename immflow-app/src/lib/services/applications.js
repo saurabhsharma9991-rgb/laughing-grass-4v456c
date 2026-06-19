@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/auth/guards.js";
+import { formatListing } from "@/lib/services/listings";
+import { formatRelativeTime } from "@/lib/utils/format";
+import { notifyListingOwnerOfApplication, notifyApplicantOfStatus } from "@/lib/email/notify";
 
 export async function applyToListing(userId, listingId, message = null) {
   const applicantId = Number(userId);
@@ -39,11 +42,41 @@ export async function applyToListing(userId, listingId, message = null) {
     }),
   ]);
 
+  void notifyListingOwnerOfApplication(listing.id, applicantId, message);
+
   return { success: true };
+}
+
+export async function listApplicationsForUser(userId) {
+  const apps = await prisma.application.findMany({
+    where: { applicantId: userId },
+    include: { listing: true },
+    orderBy: { appliedAt: "desc" },
+  });
+
+  return apps.map((app) => ({
+    id: app.id,
+    status: app.status,
+    message: app.message,
+    appliedAt: app.appliedAt,
+    appliedLabel: formatRelativeTime(app.appliedAt),
+    listing: formatListing(app.listing),
+  }));
 }
 
 export async function countApplicationsForUser(userId) {
   return prisma.application.count({ where: { applicantId: userId } });
+}
+
+export async function getApplicationStatusMapForUser(userId, listingIds = []) {
+  if (!userId || !listingIds.length) return {};
+  const apps = await prisma.application.findMany({
+    where: { applicantId: userId, listingId: { in: listingIds } },
+    select: { id: true, listingId: true, status: true },
+  });
+  return Object.fromEntries(
+    apps.map((a) => [a.listingId, { id: a.id, status: a.status }])
+  );
 }
 
 export async function listApplicationsForListing(listingId, ownerUserId) {
@@ -73,6 +106,7 @@ export async function listApplicationsForListing(listingId, ownerUserId) {
     status: app.status,
     message: app.message,
     appliedAt: app.appliedAt,
+    appliedLabel: formatRelativeTime(app.appliedAt),
     applicant: app.applicant.attorney
       ? {
           userId: app.applicantId,
@@ -114,6 +148,8 @@ export async function updateApplicationStatus(applicationId, ownerUserId, status
       data: { status: "filled" },
     });
   }
+
+  void notifyApplicantOfStatus(app.id, status);
 
   return { success: true, status };
 }

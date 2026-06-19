@@ -21,7 +21,7 @@ export async function POST(req) {
 
     if (!isEmailConfigured()) {
       return apiError(
-        "Email service is not configured. Set EMAIL_API_KEY to enable broadcasts.",
+        "Email service is not configured. Set MAIL_* (SMTP) or EMAIL_API_KEY to enable broadcasts.",
         503,
         "EMAIL_NOT_CONFIGURED"
       );

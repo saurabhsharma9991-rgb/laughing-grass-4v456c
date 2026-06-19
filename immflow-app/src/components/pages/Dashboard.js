@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { authFetch, setStoredUser } from "@/lib/client/auth-storage";
 import ProfileEditor from "./ProfileEditor";
 import ListingManager from "./ListingManager";
+import MyApplications from "./MyApplications";
 import { usePlatform } from "@/components/PlatformContext";
 import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 
@@ -14,6 +15,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const [userTab, setUserTab] = useState("overview");
   const [listingCount, setListingCount] = useState(0);
   const [applicationCount, setApplicationCount] = useState(0);
+  const [myApplications, setMyApplications] = useState([]);
 
   // Subscription state
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
@@ -170,14 +172,20 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   };
 
   useEffect(() => {
+    const pendingTab = sessionStorage.getItem("immflow_dashboard_tab");
+    if (pendingTab) {
+      setUserTab(pendingTab);
+      sessionStorage.removeItem("immflow_dashboard_tab");
+    }
+  }, []);
+
+  useEffect(() => {
     if (user?.id) {
-      authFetch("/api/listings?status=all")
+      authFetch("/api/user/listings")
         .then((r) => r.json())
         .then((data) => {
           if (Array.isArray(data)) {
-            setListingCount(
-              data.filter((l) => l.postedById === user.id).length
-            );
+            setListingCount(data.length);
           }
         })
         .catch(() => {});
@@ -185,8 +193,10 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       authFetch("/api/applications")
         .then((r) => r.json())
         .then((data) => {
-          if (!data.error && typeof data.count === "number") {
-            setApplicationCount(data.count);
+          if (!data.error) {
+            const apps = data.applications || [];
+            setMyApplications(apps);
+            setApplicationCount(apps.length);
           }
         })
         .catch(() => {});
@@ -275,6 +285,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         {[
           ["overview", "🏠 Dashboard"],
           ["listings", "📋 My listings"],
+          ["applications", "📨 My applications"],
           ["profile", "👤 My profile"],
           ["messages", "💬 Chat & Messages"],
           ["billing", "💳 Billing & Subscriptions"],
@@ -317,9 +328,9 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {[
-                [String(listingCount), "Active listings"],
-                [String(applicationCount), "Applications"],
-                ["0", "Profile views"],
+                [String(listingCount), "My listings"],
+                [String(applicationCount), "Applications sent"],
+                [String(myApplications.filter((a) => a.status === "accepted").length), "Accepted"],
               ].map(([n, l]) => (
                 <div key={l} className="bg-bg rounded-lg p-4 text-center">
                   <div className="font-syne text-2xl font-extrabold text-text">
@@ -335,9 +346,15 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
             {[
               {
                 icon: "📋",
-                title: "Post a listing",
-                desc: "Post a hearing, job, or outsource request",
-                action: () => setPage("post"),
+                title: "My listings",
+                desc: "Manage postings and review applicants",
+                action: () => setUserTab("listings"),
+              },
+              {
+                icon: "📨",
+                title: "My applications",
+                desc: "Track jobs you've applied to",
+                action: () => setUserTab("applications"),
               },
               {
                 icon: "🔍",
@@ -389,7 +406,19 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
           <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
             My listings
           </h2>
-          <ListingManager user={user} />
+          <p className="text-xs text-muted mb-4">
+            Post jobs, review applicants, and update listing status — open, filled, or closed.
+          </p>
+          <ListingManager user={user} setPage={setPage} />
+        </div>
+      )}
+
+      {userTab === "applications" && (
+        <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
+          <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
+            My applications
+          </h2>
+          <MyApplications setPage={setPage} />
         </div>
       )}
 

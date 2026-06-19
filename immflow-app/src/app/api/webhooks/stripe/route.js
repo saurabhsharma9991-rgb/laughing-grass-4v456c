@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStripe, activateProFromStripe, deactivateProFromStripe, resolveUserIdFromStripeEvent } from "@/lib/services/billing";
+import { notifySubscriptionRenewal } from "@/lib/email/notify";
 import { logEvent } from "@/lib/logger";
 
 export async function POST(req) {
@@ -89,6 +90,27 @@ export async function POST(req) {
           await deactivateProFromStripe(userId);
           logEvent("stripe", "pro_deactivated", { userId, source: "subscription_deleted" });
         }
+        break;
+      }
+
+      case "invoice.upcoming": {
+        const invoice = event.data.object;
+        const userId = await resolveUserIdFromStripeEvent(invoice);
+        if (!userId) break;
+
+        const renewalDate = invoice.period_end
+          ? new Date(invoice.period_end * 1000).toLocaleDateString("en-US", { dateStyle: "long" })
+          : "soon";
+        const amount =
+          invoice.amount_due != null
+            ? new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: (invoice.currency || "usd").toUpperCase(),
+              }).format(invoice.amount_due / 100)
+            : null;
+
+        await notifySubscriptionRenewal({ userId, renewalDate, amount });
+        logEvent("stripe", "renewal_reminder_sent", { userId });
         break;
       }
 
