@@ -2396,7 +2396,7 @@ function MatcherPage() {
 }
 
 function PostPage({ user, setShowAuth }) {
-  const [type, setType] = useState("Hearing coverage");
+  const [type, setType] = useState("Heari///////////////////////////////////////////////////ng coverage");
   const [title, setTitle] = useState("");
   const [org, setOrg] = useState("");
   const [location, setLocation] = useState("");

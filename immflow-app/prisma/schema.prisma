@@ -1,0 +1,158 @@
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  role         String        @default("public") // 'attorney', 'admin', 'public'
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  // Auth flow (Phase 1)
+  emailVerified        Boolean   @default(false) @map("email_verified")
+  verificationToken    String?   @map("verification_token")
+  resetToken           String?   @map("reset_token")
+  resetTokenExpires    DateTime? @map("reset_token_expires")
+  
+  // Subscription fields
+  isPro               Boolean   @default(false) @map("is_pro")
+  subscriptionPlan    String    @default("Free") @map("subscription_plan")
+  promoUsed           String?   @map("promo_used")
+  subscriptionExpires DateTime? @map("subscription_expires")
+  stripeCustomerId     String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+
+  displayName   String?    @map("display_name")
+  adminRoleId   Int?       @map("admin_role_id")
+  adminRole     AdminRole? @relation(fields: [adminRoleId], references: [id], onDelete: SetNull)
+
+  attorney     Attorney?
+  listings     Listing[]     @relation("PostedBy")
+  applications Application[]
+  sentMessages Message[]     @relation("Sender")
+  receivedMessages Message[] @relation("Receiver")
+  reviewsWritten Review[]    @relation("Reviewer")
+
+  @@map("users")
+}
+
+model Attorney {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  initials           String?  @db.VarChar(5)
+  location           String?
+  experienceYears    Int?     @map("experience_years")
+  rate               String?
+  availability       String?
+  stars              Decimal  @default(5.0) @db.Decimal(2, 1)
+  reviewsCount       Int      @default(0) @map("reviews_count")
+  bio                String?  @db.Text
+  barNumber          String?  @unique @map("bar_number")
+  stateBar           String?  @map("state_bar")
+  specialties        String?  @db.Text // JSON string
+  languages          String?  @db.Text // JSON string
+  photoUrl           String?  @map("photo_url") @db.Text
+  availabilitySlots  Json?    @map("availability_slots")
+  isVerified         Boolean  @default(false) @map("is_verified")
+
+  reviews            Review[]
+  
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             Int      @unique @map("user_id")
+
+  @@map("attorneys")
+}
+
+model Listing {
+  id              Int           @id @default(autoincrement())
+  title           String
+  org             String?
+  location        String?
+  description     String?       @db.Text
+  type            String?       // e.g. "Full-time", "One-time"
+  badge           String?       // e.g. "New", "Urgent"
+  tags            String?       @db.Text // JSON string
+  pay             String?
+  applicantsCount Int           @default(0) @map("applicants_count")
+  postedAt        DateTime      @default(now()) @map("posted_at")
+  status          String        @default("open") // 'open', 'filled', 'closed'
+  
+  postedBy        User          @relation("PostedBy", fields: [postedById], references: [id], onDelete: Cascade)
+  postedById      Int           @map("posted_by_id")
+  applications    Application[]
+
+  @@map("listings")
+}
+
+model Application {
+  id          Int      @id @default(autoincrement())
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId   Int      @map("listing_id")
+  applicant   User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId Int      @map("applicant_id")
+  status      String   @default("applied") // 'applied', 'reviewed', 'accepted', 'rejected'
+  message     String?  @db.Text
+  appliedAt   DateTime @default(now()) @map("applied_at")
+
+  @@unique([listingId, applicantId])
+  @@map("applications")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  attorney   Attorney @relation(fields: [attorneyId], references: [id], onDelete: Cascade)
+  attorneyId Int      @map("attorney_id")
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewerId Int      @map("reviewer_id")
+  rating     Int
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([attorneyId, reviewerId])
+  @@index([attorneyId])
+  @@map("reviews")
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  sender     User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId   Int      @map("sender_id")
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId Int      @map("receiver_id")
+  content    String   @db.Text
+  sentAt     DateTime @default(now()) @map("sent_at")
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@map("messages")
+}
+
+model SiteContent {
+  key       String   @id
+  value     String   @db.Text
+  type      String   @default("text") // 'text', 'textarea', 'image', 'number'
+  section   String   // e.g. 'home.hero', 'home.stats', 'footer'
+  label     String   // Descriptive label in the admin UI
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_content")
+}
+
+model AdminRole {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  permissions String   @db.Text
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users User[]
+
+  @@map("admin_roles")
+}

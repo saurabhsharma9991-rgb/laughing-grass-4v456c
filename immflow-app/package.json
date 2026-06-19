@@ -1,0 +1,39 @@
+{
+  "name": "immflow-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@prisma/adapter-mariadb": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "mariadb": "^3.5.3",
+    "next": "16.2.9",
+    "nodemailer": "^9.0.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "stripe": "^17.7.0",
+    "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "prisma": "^7.8.0",
+    "vitest": "^3.2.4"
+  }
+}
