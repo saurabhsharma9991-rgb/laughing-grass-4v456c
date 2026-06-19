@@ -2,6 +2,11 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import bcrypt from "bcryptjs";
 import { getMariaDbPoolConfig } from "../src/lib/db-config.js";
+import {
+  buildFullPermissions,
+  normalizePermissions,
+  SUPER_ADMIN_SLUG,
+} from "../src/lib/constants/admin-permissions.js";
 
 const adapter = new PrismaMariaDb({
   ...getMariaDbPoolConfig(),
@@ -19,6 +24,7 @@ async function main() {
   await prisma.attorney.deleteMany({});
   await prisma.siteContent.deleteMany({});
   await prisma.user.deleteMany({});
+  await prisma.adminRole.deleteMany({});
 
   const passwordHash = await bcrypt.hash("password", 10);
 
@@ -230,16 +236,60 @@ async function main() {
     });
   }
 
-  // 3. Seed Default Admin User
+  // 3. Seed admin roles and default super admin
+  const superAdminRole = await prisma.adminRole.create({
+    data: {
+      name: "Super Admin",
+      slug: SUPER_ADMIN_SLUG,
+      description: "Full access to every admin area. Cannot be deleted.",
+      permissions: JSON.stringify(buildFullPermissions()),
+      isSystem: true,
+    },
+  });
+
+  await prisma.adminRole.create({
+    data: {
+      name: "Content Manager",
+      slug: "content_manager",
+      description: "Edit site content and view platform settings.",
+      permissions: JSON.stringify(
+        normalizePermissions({
+          cms: { view: true, edit: true },
+          settings: { view: true },
+          analytics: { view: true },
+        })
+      ),
+      isSystem: false,
+    },
+  });
+
+  await prisma.adminRole.create({
+    data: {
+      name: "Support",
+      slug: "support",
+      description: "Moderate attorneys and listings.",
+      permissions: JSON.stringify(
+        normalizePermissions({
+          attorneys: { view: true, edit: true },
+          listings: { view: true, edit: true, delete: true },
+          analytics: { view: true },
+        })
+      ),
+      isSystem: false,
+    },
+  });
+
   await prisma.user.create({
     data: {
       email: "admin@myimmflow.com",
       passwordHash,
       role: "admin",
       emailVerified: true,
-    }
+      displayName: "Super Admin",
+      adminRoleId: superAdminRole.id,
+    },
   });
-  console.log("Admin user seeded: admin@myimmflow.com / password");
+  console.log("Admin user seeded: admin@myimmflow.com / password (Super Admin role)");
 
   // 4. Seed Site Content Blocks
   const contentData = [

@@ -30,8 +30,16 @@ export async function PATCH(req) {
     });
     if (!attorney) return apiError("Attorney profile not found.", 404, "NOT_FOUND");
 
-    const { isVerified, stars, reviewsCount, ...selfData } = validation.data;
-    const updated = await updateAttorneyProfile(attorney.id, selfData);
+    const { isVerified, stars, reviewsCount, photoUrl, availabilitySlots, ...selfData } = validation.data;
+    const patch = { ...selfData };
+    if (photoUrl !== undefined) {
+      if (photoUrl && photoUrl.length > 600_000) {
+        return apiError("Photo is too large. Use an image under 400KB.", 400, "VALIDATION_ERROR");
+      }
+      patch.photoUrl = photoUrl || null;
+    }
+    if (availabilitySlots !== undefined) patch.availabilitySlots = availabilitySlots;
+    const updated = await updateAttorneyProfile(attorney.id, patch);
     return apiSuccess(updated);
   } catch (error) {
     return handleApiError(error, "Failed to update profile.");

@@ -29,6 +29,8 @@ export function validateAttorneyProfile(body) {
       stars: body.stars !== undefined ? Number(body.stars) : undefined,
       reviewsCount: body.reviewsCount !== undefined ? parseInt(body.reviewsCount, 10) : undefined,
       isVerified: body.isVerified !== undefined ? Boolean(body.isVerified) : undefined,
+      photoUrl: body.photoUrl !== undefined ? body.photoUrl : undefined,
+      availabilitySlots: body.availabilitySlots !== undefined ? body.availabilitySlots : undefined,
     },
   };
 }

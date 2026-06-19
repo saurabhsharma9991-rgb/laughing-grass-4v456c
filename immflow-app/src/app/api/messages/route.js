@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { notifyReceiverOfMessage } from "@/lib/email/notify";
 import { requireAuth } from "@/lib/auth/guards";
 import { AuthError } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
@@ -107,6 +108,12 @@ export async function POST(req) {
           select: { email: true, attorney: { select: { name: true, initials: true } } },
         },
       },
+    });
+
+    void notifyReceiverOfMessage({
+      receiverId: message.receiverId,
+      senderId: message.senderId,
+      content: message.content,
     });
 
     return apiSuccess(message, 201);

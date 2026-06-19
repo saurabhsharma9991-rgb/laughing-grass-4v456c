@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 
 export async function GET(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "cms", "view");
     const items = await prisma.siteContent.findMany({
       where: { NOT: { key: { startsWith: "platform." } } },
       orderBy: [{ section: "asc" }, { label: "asc" }],
@@ -17,7 +17,7 @@ export async function GET(req) {
 
 export async function PUT(req) {
   try {
-    requireAdmin(req);
+    await requireAdminPermission(req, "cms", "edit");
     const { updates } = await req.json();
 
     if (!updates || typeof updates !== "object") {

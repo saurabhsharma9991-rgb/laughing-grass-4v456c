@@ -8,7 +8,8 @@ export function middleware(request) {
 
   if (pathname.startsWith("/api/admin")) {
     const auth = request.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) {
+    const sessionCookie = request.cookies.get("immflow_session")?.value;
+    if (!auth?.startsWith("Bearer ") && !sessionCookie) {
       return NextResponse.json(
         { error: { message: "Missing authorization token.", code: "MISSING_TOKEN" } },
         { status: 401 }

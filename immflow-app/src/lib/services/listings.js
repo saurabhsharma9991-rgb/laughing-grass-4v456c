@@ -4,8 +4,47 @@ import { formatRelativeTime, getBadgeStyle } from "@/lib/utils/format";
 import { AuthError } from "@/lib/auth/guards.js";
 import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings.js";
 
-export async function listListings() {
-  const listings = await prisma.listing.findMany({ orderBy: { postedAt: "desc" } });
+export async function listListings({ status, q, location, language, type } = {}) {
+  const where = {};
+  if (status && status !== "all") {
+    where.status = status;
+  }
+  if (type && type !== "all") {
+    where.type = { contains: type };
+  }
+  if (location) {
+    where.location = { contains: location };
+  }
+
+  let listings = await prisma.listing.findMany({
+    where,
+    orderBy: { postedAt: "desc" },
+  });
+
+  if (language) {
+    const lang = language.toLowerCase();
+    listings = listings.filter((l) => {
+      const tags = parseJsonArray(l.tags);
+      return tags.some((t) => t.toLowerCase().includes(lang)) ||
+        l.description?.toLowerCase().includes(lang);
+    });
+  }
+
+  if (q) {
+    const query = q.toLowerCase();
+    listings = listings.filter((l) => {
+      const tags = parseJsonArray(l.tags).join(" ").toLowerCase();
+      return (
+        l.title.toLowerCase().includes(query) ||
+        l.org?.toLowerCase().includes(query) ||
+        l.location?.toLowerCase().includes(query) ||
+        l.description?.toLowerCase().includes(query) ||
+        l.type?.toLowerCase().includes(query) ||
+        tags.includes(query)
+      );
+    });
+  }
+
   return listings.map(formatListing);
 }
 
@@ -26,9 +65,28 @@ export function formatListing(l) {
     pay: l.pay || "DOE",
     applicants: l.applicantsCount || 0,
     posted: formatRelativeTime(l.postedAt),
+    postedAt: l.postedAt,
     postedById: l.postedById,
     status: l.status,
+    description: l.description || "",
   };
+}
+
+export async function enrichListingsForUser(listings, userId) {
+  if (!userId || !listings.length) return listings;
+  const ids = listings.map((l) => l.id);
+  const apps = await prisma.application.findMany({
+    where: { applicantId: userId, listingId: { in: ids } },
+    select: { id: true, listingId: true, status: true },
+  });
+  const appMap = Object.fromEntries(
+    apps.map((a) => [a.listingId, { id: a.id, status: a.status }])
+  );
+  return listings.map((l) => ({
+    ...l,
+    isOwnListing: l.postedById === userId,
+    myApplication: appMap[l.id] || null,
+  }));
 }
 
 function buildListingTags(type, location) {

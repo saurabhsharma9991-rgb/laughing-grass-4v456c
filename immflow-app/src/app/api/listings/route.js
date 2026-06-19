@@ -1,11 +1,36 @@
 import { requireAuth } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateCreateListing } from "@/lib/validators/listings";
-import { listListings, createListing } from "@/lib/services/listings";
+import { listListings, createListing, enrichListingsForUser } from "@/lib/services/listings";
+import { extractAuthToken, verifyToken } from "@/lib/auth/jwt";
 
-export async function GET() {
+function getOptionalUserId(req) {
   try {
-    const listings = await listListings();
+    const token = extractAuthToken(req);
+    if (!token) return null;
+    const session = verifyToken(token);
+    return session?.userId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let listings = await listListings({
+      status: searchParams.get("status") || "open",
+      q: searchParams.get("q") || "",
+      location: searchParams.get("location") || "",
+      language: searchParams.get("language") || "",
+      type: searchParams.get("type") || "",
+    });
+
+    const userId = getOptionalUserId(req);
+    if (userId) {
+      listings = await enrichListingsForUser(listings, userId);
+    }
+
     return apiSuccess(listings);
   } catch (error) {
     return handleApiError(error, "Failed to fetch listings.");

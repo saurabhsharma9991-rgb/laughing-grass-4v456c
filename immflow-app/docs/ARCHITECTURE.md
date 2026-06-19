@@ -34,13 +34,14 @@ ImmFlow is a Next.js 16 application with a production-ready Phase 1 core: real M
 
 ## Routing model
 
-Public pages use **client-side state** (`page` in `page.js`) rather than App Router segments (`/jobs`, `/attorneys`). Admin is a real route at `/admin`.
+Public pages use **App Router URLs** (`/jobs`, `/attorneys`, `/dashboard`, etc.) backed by a shared client `AppShell`. Admin is at `/admin`.
 
 ## Authentication
 
 - Passwords hashed with `bcryptjs`
-- Sessions are **JWT in localStorage** (upgrade to httpOnly cookies recommended for production hardening)
-- Signup creates verified accounts immediately — no email verification gate
+- Sessions are **JWT in httpOnly cookie** (`immflow_session`); client uses `credentials: include`
+- User profile cached in `sessionStorage` only (no JWT in localStorage)
+- `GET /api/auth/me` bootstraps the client session
 - `POST /api/listings` derives `userId` from JWT — never from request body
 
 ## Feature matrix (Phase 1)

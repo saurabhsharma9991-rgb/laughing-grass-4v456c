@@ -39,6 +39,10 @@ export async function updateAttorneyProfile(attorneyId, input) {
   if (input.stars !== undefined) data.stars = input.stars;
   if (input.reviewsCount !== undefined) data.reviewsCount = input.reviewsCount;
   if (input.isVerified !== undefined) data.isVerified = input.isVerified;
+  if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl;
+  if (input.availabilitySlots !== undefined) {
+    data.availabilitySlots = Array.isArray(input.availabilitySlots) ? input.availabilitySlots : [];
+  }
 
   const attorney = await prisma.attorney.update({
     where: { id: attorneyId },
@@ -78,6 +82,8 @@ export function formatAttorney(a) {
     barNumber: a.barNumber,
     stateBar: a.stateBar,
     isVerified: a.isVerified,
+    photoUrl: a.photoUrl || null,
+    availabilitySlots: parseJsonArray(a.availabilitySlots),
   };
 }
 
@@ -87,5 +93,7 @@ export function formatAttorneyFull(a) {
     ...base,
     email: a.user?.email,
     isPro: a.user?.isPro,
+    photoUrl: a.photoUrl || null,
+    availabilitySlots: parseJsonArray(a.availabilitySlots),
   };
 }

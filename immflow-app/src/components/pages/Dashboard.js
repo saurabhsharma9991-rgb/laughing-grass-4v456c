@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { authHeaders, setStoredSession } from "@/lib/client/auth-storage";
+import { authFetch, setStoredUser } from "@/lib/client/auth-storage";
 import ProfileEditor from "./ProfileEditor";
+import ListingManager from "./ListingManager";
+import MyApplications from "./MyApplications";
 import { usePlatform } from "@/components/PlatformContext";
 import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 
@@ -13,11 +15,14 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const [userTab, setUserTab] = useState("overview");
   const [listingCount, setListingCount] = useState(0);
   const [applicationCount, setApplicationCount] = useState(0);
+  const [myApplications, setMyApplications] = useState([]);
 
   // Subscription state
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [activatingSubscription, setActivatingSubscription] = useState(false);
+  const [startingCheckout, setStartingCheckout] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   // Chat State
   const [conversations, setConversations] = useState([]);
@@ -28,9 +33,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
   const loadConversations = async () => {
     try {
-      const res = await fetch("/api/messages", {
-        headers: authHeaders(),
-      });
+      const res = await authFetch("/api/messages");
       const data = await res.json();
       if (!data.error) {
         setConversations(data);
@@ -42,9 +45,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
   const loadChatHistory = async (contactId) => {
     try {
-      const res = await fetch(`/api/messages?userId=${contactId}`, {
-        headers: authHeaders(),
-      });
+      const res = await authFetch(`/api/messages?userId=${contactId}`);
       const data = await res.json();
       if (!data.error) {
         setChatMessages(data);
@@ -60,13 +61,13 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
     setSendingMessage(true);
     try {
-      const res = await fetch("/api/messages", {
+      const res = await authFetch("/api/messages", {
         method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           receiverId: activeConversation.contact.id,
-          content: chatInput
-        })
+          content: chatInput,
+        }),
       });
       const data = await res.json();
       
@@ -95,15 +96,12 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     }
     setCancellingSubscription(true);
     try {
-      const res = await fetch("/api/user/subscription", {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
+      const res = await authFetch("/api/user/subscription", { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         const updatedUser = { ...user, isPro: false, subscriptionPlan: "Free" };
         setUser(updatedUser);
-        setStoredSession(updatedUser);
+        setStoredUser(updatedUser);
         alert("Subscription cancelled successfully. You are now on the Free tier.");
       } else {
         alert("Cancellation failed: " + (data.error?.message || "Unknown error"));
@@ -118,16 +116,16 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const handleTestUpgrade = async (body) => {
     setActivatingSubscription(true);
     try {
-      const res = await fetch("/api/user/subscription", {
+      const res = await authFetch("/api/user/subscription", {
         method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.success && data.user) {
         const updatedUser = { ...user, ...data.user };
         setUser(updatedUser);
-        setStoredSession(updatedUser);
+        setStoredUser(updatedUser);
         alert("Upgraded to Pro (test mode).");
       } else {
         alert(data.error?.message || "Upgrade failed.");
@@ -139,29 +137,71 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     }
   };
 
+  const handleStripeCheckout = async () => {
+    setStartingCheckout(true);
+    try {
+      const res = await authFetch("/api/billing/checkout", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      alert(data.error?.message || "Unable to start checkout. Contact support@myimmflow.com.");
+    } catch {
+      alert("Unable to start checkout. Connection error.");
+    } finally {
+      setStartingCheckout(false);
+    }
+  };
+
+  const handleBillingPortal = async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await authFetch("/api/billing/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      alert(data.error?.message || "Unable to open billing portal.");
+    } catch {
+      alert("Unable to open billing portal.");
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
+  useEffect(() => {
+    const pendingTab = sessionStorage.getItem("immflow_dashboard_tab");
+    if (pendingTab) {
+      setUserTab(pendingTab);
+      sessionStorage.removeItem("immflow_dashboard_tab");
+    }
+  }, []);
+
   useEffect(() => {
     if (user?.id) {
-      fetch("/api/listings")
+      authFetch("/api/user/listings")
         .then((r) => r.json())
         .then((data) => {
           if (Array.isArray(data)) {
-            setListingCount(
-              data.filter((l) => l.postedById === user.id).length
-            );
+            setListingCount(data.length);
           }
         })
         .catch(() => {});
 
-      fetch("/api/applications", { headers: authHeaders() })
+      authFetch("/api/applications")
         .then((r) => r.json())
         .then((data) => {
-          if (!data.error && typeof data.count === "number") {
-            setApplicationCount(data.count);
+          if (!data.error) {
+            const apps = data.applications || [];
+            setMyApplications(apps);
+            setApplicationCount(apps.length);
           }
         })
         .catch(() => {});
 
-      fetch("/api/user/subscription", { headers: authHeaders() })
+      authFetch("/api/user/subscription")
         .then((r) => r.json())
         .then((data) => {
           if (!data.error && data.isPro !== user.isPro) {
@@ -172,7 +212,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
               subscriptionExpires: data.subscriptionExpires,
             };
             setUser(updated);
-            setStoredSession(updated);
+            setStoredUser(updated);
           }
         })
         .catch(() => {});
@@ -244,6 +284,8 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {[
           ["overview", "🏠 Dashboard"],
+          ["listings", "📋 My listings"],
+          ["applications", "📨 My applications"],
           ["profile", "👤 My profile"],
           ["messages", "💬 Chat & Messages"],
           ["billing", "💳 Billing & Subscriptions"],
@@ -286,9 +328,9 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {[
-                [String(listingCount), "Active listings"],
-                [String(applicationCount), "Applications"],
-                ["0", "Profile views"],
+                [String(listingCount), "My listings"],
+                [String(applicationCount), "Applications sent"],
+                [String(myApplications.filter((a) => a.status === "accepted").length), "Accepted"],
               ].map(([n, l]) => (
                 <div key={l} className="bg-bg rounded-lg p-4 text-center">
                   <div className="font-syne text-2xl font-extrabold text-text">
@@ -304,9 +346,15 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
             {[
               {
                 icon: "📋",
-                title: "Post a listing",
-                desc: "Post a hearing, job, or outsource request",
-                action: () => setPage("post"),
+                title: "My listings",
+                desc: "Manage postings and review applicants",
+                action: () => setUserTab("listings"),
+              },
+              {
+                icon: "📨",
+                title: "My applications",
+                desc: "Track jobs you've applied to",
+                action: () => setUserTab("applications"),
               },
               {
                 icon: "🔍",
@@ -350,6 +398,28 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
             Log out
           </button>
         </>
+      )}
+
+      {/* Tab: My listings */}
+      {userTab === "listings" && (
+        <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
+          <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
+            My listings
+          </h2>
+          <p className="text-xs text-muted mb-4">
+            Post jobs, review applicants, and update listing status — open, filled, or closed.
+          </p>
+          <ListingManager user={user} setPage={setPage} />
+        </div>
+      )}
+
+      {userTab === "applications" && (
+        <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
+          <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
+            My applications
+          </h2>
+          <MyApplications setPage={setPage} />
+        </div>
       )}
 
       {/* Tab: Profile editor */}
@@ -566,17 +636,27 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         </button>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted leading-relaxed">
-                        ImmFlow Pro ($29/month) unlocks premium features. Online checkout is coming
-                        soon — contact{" "}
-                        <a
-                          href="mailto:support@myimmflow.com"
-                          className="text-green font-medium hover:underline"
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted leading-relaxed">
+                          ImmFlow Pro ($29/month) unlocks premium features. Upgrade securely with
+                          Stripe, or contact{" "}
+                          <a
+                            href="mailto:support@myimmflow.com"
+                            className="text-green font-medium hover:underline"
+                          >
+                            support@myimmflow.com
+                          </a>
+                          .
+                        </p>
+                        <button
+                          type="button"
+                          disabled={startingCheckout}
+                          onClick={handleStripeCheckout}
+                          className="bg-green hover:bg-green-dark text-white font-semibold text-sm py-2.5 px-5 rounded-lg border-none cursor-pointer disabled:opacity-50"
                         >
-                          support@myimmflow.com
-                        </a>{" "}
-                        to upgrade.
-                      </p>
+                          {startingCheckout ? "Redirecting…" : "Upgrade with Stripe — $29/mo"}
+                        </button>
+                      </div>
                     )}
                   </>
                 ) : (
@@ -591,14 +671,26 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         Access expires: {new Date(user.subscriptionExpires).toLocaleDateString()}
                       </p>
                     )}
-                    <button
-                      type="button"
-                      onClick={handleCancelSubscription}
-                      disabled={cancellingSubscription}
-                      className="bg-transparent hover:bg-red-light text-red border border-red py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all w-fit"
-                    >
-                      {cancellingSubscription ? "Cancelling…" : "Downgrade to Free"}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      {!testMode && (
+                        <button
+                          type="button"
+                          onClick={handleBillingPortal}
+                          disabled={openingPortal}
+                          className="bg-green hover:bg-green-dark text-white border-none py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          {openingPortal ? "Opening…" : "Manage subscription (Stripe)"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCancelSubscription}
+                        disabled={cancellingSubscription}
+                        className="bg-transparent hover:bg-red-light text-red border border-red py-2 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        {cancellingSubscription ? "Cancelling…" : "Downgrade to Free"}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 
-export default function AuthModal({ onClose, onAuth, initialMode = "signup", resetToken: resetTokenProp = "" }) {
+export default function AuthModal({
+  onClose,
+  onAuth,
+  initialMode = "signup",
+  resetToken: resetTokenProp = "",
+  initialError = "",
+}) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -11,7 +17,8 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
   useEffect(() => {
     setMode(initialMode);
     if (resetTokenProp) setResetToken(resetTokenProp);
-  }, [initialMode, resetTokenProp]);
+    if (initialError) setError(initialError);
+  }, [initialMode, resetTokenProp, initialError]);
   const [barNumber, setBarNumber] = useState("");
   const [state, setState] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,6 +52,7 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
         const response = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             email,
             password,
@@ -55,8 +63,11 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
 
         if (res.error) {
           setError(res.error.message);
-        } else if (res.access_token) {
-          onAuth(res.user, res.access_token);
+        } else if (res.requiresVerification) {
+          setSuccess(res.message || "Check your email to verify your account before logging in.");
+          setMode("verify");
+        } else if (res.user) {
+          onAuth(res.user);
           onClose();
         } else {
           setSuccess(res.message || "Account created successfully.");
@@ -65,14 +76,18 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
         const response = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({ email, password }),
         });
         const res = await response.json();
 
         if (res.error) {
+          if (res.error.code === "EMAIL_NOT_VERIFIED") {
+            setMode("verify");
+          }
           setError(res.error.message);
-        } else {
-          onAuth(res.user, res.access_token);
+        } else if (res.user) {
+          onAuth(res.user);
           onClose();
         }
       }
@@ -141,9 +156,35 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
     }
   };
 
+  const handleResendVerification = async () => {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const res = await response.json();
+
+      if (res.error) {
+        setError(res.error.message);
+      } else {
+        setSuccess(res.message);
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (mode === "forgot") return handleForgotPassword();
     if (mode === "reset") return handleResetPassword();
+    if (mode === "verify") return handleResendVerification();
     return handleSignupLogin();
   };
 
@@ -152,6 +193,8 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
       ? "Reset your password"
       : mode === "reset"
       ? "Choose a new password"
+      : mode === "verify"
+      ? "Verify your email"
       : null;
 
   return (
@@ -232,7 +275,7 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
           </>
         )}
 
-        {(mode === "signup" || mode === "login" || mode === "forgot") && (
+        {(mode === "signup" || mode === "login" || mode === "forgot" || mode === "verify") && (
           <div className="mb-4">
             <div className="text-xs font-medium text-muted mb-1">Email</div>
             <input
@@ -240,9 +283,17 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@lawfirm.com"
+              readOnly={mode === "verify" && Boolean(email)}
               className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
             />
           </div>
+        )}
+
+        {mode === "verify" && (
+          <p className="text-xs text-muted-high mb-4 leading-relaxed">
+            We sent a verification link to your inbox. Click the link to activate your account, then log in.
+            Did not receive it? Resend below.
+          </p>
         )}
 
         {(mode === "signup" || mode === "login" || mode === "reset") && (
@@ -308,6 +359,8 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
             ? "Log in"
             : mode === "forgot"
             ? "Send reset link"
+            : mode === "verify"
+            ? "Resend verification email"
             : "Update password"}
         </button>
 
@@ -325,7 +378,7 @@ export default function AuthModal({ onClose, onAuth, initialMode = "signup", res
           </button>
         )}
 
-        {(mode === "forgot" || mode === "reset") && (
+        {(mode === "forgot" || mode === "reset" || mode === "verify") && (
           <button
             type="button"
             onClick={() => {

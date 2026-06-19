@@ -4,7 +4,9 @@ import React, { useEffect, useState } from "react";
 import { DEFAULT_FEATURE_FLAGS, PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 import { usePlatform } from "@/components/PlatformContext";
 
-export default function PlatformSettingsPanel({ authToken }) {
+import { authFetch } from "@/lib/client/auth-storage";
+
+export default function PlatformSettingsPanel({ readOnly = false }) {
   const { refreshPlatform } = usePlatform();
   const [testMode, setTestMode] = useState(false);
   const [features, setFeatures] = useState(DEFAULT_FEATURE_FLAGS);
@@ -15,9 +17,7 @@ export default function PlatformSettingsPanel({ authToken }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/settings", {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+      const res = await authFetch("/api/admin/settings");
       const data = await res.json();
       if (!data.error) {
         setTestMode(Boolean(data.testMode));
@@ -30,8 +30,8 @@ export default function PlatformSettingsPanel({ authToken }) {
   };
 
   useEffect(() => {
-    if (authToken) load();
-  }, [authToken]);
+    load();
+  }, []);
 
   const toggleFeature = (key, tier) => {
     setFeatures((prev) => ({
@@ -43,12 +43,9 @@ export default function PlatformSettingsPanel({ authToken }) {
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const res = await authFetch("/api/admin/settings", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ testMode, features, freeListingLimit }),
       });
       const data = await res.json();
@@ -85,7 +82,8 @@ export default function PlatformSettingsPanel({ authToken }) {
           </div>
           <button
             type="button"
-            onClick={() => setTestMode((v) => !v)}
+            onClick={() => !readOnly && setTestMode((v) => !v)}
+            disabled={readOnly}
             className={`shrink-0 relative w-12 h-7 rounded-full border-none cursor-pointer transition-all ${
               testMode ? "bg-green" : "bg-muted-high"
             }`}
@@ -115,7 +113,8 @@ export default function PlatformSettingsPanel({ authToken }) {
           min={1}
           max={99}
           value={freeListingLimit}
-          onChange={(e) => setFreeListingLimit(Number(e.target.value) || 1)}
+          onChange={(e) => !readOnly && setFreeListingLimit(Number(e.target.value) || 1)}
+          disabled={readOnly}
           className="w-24 p-2 text-sm border rounded-lg bg-bg focus:outline-none focus:border-green"
         />
       </div>
@@ -146,7 +145,8 @@ export default function PlatformSettingsPanel({ authToken }) {
                   <input
                     type="checkbox"
                     checked={Boolean(flag.free)}
-                    onChange={() => toggleFeature(key, "free")}
+                    onChange={() => !readOnly && toggleFeature(key, "free")}
+                    disabled={readOnly}
                     className="w-4 h-4 accent-[#35577D] cursor-pointer"
                   />
                 </td>
@@ -154,7 +154,8 @@ export default function PlatformSettingsPanel({ authToken }) {
                   <input
                     type="checkbox"
                     checked={Boolean(flag.pro)}
-                    onChange={() => toggleFeature(key, "pro")}
+                    onChange={() => !readOnly && toggleFeature(key, "pro")}
+                    disabled={readOnly}
                     className="w-4 h-4 accent-[#35577D] cursor-pointer"
                   />
                 </td>
@@ -164,14 +165,16 @@ export default function PlatformSettingsPanel({ authToken }) {
         </table>
       </div>
 
-      <button
-        type="button"
-        onClick={save}
-        disabled={saving}
-        className="bg-green text-white py-2.5 px-6 rounded-lg border-none text-sm font-semibold cursor-pointer disabled:opacity-60"
-      >
-        {saving ? "Saving…" : "Save platform settings"}
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="bg-green text-white py-2.5 px-6 rounded-lg border-none text-sm font-semibold cursor-pointer disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save platform settings"}
+        </button>
+      )}
     </div>
   );
 }
