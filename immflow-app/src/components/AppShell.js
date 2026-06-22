@@ -22,6 +22,7 @@ import {
   logoutSession,
   authFetch,
 } from "@/lib/client/auth-storage";
+import { toastSuccess } from "@/lib/client/alerts";
 
 const PAGES = {
   home: HomePage,
@@ -143,7 +144,7 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
     if (billing === "success") {
       navigate("dashboard");
       window.history.replaceState({}, "", pathForPage("dashboard"));
-      setTimeout(() => alert("Payment successful — welcome to ImmFlow Pro!"), 300);
+      setTimeout(() => toastSuccess("Payment successful — welcome to ImmFlow Pro!"), 300);
     } else if (billing === "cancelled") {
       navigate("dashboard");
       window.history.replaceState({}, "", pathForPage("dashboard"));

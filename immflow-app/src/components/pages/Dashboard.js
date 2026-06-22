@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { authFetch, setStoredUser } from "@/lib/client/auth-storage";
+import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
+import { PENDING_CHAT_KEY } from "@/lib/client/start-chat";
+import { pathForPage } from "@/lib/constants/routes";
 import ProfileEditor from "./ProfileEditor";
 import ListingManager from "./ListingManager";
 import MyApplications from "./MyApplications";
@@ -30,30 +33,31 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const chatBootstrapped = useRef(false);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       const res = await authFetch("/api/messages");
       const data = await res.json();
-      if (!data.error) {
+      if (Array.isArray(data)) {
         setConversations(data);
       }
     } catch (e) {
       console.error("Failed to load conversations:", e);
     }
-  };
+  }, []);
 
-  const loadChatHistory = async (contactId) => {
+  const loadChatHistory = useCallback(async (contactId) => {
     try {
       const res = await authFetch(`/api/messages?userId=${contactId}`);
       const data = await res.json();
-      if (!data.error) {
+      if (Array.isArray(data)) {
         setChatMessages(data);
       }
     } catch (e) {
       console.error("Failed to load chat history:", e);
     }
-  };
+  }, []);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -72,26 +76,30 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       const data = await res.json();
       
       if (data.error) {
-        alert(data.error?.message || data.message || "Failed to send message.");
-      } else {
+        toastError(data.error?.message || data.message || "Failed to send message.");
+      } else if (data.id) {
         setChatInput("");
-        setChatMessages([...chatMessages, data]);
+        setChatMessages((prev) => [...prev, data]);
         loadConversations();
+      } else {
+        toastError("Failed to send message.");
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to send message. Connection error.");
+      toastError("Failed to send message. Connection error.");
     } finally {
       setSendingMessage(false);
     }
   };
 
   const handleCancelSubscription = async () => {
-    if (
-      !confirm(
-        `Are you sure you want to cancel your ImmFlow Pro subscription? Your listings limit will return to ${freeListingLimit}, and premium features may be locked.`
-      )
-    ) {
+    const confirmed = await confirmDialog({
+      title: "Cancel subscription",
+      message: `Are you sure you want to cancel your ImmFlow Pro subscription? Your listings limit will return to ${freeListingLimit}, and premium features may be locked.`,
+      confirmLabel: "Yes, cancel",
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
     setCancellingSubscription(true);
@@ -102,12 +110,12 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         const updatedUser = { ...user, isPro: false, subscriptionPlan: "Free" };
         setUser(updatedUser);
         setStoredUser(updatedUser);
-        alert("Subscription cancelled successfully. You are now on the Free tier.");
+        toastSuccess("Subscription cancelled successfully. You are now on the Free tier.");
       } else {
-        alert("Cancellation failed: " + (data.error?.message || "Unknown error"));
+        toastError("Cancellation failed: " + (data.error?.message || "Unknown error"));
       }
     } catch (e) {
-      alert("Cancellation failed. Connection error.");
+      toastError("Cancellation failed. Connection error.");
     } finally {
       setCancellingSubscription(false);
     }
@@ -126,12 +134,12 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         const updatedUser = { ...user, ...data.user };
         setUser(updatedUser);
         setStoredUser(updatedUser);
-        alert("Upgraded to Pro (test mode).");
+        toastSuccess("Upgraded to Pro (test mode).");
       } else {
-        alert(data.error?.message || "Upgrade failed.");
+        toastError(data.error?.message || "Upgrade failed.");
       }
     } catch {
-      alert("Upgrade failed. Connection error.");
+      toastError("Upgrade failed. Connection error.");
     } finally {
       setActivatingSubscription(false);
     }
@@ -146,9 +154,9 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         window.location.href = data.url;
         return;
       }
-      alert(data.error?.message || "Unable to start checkout. Contact support@myimmflow.com.");
+      toastError(data.error?.message || "Unable to start checkout. Contact support@myimmflow.com.");
     } catch {
-      alert("Unable to start checkout. Connection error.");
+      toastError("Unable to start checkout. Connection error.");
     } finally {
       setStartingCheckout(false);
     }
@@ -163,21 +171,97 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         window.location.href = data.url;
         return;
       }
-      alert(data.error?.message || "Unable to open billing portal.");
+      toastError(data.error?.message || "Unable to open billing portal.");
     } catch {
-      alert("Unable to open billing portal.");
+      toastError("Unable to open billing portal.");
     } finally {
       setOpeningPortal(false);
     }
   };
 
   useEffect(() => {
+    if (!user?.id || chatBootstrapped.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const chatId = params.get("chat");
+    const tab = params.get("tab");
+
+    if (tab) setUserTab(tab);
+
+    const openPartner = (partner) => {
+      if (Number.isNaN(Number(partner.id))) return;
+      chatBootstrapped.current = true;
+      setUserTab("messages");
+      setActiveConversation({
+        contact: {
+          id: partner.id,
+          name: partner.name,
+          initials: partner.initials || "AT",
+          email: partner.email || "",
+        },
+        lastMessage: "Conversation started",
+        sentAt: new Date(),
+      });
+      loadChatHistory(partner.id);
+    };
+
+    if (chatId) {
+      openPartner({
+        id: parseInt(chatId, 10),
+        name: params.get("chatName") || "Attorney",
+        initials: params.get("chatInitials") || "AT",
+        email: params.get("chatEmail") || "",
+      });
+      window.history.replaceState({}, "", pathForPage("dashboard"));
+      return;
+    }
+
+    const raw = sessionStorage.getItem(PENDING_CHAT_KEY);
+    if (raw) {
+      try {
+        openPartner(JSON.parse(raw));
+      } catch (e) {
+        console.error(e);
+        sessionStorage.removeItem(PENDING_CHAT_KEY);
+      }
+      return;
+    }
+
     const pendingTab = sessionStorage.getItem("immflow_dashboard_tab");
     if (pendingTab) {
       setUserTab(pendingTab);
       sessionStorage.removeItem("immflow_dashboard_tab");
     }
-  }, []);
+  }, [user?.id, loadChatHistory]);
+
+  useEffect(() => {
+    if (!activeConversation?.contact?.id) return;
+    const raw = sessionStorage.getItem(PENDING_CHAT_KEY);
+    if (!raw) return;
+    try {
+      const partner = JSON.parse(raw);
+      if (Number(partner.id) === Number(activeConversation.contact.id)) {
+        sessionStorage.removeItem(PENDING_CHAT_KEY);
+      }
+    } catch {
+      sessionStorage.removeItem(PENDING_CHAT_KEY);
+    }
+  }, [activeConversation]);
+
+  useEffect(() => {
+    if (user?.id && userTab === "messages") {
+      loadConversations();
+      authFetch("/api/auth/me")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.user) {
+            setUser(data.user);
+            setStoredUser(data.user);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.id, userTab, loadConversations, setUser]);
 
   useEffect(() => {
     if (user?.id) {
@@ -220,51 +304,16 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   }, [user?.id]);
 
   useEffect(() => {
-    if (user) {
-      loadConversations();
-      
-      // Check if we were redirected to message someone
-      const pendingChat = localStorage.getItem("immflow_chat_partner");
-      if (pendingChat) {
-        try {
-          const partner = JSON.parse(pendingChat);
-          setUserTab("messages");
-          
-          // Set active conversation
-          const conversationWrapper = {
-            contact: {
-              id: partner.id,
-              name: partner.name,
-              initials: partner.initials || "AT",
-              email: partner.email || ""
-            },
-            lastMessage: "Conversation started",
-            sentAt: new Date()
-          };
-          
-          setActiveConversation(conversationWrapper);
-          loadChatHistory(partner.id);
-          
-          // Clear trigger
-          localStorage.removeItem("immflow_chat_partner");
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-  }, [user, userTab]);
+    if (!activeConversation?.contact?.id) return;
 
-  useEffect(() => {
-    if (activeConversation) {
+    loadChatHistory(activeConversation.contact.id);
+
+    const poll = setInterval(() => {
       loadChatHistory(activeConversation.contact.id);
-      
-      const poll = setInterval(() => {
-        loadChatHistory(activeConversation.contact.id);
-      }, 5000);
-      
-      return () => clearInterval(poll);
-    }
-  }, [activeConversation]);
+    }, 5000);
+
+    return () => clearInterval(poll);
+  }, [activeConversation?.contact?.id, loadChatHistory]);
 
   const getInitials = (u) => {
     const name = u?.user_metadata?.full_name || u?.email || "?";

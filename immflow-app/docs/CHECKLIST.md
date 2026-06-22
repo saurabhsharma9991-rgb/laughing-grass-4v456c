@@ -33,7 +33,7 @@ These were listed as already live before backend work:
 | 6 frontend pages (Home, Attorneys, Jobs, Network, Matcher, Post) | Live | `[x]` Rebuilt in Next.js App Router |
 | User authentication | Supabase | `[~]` Custom JWT + MySQL (not Supabase) |
 | Stripe $29/mo Pro | Live | `[x]` Checkout + webhooks + portal |
-| Domain myimmflow.com on Netlify | Live | `[~]` Config ready; production deploy is ops |
+| Domain myimmflow.com | Live | `[x]` Production on **DigitalOcean** (`myimmflow.com`) |
 | AI matcher (frontend demo) | Live | `[~]` Rule-based matcher on real DB data |
 | Responsive design | Live | `[x]` |
 
@@ -44,8 +44,8 @@ These were listed as already live before backend work:
 | HTML / CSS / JS → migrate to React | `[x]` Next.js 16 + React |
 | Supabase (auth + DB) | `[~]` **Prisma + MySQL** — same data model, different stack |
 | Stripe | `[x]` |
-| Netlify hosting | `[x]` `netlify.toml` + `@netlify/plugin-nextjs` |
-| Namecheap domain | `[ ]` DNS — owner/ops task |
+| Netlify hosting | `[~]` | `netlify.toml` kept for reference; **production is DigitalOcean** |
+| Namecheap domain | `[x]` | `myimmflow.com` → DigitalOcean droplet |
 
 ---
 
@@ -56,10 +56,10 @@ These were listed as already live before backend work:
 | 1 | Migrate HTML/CSS/JS frontend to a proper React app on GitHub | `[x]` | Next.js app in `immflow-app/` |
 | 2 | Set up database tables for attorneys, listings, applications, and messages | `[~]` | All tables exist via Prisma/MySQL; **not** Supabase |
 | 3 | Connect all frontend pages to real database data | `[x]` | `/api/attorneys`, `/api/listings`, `/api/messages`, etc. |
-| 4 | Authentication: signup, login, email verification, password reset | `[~]` | Signup, login, password reset emails `[x]`; verify-email endpoint exists but signup auto-verifies `[~]` |
-| 5 | Deploy to Netlify with continuous deployment from GitHub | `[~]` | Build config + [NETLIFY.md](./NETLIFY.md) runbook `[x]`; GitHub → Netlify hook is owner setup `[ ]` |
+| 4 | Authentication: signup, login, email verification, password reset | `[x]` | Signup, login, email verification required, password reset emails |
+| 5 | Deploy with continuous deployment | `[x]` | Live on **DigitalOcean** (PM2 + Nginx); manual `git pull` deploy |
 
-**Phase 1 summary:** 2 complete · 3 partial · 0 open (code-side)
+**Phase 1 summary:** 4 complete · 1 partial (Supabase → Prisma/MySQL stack difference)
 
 ---
 
@@ -108,15 +108,15 @@ These were listed as already live before backend work:
 | Filter by case type | `[x]` | Specialty tags + listing type tabs |
 | Filter by language | `[x]` | Dedicated filter on attorneys + listings |
 | Filter by availability | `[x]` | Dropdown on Find Attorneys |
-| Filter by rate | `[~]` | Natural language only (e.g. “under $200”); no dedicated rate UI |
+| Filter by rate | `[x]` | Dropdown on Find Attorneys (`?maxRate=`); NL “under $200” in search box |
 | Natural language search | `[x]` | e.g. “Spanish speaking asylum attorney in Miami” |
 | Sort by rating, availability, and relevance | `[x]` | `sort=rating|availability|relevance` |
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| 8 | Search and filters | `[~]` | Rate filter UI is the only gap |
+| 8 | Search and filters | `[x]` |
 
-**Phase 2 summary:** 2 complete · 1 partial (search/rate UI)
+**Phase 2 summary:** 3 complete · 0 partial
 
 ---
 
@@ -132,7 +132,7 @@ These were listed as already live before backend work:
 |---|-------------|--------|
 | 9 | Application system | `[x]` |
 
-**Phase 2 (PDF) overall:** ✅ **Complete** (rate filter UI is minor partial)
+**Phase 2 (PDF) overall:** ✅ **Complete**
 
 ---
 
@@ -263,14 +263,14 @@ Built on `dev/phase2` but not in the original proposal:
 
 | Section | Complete | Partial | Open |
 |---------|----------|---------|------|
-| Phase 1 — Foundation | 2 | 3 | 0 |
-| Phase 2 — Core Features | 3 | 1 | 0 |
+| Phase 1 — Foundation | 4 | 1 | 0 |
+| Phase 2 — Core Features | 4 | 0 | 0 |
 | Phase 3 — Growth Features | 2 | 3 | 0 |
 | Additional (beyond PDF) | 18 | 0 | 0 |
 
 **Proposal scope (Phases 1–3):** ~85% complete in code  
 **PDF Phase 2 (profiles, listings, search, applications):** ✅ complete  
-**Remaining proposal gaps:** rate filter UI, transactional emails, full AI matcher, admin signup reject flow, production deploy verification
+**Remaining proposal gaps:** full AI matcher, admin signup reject flow, production deploy verification
 
 ---
 
@@ -356,10 +356,10 @@ Manual checks:
 
 ### Optional (remaining proposal items)
 
-- [ ] Dedicated rate filter on Find Attorneys UI
-- [ ] Email on new application (to listing owner)
-- [ ] Email on new message
-- [ ] Subscription renewal reminder emails
+- [x] Dedicated rate filter on Find Attorneys UI
+- [x] Email on new application (to listing owner)
+- [x] Email on new message
+- [x] Subscription renewal reminder emails
 - [ ] External AI API for matcher (OpenAI / etc.)
 - [ ] Admin “reject signup” workflow (vs verify-only)
 

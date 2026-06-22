@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import JobCard from "../JobCard";
 import { authFetch } from "@/lib/client/auth-storage";
+import { toastError } from "@/lib/client/alerts";
 import { listingMatchesTab } from "@/lib/constants/listing-types";
 
 function ApplyModal({ listing, onClose, onSubmit, applying }) {
@@ -95,13 +96,13 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
       });
       const data = await res.json();
       if (data.error) {
-        alert(data.error.message || "Failed to apply.");
+        toastError(data.error.message || "Failed to apply.");
       } else {
         setApplyTarget(null);
         loadListings();
       }
     } catch {
-      alert("Failed to apply. Please try again.");
+      toastError("Failed to apply. Please try again.");
     } finally {
       setApplyingId(null);
     }

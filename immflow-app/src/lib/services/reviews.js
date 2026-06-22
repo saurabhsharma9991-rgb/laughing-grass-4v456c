@@ -75,7 +75,7 @@ export async function listReviewsForAttorney(attorneyId) {
 export async function getAttorneyPublicProfile(attorneyId) {
   const attorney = await prisma.attorney.findUnique({
     where: { id: attorneyId, isVerified: true },
-    include: { user: { select: { id: true } } },
+    include: { user: { select: { id: true, email: true } } },
   });
   if (!attorney) return null;
 
@@ -89,5 +89,6 @@ export async function getAttorneyPublicProfile(attorneyId) {
     availabilitySlots: Array.isArray(slots) ? slots : [],
     reviewsList: reviews,
     userId: attorney.userId,
+    email: attorney.user?.email || null,
   };
 }

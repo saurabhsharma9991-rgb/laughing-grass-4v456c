@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/auth/guards.js";
-import { parseNaturalLanguageQuery, parseRateNumber, scoreAttorneyRelevance, sortAttorneys } from "@/lib/utils/attorney-search";
+import {
+  parseNaturalLanguageQuery,
+  filterAttorneysByRate,
+  scoreAttorneyRelevance,
+  sortAttorneys,
+} from "@/lib/utils/attorney-search";
 import { formatAttorney } from "@/lib/services/attorneys";
 import { parseJsonArray } from "@/lib/utils/json-fields";
 
@@ -11,6 +16,8 @@ export async function searchAttorneys(params = {}) {
     specialty = "",
     language = "",
     availability = "",
+    minRate = "",
+    maxRate = "",
     sort = "relevance",
     verifiedOnly = true,
   } = params;
@@ -62,12 +69,8 @@ export async function searchAttorneys(params = {}) {
     );
   }
 
-  if (nl.rateHint) {
-    attorneys = attorneys.filter((a) => {
-      const n = parseRateNumber(a.rate);
-      return n == null || n <= nl.rateHint;
-    });
-  }
+  const effectiveMaxRate = maxRate || (nl.rateHint != null ? String(nl.rateHint) : "");
+  attorneys = filterAttorneysByRate(attorneys, { minRate, maxRate: effectiveMaxRate });
 
   const relevanceScores = {};
   if (q || specFilter || langFilter || locFilter) {

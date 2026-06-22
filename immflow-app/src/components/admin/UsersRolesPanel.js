@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/lib/client/auth-storage";
+import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { ADMIN_RESOURCES, emptyPermissions } from "@/lib/constants/admin-permissions";
 
 function PermissionMatrix({ permissions, onChange, readOnly = false }) {
@@ -93,7 +94,7 @@ function UserFormModal({ user, roles, onClose, onSave, saving, canEdit }) {
     const payload = { email, displayName, adminRoleId: Number(adminRoleId) };
     if (password) payload.password = password;
     if (isNew && !password) {
-      alert("Password is required for new users.");
+      toastError("Password is required for new users.");
       return;
     }
     onSave(payload);
@@ -328,24 +329,30 @@ export default function UsersRolesPanel({ can, currentUserId }) {
         setShowNewUser(false);
         load();
       } else {
-        alert(data.error?.message || "Failed to save user.");
+        toastError(data.error?.message || "Failed to save user.");
       }
     } catch {
-      alert("Failed to save user.");
+      toastError("Failed to save user.");
     } finally {
       setSaving(false);
     }
   };
 
   const deleteUser = async (id) => {
-    if (!confirm("Remove this admin user? They will lose all admin access.")) return;
+    const confirmed = await confirmDialog({
+      title: "Remove admin user",
+      message: "Remove this admin user? They will lose all admin access.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       const res = await authFetch(`/api/admin/users/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) load();
-      else alert(data.error?.message || "Failed to delete user.");
+      else toastError(data.error?.message || "Failed to delete user.");
     } catch {
-      alert("Failed to delete user.");
+      toastError("Failed to delete user.");
     }
   };
 
@@ -365,24 +372,30 @@ export default function UsersRolesPanel({ can, currentUserId }) {
         setShowNewRole(false);
         load();
       } else {
-        alert(data.error?.message || "Failed to save role.");
+        toastError(data.error?.message || "Failed to save role.");
       }
     } catch {
-      alert("Failed to save role.");
+      toastError("Failed to save role.");
     } finally {
       setSaving(false);
     }
   };
 
   const deleteRole = async (id) => {
-    if (!confirm("Delete this role? It must have no assigned users.")) return;
+    const confirmed = await confirmDialog({
+      title: "Delete role",
+      message: "Delete this role? It must have no assigned users.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       const res = await authFetch(`/api/admin/roles/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) load();
-      else alert(data.error?.message || "Failed to delete role.");
+      else toastError(data.error?.message || "Failed to delete role.");
     } catch {
-      alert("Failed to delete role.");
+      toastError("Failed to delete role.");
     }
   };
 

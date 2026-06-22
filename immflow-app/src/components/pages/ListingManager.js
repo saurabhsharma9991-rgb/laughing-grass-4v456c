@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/client/auth-storage";
+import { toastError, toastSuccess } from "@/lib/client/alerts";
 import {
   APPLICATION_STATUS,
   LISTING_STATUS,
@@ -55,13 +56,13 @@ function ListingApplications({ listingId, onUpdated }) {
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
-      if (data.error) alert(data.error.message);
+      if (data.error) toastError(data.error.message);
       else {
         load();
         onUpdated?.();
       }
     } catch {
-      alert("Failed to update application.");
+      toastError("Failed to update application.");
     } finally {
       setActing(null);
     }
@@ -195,13 +196,13 @@ export default function ListingManager({ user, setPage }) {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (data.error) alert(data.error.message || "Failed to save listing.");
+      if (data.error) toastError(data.error.message || "Failed to save listing.");
       else {
         setEditingId(null);
         load();
       }
     } catch {
-      alert("Failed to save listing.");
+      toastError("Failed to save listing.");
     } finally {
       setSaving(false);
     }
@@ -215,10 +216,10 @@ export default function ListingManager({ user, setPage }) {
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
-      if (data.error) alert(data.error.message);
+      if (data.error) toastError(data.error.message);
       else load();
     } catch {
-      alert("Failed to update listing status.");
+      toastError("Failed to update listing status.");
     }
   };
 

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { authFetch } from "@/lib/client/auth-storage";
+import { toastError } from "@/lib/client/alerts";
+import { resizeImageFile } from "@/lib/client/resize-image";
 import TagInput from "../TagInput";
 import AttorneyCard from "../AttorneyCard";
 import Avatar from "../Avatar";
@@ -53,16 +55,27 @@ export default function ProfileEditor({ user, setUser }) {
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
-  const handlePhoto = (e) => {
+  const handlePhoto = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 400_000) {
-      alert("Please choose an image under 400KB.");
+    if (!file.type.startsWith("image/")) {
+      toastError("Please choose a JPEG or PNG image.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => set("photoUrl", reader.result);
-    reader.readAsDataURL(file);
+    if (file.size > 5_000_000) {
+      toastError("Please choose an image under 5MB.");
+      return;
+    }
+    try {
+      const dataUrl = await resizeImageFile(file);
+      if (dataUrl.length > 500_000) {
+        toastError("Image is still too large after compression. Try a smaller photo.");
+        return;
+      }
+      set("photoUrl", dataUrl);
+    } catch {
+      toastError("Could not process that image. Try a different file.");
+    }
   };
 
   const addSlot = () => {
@@ -90,7 +103,7 @@ export default function ProfileEditor({ user, setUser }) {
       });
       const data = await res.json();
       if (data.error) {
-        setMessage(data.error.message || "Failed to save.");
+        toastError(data.error.message || "Failed to save.");
       } else {
         setMessage("Profile saved successfully.");
         if (setUser) {

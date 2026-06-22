@@ -88,6 +88,22 @@ export async function POST(req) {
       return apiError("receiverId and message content are required.", 400, "VALIDATION_ERROR");
     }
 
+    const parsedReceiverId = parseInt(receiverId, 10);
+    if (Number.isNaN(parsedReceiverId)) {
+      return apiError("Invalid receiver.", 400, "VALIDATION_ERROR");
+    }
+    if (parsedReceiverId === session.userId) {
+      return apiError("You cannot message yourself.", 400, "VALIDATION_ERROR");
+    }
+
+    const receiver = await prisma.user.findUnique({
+      where: { id: parsedReceiverId },
+      select: { id: true },
+    });
+    if (!receiver) {
+      return apiError("Recipient not found.", 404, "NOT_FOUND");
+    }
+
     const messaging = await assertFeatureAccess(session.userId, "direct_messaging");
     if (!messaging.allowed) {
       throw new AuthError(
@@ -100,7 +116,7 @@ export async function POST(req) {
     const message = await prisma.message.create({
       data: {
         senderId: session.userId,
-        receiverId: parseInt(receiverId, 10),
+        receiverId: parsedReceiverId,
         content: content.trim(),
       },
       include: {

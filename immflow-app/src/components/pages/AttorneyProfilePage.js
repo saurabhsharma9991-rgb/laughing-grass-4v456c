@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import Tag from "@/components/Tag";
 import { authFetch } from "@/lib/client/auth-storage";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
+import { toastError, toastSuccess } from "@/lib/client/alerts";
 import { usePlatform } from "@/components/PlatformContext";
 
 export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, setPage }) {
@@ -53,13 +54,14 @@ export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, set
         body: JSON.stringify(reviewForm),
       });
       const data = await res.json();
-      if (data.error) alert(data.error.message);
+      if (data.error) toastError(data.error.message);
       else {
         setReviewForm({ rating: 5, comment: "" });
+        toastSuccess("Review submitted.");
         load();
       }
     } catch {
-      alert("Failed to submit review.");
+      toastError("Failed to submit review.");
     } finally {
       setSubmittingReview(false);
     }
@@ -152,13 +154,15 @@ export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, set
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={handleContact}
-          className="mt-8 bg-green hover:bg-green-dark text-white py-3 px-6 rounded-lg border-none cursor-pointer text-sm font-semibold"
-        >
-          Contact attorney
-        </button>
+        {user && user.id !== profile.userId && (
+          <button
+            type="button"
+            onClick={handleContact}
+            className="mt-8 bg-green hover:bg-green-dark text-white py-3 px-6 rounded-lg border-none cursor-pointer text-sm font-semibold"
+          >
+            Contact attorney
+          </button>
+        )}
       </div>
 
       <div className="mt-8 bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 shadow-sm">
