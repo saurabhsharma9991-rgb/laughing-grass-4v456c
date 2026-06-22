@@ -3,6 +3,7 @@ import Avatar from "../Avatar";
 import Tag from "../Tag";
 import { rankAttorneysForMatch } from "@/lib/utils/matcher";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
+import { toastError } from "@/lib/client/alerts";
 import { usePlatform } from "@/components/PlatformContext";
 
 export default function MatcherPage({ user, setPage, setShowAuth }) {
@@ -41,7 +42,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
 
   const runMatch = () => {
     if (!hasMatcher) {
-      alert(
+      toastError(
         "The AI Matcher is not available on your plan. Upgrade from Dashboard → Billing & Subscriptions."
       );
       setPage("dashboard");

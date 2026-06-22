@@ -19,5 +19,7 @@ export function pathForPage(page) {
 
 export function pageForPath(pathname) {
   const normalized = pathname?.replace(/\/$/, "") || "/";
-  return PATH_PAGES[normalized] || PATH_PAGES[pathname] || "home";
+  if (PATH_PAGES[normalized]) return PATH_PAGES[normalized];
+  if (/^\/attorneys\/[^/]+$/.test(normalized)) return "attorneys";
+  return "home";
 }

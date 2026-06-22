@@ -112,6 +112,25 @@ export function parseRateNumber(rateStr) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+/** Filter attorneys by parsed hourly/flat rate (unparseable rates pass when only max is set). */
+export function filterAttorneysByRate(attorneys, { minRate, maxRate } = {}) {
+  const min =
+    minRate != null && String(minRate).trim() !== "" ? parseInt(minRate, 10) : null;
+  const max =
+    maxRate != null && String(maxRate).trim() !== "" ? parseInt(maxRate, 10) : null;
+  if ((min == null || Number.isNaN(min)) && (max == null || Number.isNaN(max))) {
+    return attorneys;
+  }
+
+  return attorneys.filter((a) => {
+    const n = parseRateNumber(a.rate);
+    if (n == null) return max != null && !Number.isNaN(max);
+    if (min != null && !Number.isNaN(min) && n < min) return false;
+    if (max != null && !Number.isNaN(max) && n > max) return false;
+    return true;
+  });
+}
+
 export function scoreAttorneyRelevance(attorney, { text = [], specialty, language, location } = {}) {
   let score = 0;
   const haystack = [

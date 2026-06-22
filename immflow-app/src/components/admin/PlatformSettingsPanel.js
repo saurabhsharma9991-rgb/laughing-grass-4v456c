@@ -5,6 +5,7 @@ import { DEFAULT_FEATURE_FLAGS, PROMO_CODE_TEST } from "@/lib/constants/platform
 import { usePlatform } from "@/components/PlatformContext";
 
 import { authFetch } from "@/lib/client/auth-storage";
+import { toastError, toastSuccess } from "@/lib/client/alerts";
 
 export default function PlatformSettingsPanel({ readOnly = false }) {
   const { refreshPlatform } = usePlatform();
@@ -50,14 +51,14 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert("Platform settings saved.");
+        toastSuccess("Platform settings saved.");
         await refreshPlatform();
         load();
       } else {
-        alert(data.error?.message || "Failed to save settings.");
+        toastError(data.error?.message || "Failed to save settings.");
       }
     } catch {
-      alert("Failed to save settings.");
+      toastError("Failed to save settings.");
     } finally {
       setSaving(false);
     }

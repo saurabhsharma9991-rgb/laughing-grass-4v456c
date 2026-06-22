@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { authFetch } from "@/lib/client/auth-storage";
+import { toastError } from "@/lib/client/alerts";
 import { LISTING_TYPES } from "@/lib/constants/listing-types";
 import TagInput from "../TagInput";
 
@@ -45,14 +46,14 @@ export default function PostPage({ user, setShowAuth, setPage }) {
         if (res.error.code === "PRO_UPGRADE_REQUIRED") {
           setIsUpgradeRequired(true);
         } else {
-          alert(res.error.message || "Failed to create listing.");
+          toastError(res.error.message || "Failed to create listing.");
         }
       } else {
         setSuccess(true);
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to create listing. Please try again.");
+      toastError("Failed to create listing. Please try again.");
     } finally {
       setLoading(false);
     }

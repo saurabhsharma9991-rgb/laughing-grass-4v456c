@@ -19,6 +19,14 @@ const AVAILABILITY_FILTERS = [
   "2 wk wait",
 ];
 
+const MAX_RATE_OPTIONS = [
+  ["", "Any rate"],
+  ["150", "Under $150"],
+  ["200", "Under $200"],
+  ["300", "Under $300"],
+  ["500", "Under $500"],
+];
+
 export default function AttorneysPage({ user, setPage, setShowAuth }) {
   const { canAccess } = usePlatform();
   const hasMessaging = canAccess("direct_messaging", user?.isPro);
@@ -27,6 +35,7 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
   const [location, setLocation] = useState("");
   const [language, setLanguage] = useState("");
   const [availability, setAvailability] = useState("");
+  const [maxRate, setMaxRate] = useState("");
   const [sort, setSort] = useState("relevance");
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +47,7 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
     if (location) params.set("location", location);
     if (language) params.set("language", language);
     if (availability) params.set("availability", availability);
+    if (maxRate) params.set("maxRate", maxRate);
     if (sort) params.set("sort", sort);
     if (selected.length === 1) params.set("specialty", selected[0]);
 
@@ -48,7 +58,7 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
       })
       .catch((err) => console.error("Error loading attorneys:", err))
       .finally(() => setLoading(false));
-  }, [search, location, language, availability, sort, selected]);
+  }, [search, location, language, availability, maxRate, sort, selected]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
@@ -95,7 +105,7 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -116,6 +126,16 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
               <option value="">Any availability</option>
               {AVAILABILITY_FILTERS.filter(Boolean).map((o) => (
                 <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+            <select
+              value={maxRate}
+              onChange={(e) => setMaxRate(e.target.value)}
+              className="text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white"
+              aria-label="Maximum rate"
+            >
+              {MAX_RATE_OPTIONS.map(([value, label]) => (
+                <option key={value || "any"} value={value}>{label}</option>
               ))}
             </select>
           </div>
@@ -166,16 +186,12 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {attorneys.map((a) => (
-                <div key={a.id}>
-                  <AttorneyCard a={a} href={`/attorneys/${a.id}`} />
-                  <button
-                    type="button"
-                    onClick={() => handleContact(a)}
-                    className="w-full mt-2 bg-green hover:bg-green-dark text-white font-semibold text-[11px] py-1.5 rounded-lg border-none cursor-pointer"
-                  >
-                    Message
-                  </button>
-                </div>
+                <AttorneyCard
+                  key={a.id}
+                  a={a}
+                  profileHref={`/attorneys/${a.id}`}
+                  onContact={handleContact}
+                />
               ))}
             </div>
             {attorneys.length === 0 && (

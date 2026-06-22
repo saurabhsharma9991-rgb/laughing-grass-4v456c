@@ -40,7 +40,7 @@ Authenticated routes expect `Authorization: Bearer <jwt>`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/attorneys` | Verified attorney profiles only |
+| GET | `/api/attorneys` | Verified attorney profiles; query: `q`, `location`, `specialty`, `language`, `availability`, `maxRate`, `minRate`, `sort` |
 | GET | `/api/listings` | Job board (`?status=open|filled|closed|all`, default `open`) |
 | GET | `/api/content` | CMS key/value map for public site |
 | GET | `/api/stats` | Live counts: attorneys, listings, languages |

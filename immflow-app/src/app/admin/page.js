@@ -9,6 +9,7 @@ import ListingEditorModal from "@/components/admin/ListingEditorModal";
 import JobCard from "@/components/JobCard";
 import UsersRolesPanel from "@/components/admin/UsersRolesPanel";
 import { authFetch, getStoredUser, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
+import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
 
 export default function AdminPage() {
@@ -210,14 +211,14 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert("CMS content updated successfully on the live database!");
+        toastSuccess("CMS content updated successfully on the live database!");
         loadCmsContent();
       } else {
-        alert("Failed to save: " + (data.error?.message || data.error || "Unknown error"));
+        toastError("Failed to save: " + (data.error?.message || data.error || "Unknown error"));
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to save content. Connection error.");
+      toastError("Failed to save content. Connection error.");
     } finally {
       setSavingCms(false);
     }
@@ -248,10 +249,10 @@ export default function AdminPage() {
           )
         );
       } else {
-        alert(data.error?.message || "Failed to update plan.");
+        toastError(data.error?.message || "Failed to update plan.");
       }
     } catch {
-      alert("Failed to update plan. Connection error.");
+      toastError("Failed to update plan. Connection error.");
     }
   };
 
@@ -268,20 +269,23 @@ export default function AdminPage() {
         setAttorneys(attorneys.map((a) => (a.id === id ? { ...a, isVerified: targetVerified } : a)));
         loadResourcesAndAnalytics();
       } else {
-        alert("Verification update failed: " + (data.error?.message || data.error || ""));
+        toastError("Verification update failed: " + (data.error?.message || data.error || ""));
       }
     } catch (e) {
       console.error(e);
-      alert("Verification update failed. Connection error.");
+      toastError("Verification update failed. Connection error.");
     }
   };
 
   const handleDeleteAttorney = async (id) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this attorney account? This will permanently remove their user account, listings, and profile details."
-      )
-    ) {
+    const confirmed = await confirmDialog({
+      title: "Delete attorney",
+      message:
+        "Are you sure you want to delete this attorney account? This will permanently remove their user account, listings, and profile details.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
     try {
@@ -291,16 +295,22 @@ export default function AdminPage() {
         setAttorneys(attorneys.filter((a) => a.id !== id));
         loadResourcesAndAnalytics();
       } else {
-        alert("Failed to delete attorney: " + (data.error?.message || data.error || ""));
+        toastError("Failed to delete attorney: " + (data.error?.message || data.error || ""));
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to delete attorney. Connection error.");
+      toastError("Failed to delete attorney. Connection error.");
     }
   };
 
   const handleDeleteListing = async (id) => {
-    if (!confirm("Are you sure you want to moderate/delete this job board listing?")) {
+    const confirmed = await confirmDialog({
+      title: "Delete listing",
+      message: "Are you sure you want to moderate/delete this job board listing?",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
     try {
@@ -310,18 +320,18 @@ export default function AdminPage() {
         setListings(listings.filter((l) => l.id !== id));
         loadResourcesAndAnalytics();
       } else {
-        alert("Failed to delete listing: " + (data.error?.message || data.error || ""));
+        toastError("Failed to delete listing: " + (data.error?.message || data.error || ""));
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to delete listing. Connection error.");
+      toastError("Failed to delete listing. Connection error.");
     }
   };
 
   const handleSendBroadcast = async (e) => {
     e.preventDefault();
     if (!announcementSubject || !announcementContent) {
-      alert("Please fill in both the subject and announcement body.");
+      toastError("Please fill in both the subject and announcement body.");
       return;
     }
     setSendingBroadcast(true);
@@ -333,15 +343,15 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Announcement queued for ${data.recipientCount} recipients.`);
+        toastSuccess(`Announcement queued for ${data.recipientCount} recipients.`);
         setAnnouncementSubject("");
         setAnnouncementContent("");
       } else {
-        alert(data.error?.message || data.error || "Broadcast failed.");
+        toastError(data.error?.message || data.error || "Broadcast failed.");
       }
     } catch (e) {
       console.error(e);
-      alert("Broadcast failed. Connection error.");
+      toastError("Broadcast failed. Connection error.");
     } finally {
       setSendingBroadcast(false);
     }
@@ -360,10 +370,10 @@ export default function AdminPage() {
         setEditingAttorney(null);
         loadResourcesAndAnalytics();
       } else {
-        alert(data.error?.message || "Failed to save attorney.");
+        toastError(data.error?.message || "Failed to save attorney.");
       }
     } catch {
-      alert("Failed to save attorney.");
+      toastError("Failed to save attorney.");
     } finally {
       setSavingAttorney(false);
     }
@@ -382,10 +392,10 @@ export default function AdminPage() {
         setEditingListing(null);
         loadResourcesAndAnalytics();
       } else {
-        alert(data.error?.message || "Failed to save listing.");
+        toastError(data.error?.message || "Failed to save listing.");
       }
     } catch {
-      alert("Failed to save listing.");
+      toastError("Failed to save listing.");
     } finally {
       setSavingListing(false);
     }

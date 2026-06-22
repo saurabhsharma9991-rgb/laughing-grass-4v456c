@@ -10,6 +10,8 @@ export async function GET(req) {
       specialty: searchParams.get("specialty") || "",
       language: searchParams.get("language") || "",
       availability: searchParams.get("availability") || "",
+      minRate: searchParams.get("minRate") || "",
+      maxRate: searchParams.get("maxRate") || "",
       sort: searchParams.get("sort") || "relevance",
     });
     return apiSuccess(attorneys);
