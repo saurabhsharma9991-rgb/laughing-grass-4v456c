@@ -4,6 +4,15 @@ import { appBaseUrl } from "@/lib/auth-tokens";
 import { AuthError } from "@/lib/auth/guards.js";
 
 let stripeClient = null;
+let subscriptionPriceCache = null;
+const SUBSCRIPTION_PRICE_CACHE_MS = 5 * 60 * 1000;
+const FALLBACK_SUBSCRIPTION_PRICE = {
+  unitAmount: 3999,
+  currency: "usd",
+  interval: "month",
+  intervalCount: 1,
+  source: "fallback",
+};
 
 export function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY?.trim();
@@ -20,6 +29,44 @@ export function isStripeConfigured() {
       process.env.STRIPE_PRICE_ID?.trim() &&
       process.env.STRIPE_WEBHOOK_SECRET?.trim()
   );
+}
+
+export async function getSubscriptionPrice() {
+  const stripe = getStripe();
+  const priceId = process.env.STRIPE_PRICE_ID?.trim();
+  if (!stripe || !priceId) return FALLBACK_SUBSCRIPTION_PRICE;
+
+  if (
+    subscriptionPriceCache?.priceId === priceId &&
+    Date.now() - subscriptionPriceCache.loadedAt < SUBSCRIPTION_PRICE_CACHE_MS
+  ) {
+    return subscriptionPriceCache.value;
+  }
+
+  let value;
+  try {
+    const price = await stripe.prices.retrieve(priceId);
+    value =
+      price.unit_amount == null
+        ? FALLBACK_SUBSCRIPTION_PRICE
+        : {
+            unitAmount: price.unit_amount,
+            currency: price.currency,
+            interval: price.recurring?.interval || null,
+            intervalCount: price.recurring?.interval_count || 1,
+            source: "stripe",
+          };
+  } catch (error) {
+    console.error("[billing] Failed to retrieve Stripe subscription price:", error.message);
+    value = FALLBACK_SUBSCRIPTION_PRICE;
+  }
+
+  subscriptionPriceCache = {
+    priceId,
+    loadedAt: Date.now(),
+    value,
+  };
+  return value;
 }
 
 export async function getOrCreateStripeCustomer(user) {
