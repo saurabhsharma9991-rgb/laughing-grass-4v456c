@@ -2,6 +2,7 @@ import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import { SiteContentProvider } from "@/components/SiteContentContext";
 import { PlatformProvider } from "@/components/PlatformContext";
 import { AlertProvider } from "@/components/AlertProvider";
+import { I18nProvider } from "@/components/I18nProvider";
 import "./globals.css";
 
 /**
@@ -24,8 +25,9 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "ImmFlow | Immigration Attorney Marketplace",
-  description: "Connect with verified immigration attorneys for hearing coverage, case outsourcing, and referrals.",
+  title: "ImmFlow | Immigration Services Marketplace",
+  description:
+    "Find verified immigration attorneys, certified translators, interpreters, and psychological evaluation professionals.",
 };
 
 export default function RootLayout({ children }) {
@@ -33,11 +35,13 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${jakarta.variable} ${playfair.variable}`}>
       <body>
         <AlertProvider>
-          <PlatformProvider>
-            <SiteContentProvider>
-              {children}
-            </SiteContentProvider>
-          </PlatformProvider>
+          <I18nProvider>
+            <PlatformProvider>
+              <SiteContentProvider>
+                {children}
+              </SiteContentProvider>
+            </PlatformProvider>
+          </I18nProvider>
         </AlertProvider>
       </body>
     </html>

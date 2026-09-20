@@ -11,6 +11,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // This application intentionally starts async data loading from mount
+      // effects. These React Compiler advisory rules are not correctness
+      // errors for the current non-compiler build.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/immutability": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

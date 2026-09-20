@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateUpdateListing } from "@/lib/validators/listings";
-import { updateListing } from "@/lib/services/listings";
+import { updateListing, deleteListing } from "@/lib/services/listings";
 
 export async function PATCH(req, { params }) {
   try {
@@ -25,5 +25,21 @@ export async function PATCH(req, { params }) {
     return apiSuccess(listing);
   } catch (error) {
     return handleApiError(error, "Failed to update listing.");
+  }
+}
+
+export async function DELETE(req, { params }) {
+  try {
+    const session = requireAuth(req);
+    const { id: idParam } = await params;
+    const listingId = parseInt(idParam, 10);
+    if (Number.isNaN(listingId)) {
+      return apiError("Invalid listing id.", 400, "VALIDATION_ERROR");
+    }
+
+    const result = await deleteListing(listingId, { userId: session.userId });
+    return apiSuccess(result);
+  } catch (error) {
+    return handleApiError(error, "Failed to delete listing.");
   }
 }

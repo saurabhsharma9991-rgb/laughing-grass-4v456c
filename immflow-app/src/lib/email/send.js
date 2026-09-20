@@ -319,3 +319,32 @@ export function subscriptionRenewalEmailHtml({ name, renewalDate, amount, portal
 </body>
 </html>`;
 }
+
+export function signupRejectedEmailHtml({ name, reason, supportEmail = "support@myimmflow.com" }) {
+  return `
+<!DOCTYPE html>
+<html>
+<body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #141E30; max-width: 560px;">
+  <h2 style="color: #35577D;">ImmFlow registration update</h2>
+  <p>Hi ${name.replace(/</g, "&lt;")},</p>
+  <p>Thank you for applying to join ImmFlow. After reviewing your registration, we were unable to approve your account at this time.</p>
+  <p style="background:#f5f7fa;padding:12px;border-radius:8px;font-size:14px;">${reason.replace(/</g, "&lt;")}</p>
+  <p>If you believe this is an error, contact us at <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+  <p style="font-size:12px;color:#999;">ImmFlow — U.S. immigration attorney marketplace</p>
+</body>
+</html>`;
+}
+
+export function signupApprovedEmailHtml({ name, loginUrl }) {
+  return `
+<!DOCTYPE html>
+<html>
+<body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #141E30; max-width: 560px;">
+  <h2 style="color: #35577D;">Your ImmFlow account is approved</h2>
+  <p>Hi ${name.replace(/</g, "&lt;")},</p>
+  <p>Great news — your bar credentials have been verified and your ImmFlow attorney account is now active.</p>
+  <p><a href="${loginUrl}" style="display:inline-block;background:#35577D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Log in to ImmFlow</a></p>
+  <p style="font-size:12px;color:#999;">ImmFlow — U.S. immigration attorney marketplace</p>
+</body>
+</html>`;
+}

@@ -1,8 +1,28 @@
 import { prisma } from "@/lib/db";
 import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
-import { validateUpdateListing } from "@/lib/validators/listings";
-import { updateListing } from "@/lib/services/listings";
+import { validateUpdateListing, validateCreateListing } from "@/lib/validators/listings";
+import { updateListing, createListing } from "@/lib/services/listings";
+
+export async function POST(req) {
+  try {
+    await requireAdminPermission(req, "listings", "create");
+    const body = await req.json();
+    const { postedById, ...fields } = body;
+    if (!postedById) return apiError("postedById is required.", 400, "VALIDATION_ERROR");
+
+    const validation = validateCreateListing(fields);
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0];
+      return apiError(firstError, 400, "VALIDATION_ERROR", validation.errors);
+    }
+
+    const listing = await createListing(parseInt(postedById, 10), validation.data);
+    return apiSuccess({ success: true, listing }, 201);
+  } catch (error) {
+    return handleApiError(error, "Failed to create listing.");
+  }
+}
 
 export async function PATCH(req) {
   try {

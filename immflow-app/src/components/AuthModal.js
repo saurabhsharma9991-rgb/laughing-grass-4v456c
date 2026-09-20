@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useI18n } from "@/components/I18nProvider";
+import DynamicProfileFields from "@/components/DynamicProfileFields";
 
 export default function AuthModal({
   onClose,
@@ -7,23 +9,50 @@ export default function AuthModal({
   resetToken: resetTokenProp = "",
   initialError = "",
 }) {
+  const { t, locale } = useI18n();
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resetToken, setResetToken] = useState(resetTokenProp);
   const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState("attorney");
+  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     setMode(initialMode);
     if (resetTokenProp) setResetToken(resetTokenProp);
     if (initialError) setError(initialError);
   }, [initialMode, resetTokenProp, initialError]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCategories(data.filter((c) => c.slug !== "attorney"));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [barNumber, setBarNumber] = useState("");
   const [state, setState] = useState("");
+  const [translatorType, setTranslatorType] = useState("Professional Translator");
+  const [sourceLang, setSourceLang] = useState("");
+  const [targetLang, setTargetLang] = useState("English");
+  const [offersCertified, setOffersCertified] = useState(true);
+  const [turnaroundDays, setTurnaroundDays] = useState("3");
+  const [basePrice, setBasePrice] = useState("49");
+  const [dynamicProfileData, setDynamicProfileData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const selectedCategory = categories.find((c) => String(c.id) === String(categoryId));
+  const isTranslationSignup =
+    accountType === "provider" && selectedCategory?.slug === "translation";
 
   const handleSignupLogin = async () => {
     setError("");
@@ -34,30 +63,77 @@ export default function AuthModal({
       if (mode === "signup") {
         if (!name.trim()) {
           setError("Full name is required.");
+          setLoading(false);
           return;
         }
-        if (!barNumber.trim()) {
-          setError("Bar number is required.");
+        if (accountType === "attorney") {
+          if (!barNumber.trim()) {
+            setError("Bar number is required.");
+            setLoading(false);
+            return;
+          }
+          if (!state.trim()) {
+            setError("State bar is required.");
+            setLoading(false);
+            return;
+          }
+        }
+        if (accountType === "provider" && !categoryId) {
+          setError("Please select a service category.");
+          setLoading(false);
           return;
         }
-        if (!state.trim()) {
-          setError("State bar is required.");
-          return;
+        if (isTranslationSignup) {
+          if (!sourceLang || !targetLang) {
+            setError("Add at least one language pair (source and target).");
+            setLoading(false);
+            return;
+          }
         }
         if (password.length < 8) {
           setError("Password must be at least 8 characters.");
+          setLoading(false);
           return;
         }
+
+        const payload = {
+          email,
+          password,
+          accountType,
+          data: {
+            full_name: name,
+            locale,
+            ...(accountType === "attorney"
+              ? { bar_number: barNumber, bar_state: state }
+              : {}),
+            ...(accountType === "provider"
+              ? {
+                  category_id: Number(categoryId),
+                  ...(isTranslationSignup
+                    ? {
+                        translator_type: translatorType,
+                        offers_certified: offersCertified,
+                        turnaround_days: Number(turnaroundDays) || 3,
+                        rush_available: true,
+                        base_price_cents: Math.round((Number(basePrice) || 49) * 100),
+                        rate: `$${Number(basePrice) || 49}`,
+                        language_pairs: [
+                          { source: sourceLang, target: targetLang },
+                        ],
+                        languages: [sourceLang, targetLang].filter(Boolean),
+                        profile_data: dynamicProfileData,
+                      }
+                    : { profile_data: dynamicProfileData }),
+                }
+              : {}),
+          },
+        };
 
         const response = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({
-            email,
-            password,
-            data: { full_name: name, bar_number: barNumber, bar_state: state },
-          }),
+          body: JSON.stringify(payload),
         });
         const res = await response.json();
 
@@ -244,34 +320,157 @@ export default function AuthModal({
         {mode === "signup" && (
           <>
             <div className="mb-4">
-              <div className="text-xs font-medium text-muted mb-1">Full name</div>
+              <div className="text-xs font-medium text-muted mb-1">{t("auth.signupAs", "Sign up as")}</div>
+              <select
+                value={accountType}
+                onChange={(e) => setAccountType(e.target.value)}
+                className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
+              >
+                <option value="seeker">{t("auth.seeker", "Client / looking for services")}</option>
+                <option value="attorney">{t("auth.attorney", "Immigration attorney")}</option>
+                <option value="provider">{t("auth.provider", "Service provider")}</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <div className="text-xs font-medium text-muted mb-1">{t("auth.fullName", "Full name")}</div>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Jane Smith, Esq."
+                placeholder="Jane Smith"
                 className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              <div>
-                <div className="text-xs font-medium text-muted mb-1">Bar number</div>
-                <input
-                  value={barNumber}
-                  onChange={(e) => setBarNumber(e.target.value)}
-                  placeholder="e.g. 123456"
-                  className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
+            {accountType === "attorney" && (
+              <div className="grid grid-cols-2 gap-2.5 mb-4">
+                <div>
+                  <div className="text-xs font-medium text-muted mb-1">{t("auth.barNumber", "Bar number")}</div>
+                  <input
+                    value={barNumber}
+                    onChange={(e) => setBarNumber(e.target.value)}
+                    placeholder="e.g. 123456"
+                    className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs font-medium text-muted mb-1">{t("auth.stateBar", "State bar")}</div>
+                  <input
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    placeholder="e.g. CA"
+                    className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
+                  />
+                </div>
+              </div>
+            )}
+            {accountType === "provider" && (
+              <div className="mb-4">
+                <div className="text-xs font-medium text-muted mb-1">{t("auth.selectCategory", "Service category")}</div>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
+                >
+                  <option value="">Select…</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {isTranslationSignup && (
+              <div className="mb-4 space-y-3 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+                <div className="text-xs font-semibold text-text">Translator details</div>
+                <div>
+                  <div className="text-xs font-medium text-muted mb-1">Provider type</div>
+                  <select
+                    value={translatorType}
+                    onChange={(e) => setTranslatorType(e.target.value)}
+                    className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white"
+                  >
+                    <option>Certified Translator</option>
+                    <option>Professional Translator</option>
+                    <option>Translation Agency</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-xs font-medium text-muted mb-1">Source language</div>
+                    <input
+                      value={sourceLang}
+                      onChange={(e) => setSourceLang(e.target.value)}
+                      placeholder="e.g. Hindi"
+                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted mb-1">Target language</div>
+                    <input
+                      value={targetLang}
+                      onChange={(e) => setTargetLang(e.target.value)}
+                      placeholder="e.g. English"
+                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-xs font-medium text-muted mb-1">Base price (USD)</div>
+                    <input
+                      type="number"
+                      min="15"
+                      value={basePrice}
+                      onChange={(e) => setBasePrice(e.target.value)}
+                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted mb-1">Turnaround (days)</div>
+                    <input
+                      type="number"
+                      min="1"
+                      value={turnaroundDays}
+                      onChange={(e) => setTurnaroundDays(e.target.value)}
+                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-text">
+                  <input
+                    type="checkbox"
+                    checked={offersCertified}
+                    onChange={(e) => setOffersCertified(e.target.checked)}
+                  />
+                  I offer certified / attested translations
+                </label>
+                <p className="text-[10px] text-muted leading-relaxed">
+                  Do not claim blanket “USCIS certified” status. Verification is granted by ImmFlow admins after review.
+                </p>
+              </div>
+            )}
+            {accountType === "provider" && selectedCategory?.profileSchema && (
+              <div className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+                <div className="text-xs font-semibold text-text mb-3">
+                  {selectedCategory.name} profile
+                </div>
+                <DynamicProfileFields
+                  schema={selectedCategory.profileSchema}
+                  values={dynamicProfileData}
+                  onChange={setDynamicProfileData}
+                  excludeKeys={
+                    isTranslationSignup
+                      ? [
+                          "translatorType",
+                          "languagePairs",
+                          "turnaround",
+                          "rushAvailable",
+                        ]
+                      : []
+                  }
                 />
               </div>
-              <div>
-                <div className="text-xs font-medium text-muted mb-1">State bar</div>
-                <input
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="e.g. CA"
-                  className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-                />
-              </div>
-            </div>
+            )}
           </>
         )}
 

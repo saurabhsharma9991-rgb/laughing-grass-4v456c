@@ -1,9 +1,9 @@
 # ImmFlow Platform
 
-ImmFlow is a marketplace for U.S. immigration attorneys: hearing coverage, case outsourcing, job listings, and AI-assisted matching.
+ImmFlow is an immigration-services marketplace for clients, attorneys, translators, interpreters, and licensed psychological-service professionals. The attorney job board and professional network remain available alongside the service marketplace.
 
 **Stack:** React 19 · Next.js 16 · MySQL (Prisma) · JWT + httpOnly cookies  
-**Status:** Phase 2 complete on `dev/phase2`
+**Status:** Active marketplace completion and production-hardening pass. See [Requirements audit](docs/REQUIREMENTS_AUDIT.md).
 
 ---
 
@@ -28,7 +28,7 @@ npx prisma db seed
 npm run dev
 ```
 
-**URLs:** [http://localhost:3000](http://localhost:3000) · `/jobs` · `/attorneys` · `/dashboard` · `/admin`  
+**URLs:** [http://localhost:3000](http://localhost:3000) · `/services` · `/jobs` · `/attorneys` · `/dashboard` · `/admin`
 **Admin:** `admin@myimmflow.com` / `password`
 
 ---
@@ -47,9 +47,12 @@ npm run dev
 
 ## Documentation
 
+- [Complete setup, feature, admin, and operations guide](docs/COMPLETE_PLATFORM_GUIDE.md)
 - [API reference](docs/API.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Phase 2 plan](docs/PHASE2.md)
+- [Marketplace tracker](docs/MARKETPLACE.md)
+- [Requirements audit](docs/REQUIREMENTS_AUDIT.md)
 - [Netlify deploy](docs/NETLIFY.md)
 
 ---

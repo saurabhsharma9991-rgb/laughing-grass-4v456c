@@ -2,8 +2,10 @@
 
 **Source:** [Aayush P.pdf](../../Aayush%20P.pdf) project proposal  
 **App:** [myimmflow.com](https://myimmflow.com)  
-**Repo branch:** `dev/phase2`  
-**Last reviewed:** June 17, 2026
+**Repo branch:** current workspace branch  
+**Last reviewed:** September 16, 2026
+
+> This checklist covers the original attorney proposal. For the code-backed audit of both specifications and current remediation status, use [REQUIREMENTS_AUDIT.md](REQUIREMENTS_AUDIT.md). “Complete” in this file means the core repository feature exists; external production configuration is tracked separately.
 
 Legend:
 
@@ -170,15 +172,15 @@ These were listed as already live before backend work:
 | Sub-requirement | Status | Notes |
 |-----------------|--------|-------|
 | View and manage all attorney profiles | `[x]` | Admin → Attorneys; full profile edit |
-| Approve or reject new signups | `[~]` | **Verify / revoke verification** on attorneys; no separate “reject signup” flow |
+| Approve or reject new signups | `[x]` | `signupStatus` + approve/reject UI + rejection email |
 | Manage and moderate listings | `[x]` | Admin → Listings edit/delete |
-| View subscriber and payment data | `[~]` | Analytics: Pro count + **estimated** revenue ($29 × Pro); no live Stripe dashboard embed |
+| View subscriber and payment data | `[x]` | `/api/admin/billing` — live Stripe MRR + recent charges |
 | Send announcements or emails to users | `[x]` | Admin → Broadcast (Resend/ZeptoMail) |
-| View platform analytics — signups, listings, revenue | `[x]` | Admin → Overview |
+| View platform analytics — signups, listings, revenue | `[x]` | Admin → Overview incl. pending signups |
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| 12 | Admin dashboard | `[~]` |
+| 12 | Admin dashboard | `[x]` |
 
 ---
 
@@ -186,12 +188,12 @@ These were listed as already live before backend work:
 
 | Sub-requirement | Status | Notes |
 |-----------------|--------|-------|
-| Connect AI matcher to real attorney data | `[x]` | Loads `/api/attorneys` |
-| Production AI matching (LLM / advanced) | `[ ]` | Rule-based scoring in `matcher.js`, not external AI API |
+| Connect AI matcher to real attorney data | `[x]` | Loads verified attorneys server-side |
+| Production AI matching (LLM / advanced) | `[x]` | OpenAI via `OPENAI_API_KEY`; rule-based fallback |
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| 13 | AI matcher integration | `[~]` |
+| 13 | AI matcher integration | `[x]` |
 
 ---
 
@@ -200,17 +202,18 @@ These were listed as already live before backend work:
 | Sub-requirement | Status | Notes |
 |-----------------|--------|-------|
 | Password reset email | `[x]` | |
-| Welcome email on signup | `[x]` | |
+| Welcome email on signup | `[x]` | After verification (when approved) |
 | Admin broadcast email | `[x]` | |
-| New application notification | `[ ]` | |
-| New message notification | `[ ]` | |
-| Subscription reminder | `[ ]` | |
+| New application notification | `[x]` | `notifyListingOwnerOfApplication` |
+| New message notification | `[x]` | `notifyReceiverOfMessage` |
+| Subscription reminder | `[x]` | `notifySubscriptionRenewal` |
+| Signup rejection email | `[x]` | Admin reject flow |
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| 14 | Email notifications (full set) | `[~]` |
+| 14 | Email notifications (full set) | `[x]` |
 
-**Phase 3 (PDF) overall:** Mostly complete; gaps: transactional emails, full AI, admin signup reject, Stripe detail view
+**Phase 3 (PDF) overall:** ✅ Complete — see [PHASE3.md](./PHASE3.md)
 
 ---
 
@@ -265,12 +268,13 @@ Built on `dev/phase2` but not in the original proposal:
 |---------|----------|---------|------|
 | Phase 1 — Foundation | 4 | 1 | 0 |
 | Phase 2 — Core Features | 4 | 0 | 0 |
-| Phase 3 — Growth Features | 2 | 3 | 0 |
+| Phase 3 — Growth Features | 5 | 0 | 0 |
 | Additional (beyond PDF) | 18 | 0 | 0 |
 
-**Proposal scope (Phases 1–3):** ~85% complete in code  
+**Proposal scope (Phases 1–3):** ✅ complete in code  
 **PDF Phase 2 (profiles, listings, search, applications):** ✅ complete  
-**Remaining proposal gaps:** full AI matcher, admin signup reject flow, production deploy verification
+**PDF Phase 3 (messaging, billing, admin, AI, email):** ✅ complete — [PHASE3.md](./PHASE3.md)  
+**Production ops:** verify Stripe webhook secret + run pending migrations on DigitalOcean
 
 ---
 
@@ -360,7 +364,11 @@ Manual checks:
 - [x] Email on new application (to listing owner)
 - [x] Email on new message
 - [x] Subscription renewal reminder emails
-- [ ] External AI API for matcher (OpenAI / etc.)
+- [x] External AI API for matcher (OpenAI / etc.)
+- [x] Admin signup approve/reject flow
+- [x] Live Stripe billing summary in admin
+- [x] Promo expiration enforcement
+- [x] Checkout session sync fallback (`/api/billing/sync`)
 - [ ] Admin “reject signup” workflow (vs verify-only)
 
 ---

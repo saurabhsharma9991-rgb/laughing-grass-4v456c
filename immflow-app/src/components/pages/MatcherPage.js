@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import Avatar from "../Avatar";
 import Tag from "../Tag";
-import { rankAttorneysForMatch } from "@/lib/utils/matcher";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
 import { toastError } from "@/lib/client/alerts";
 import { usePlatform } from "@/components/PlatformContext";
+import { authFetch } from "@/lib/client/auth-storage";
 
 export default function MatcherPage({ user, setPage, setShowAuth }) {
   const { canAccess } = usePlatform();
@@ -19,6 +19,8 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
   const [attorneys, setAttorneys] = useState([]);
   const [matches, setMatches] = useState([]);
   const [attorneyCount, setAttorneyCount] = useState(0);
+  const [matchSource, setMatchSource] = useState("rules");
+  const [matching, setMatching] = useState(false);
 
   useEffect(() => {
     fetch("/api/attorneys")
@@ -52,21 +54,45 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
     setStep(1);
     setProgress(0);
     setChecks([false, false, false, false, false]);
+    setMatching(true);
+
     let i = 0;
     const pcts = [20, 42, 60, 78, 95];
     const tick = () => {
-      if (i >= 5) {
-        const ranked = rankAttorneysForMatch(attorneys, { query, needType, caseType });
-        setMatches(ranked);
-        setTimeout(() => setStep(2), 600);
-        return;
-      }
+      if (i >= 5) return;
       setProgress(pcts[i]);
       setChecks((c) => c.map((v, idx) => (idx <= i ? true : v)));
       i++;
       setTimeout(tick, 700);
     };
     setTimeout(tick, 400);
+
+    authFetch("/api/matcher", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, needType, caseType }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          toastError(data.error.message || "Matcher failed.");
+          setStep(0);
+          return;
+        }
+        setMatches(data.matches || []);
+        setMatchSource(data.source || "rules");
+        if (typeof data.attorneyCount === "number") {
+          setAttorneyCount(data.attorneyCount);
+        }
+        setProgress(100);
+        setChecks([true, true, true, true, true]);
+        setTimeout(() => setStep(2), 600);
+      })
+      .catch(() => {
+        toastError("Unable to run matcher. Please try again.");
+        setStep(0);
+      })
+      .finally(() => setMatching(false));
   };
 
   const handleContactRedirect = (m) => {
@@ -239,6 +265,11 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
         )}
         {step === 2 && (
           <div>
+            {matchSource === "openai" && (
+              <p className="text-[10px] text-green font-semibold uppercase tracking-wider mb-3">
+                Powered by AI analysis
+              </p>
+            )}
             <div className="flex justify-between items-baseline mb-5 gap-3">
               <h2 className="font-syne text-xl md:text-[22px] font-extrabold text-text">
                 {matches.length} attorney{matches.length !== 1 ? "s" : ""} found

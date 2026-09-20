@@ -174,3 +174,14 @@ export async function updateListing(listingId, input, { userId, isAdmin = false 
   const updated = await prisma.listing.update({ where: { id: listingId }, data });
   return formatListing(updated);
 }
+
+export async function deleteListing(listingId, { userId, isAdmin = false } = {}) {
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing) throw new AuthError("Listing not found.", 404, "NOT_FOUND");
+  if (!isAdmin && listing.postedById !== userId) {
+    throw new AuthError("You can only delete your own listings.", 403, "FORBIDDEN");
+  }
+
+  await prisma.listing.delete({ where: { id: listingId } });
+  return { success: true };
+}

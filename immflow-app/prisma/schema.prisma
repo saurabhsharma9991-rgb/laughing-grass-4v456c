@@ -18,6 +18,8 @@ model User {
   verificationToken    String?   @map("verification_token")
   resetToken           String?   @map("reset_token")
   resetTokenExpires    DateTime? @map("reset_token_expires")
+  signupStatus         String    @default("pending") @map("signup_status") // pending, approved, rejected
+  rejectionReason      String?   @map("rejection_reason") @db.Text
   
   // Subscription fields
   isPro               Boolean   @default(false) @map("is_pro")
@@ -28,17 +30,233 @@ model User {
   stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
 
   displayName   String?    @map("display_name")
+  preferredLocale String   @default("en") @map("preferred_locale")
   adminRoleId   Int?       @map("admin_role_id")
   adminRole     AdminRole? @relation(fields: [adminRoleId], references: [id], onDelete: SetNull)
 
   attorney     Attorney?
+  providers    Provider[]
   listings     Listing[]     @relation("PostedBy")
   applications Application[]
   sentMessages Message[]     @relation("Sender")
   receivedMessages Message[] @relation("Receiver")
   reviewsWritten Review[]    @relation("Reviewer")
+  providerReviewsWritten ProviderReview[] @relation("ProviderReviewer")
+  translationOrdersAsClient TranslationOrder[] @relation("TranslationClient")
+  translationFilesUploaded  TranslationOrderFile[] @relation("TranslationFileUploader")
+  serviceBookingsAsClient   ServiceBooking[] @relation("BookingClient")
 
   @@map("users")
+}
+
+/// Admin-creatable marketplace category (attorney, translation, interpreter, psych, …)
+model ServiceCategory {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  description String?  @db.Text
+  icon        String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  /// JSON: category-specific profile field definitions for signup/admin forms
+  profileSchema Json?  @map("profile_schema")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  providers Provider[]
+
+  @@map("service_categories")
+}
+
+/// Universal provider profile (attorney, translator, interpreter, psychologist, …)
+model Provider {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @map("user_id")
+  categoryId         Int      @map("category_id")
+  displayName        String   @map("display_name")
+  initials           String?  @db.VarChar(5)
+  photoUrl           String?  @map("photo_url") @db.MediumText
+  bio                String?  @db.Text
+  location           String?
+  experienceYears    Int?     @map("experience_years")
+  rate               String?
+  availability       String?
+  remoteAvailable    Boolean  @default(true) @map("remote_available")
+  inPersonAvailable  Boolean  @default(false) @map("in_person_available")
+  languages          String?  @db.Text // JSON string array
+  /// pending | verified | rejected | expired | suspended
+  verificationStatus String   @default("pending") @map("verification_status")
+  rejectionReason    String?  @map("rejection_reason") @db.Text
+  stars              Decimal  @default(5.0) @db.Decimal(2, 1)
+  reviewsCount       Int      @default(0) @map("reviews_count")
+  availabilitySlots  Json?    @map("availability_slots")
+  /// Category-specific fields (bar #, license, certification, turnaround, etc.)
+  profileData        Json?    @map("profile_data")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     ServiceCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  credentials  ProviderCredential[]
+  languagePairs ProviderLanguagePair[]
+  reviews      ProviderReview[]
+  translationOrders TranslationOrder[]
+  bookings     ServiceBooking[]
+
+  @@unique([userId, categoryId])
+  @@index([categoryId])
+  @@index([verificationStatus])
+  @@map("providers")
+}
+
+/// Interpreter sessions + psychological evaluation requests
+model ServiceBooking {
+  id               Int       @id @default(autoincrement())
+  clientId         Int       @map("client_id")
+  providerId       Int?      @map("provider_id")
+  /// interpreter | psychological
+  bookingType      String    @map("booking_type")
+  /// pending_payment | requested | confirmed | completed | cancelled | declined | refunded
+  status           String    @default("requested")
+  language         String?
+  sourceLanguage   String?   @map("source_language")
+  targetLanguage   String?   @map("target_language")
+  /// e.g. immigration interview, USCIS appointment, hardship evaluation
+  serviceType      String?   @map("service_type")
+  /// remote | in_person | phone | video | telehealth
+  modality         String    @default("remote")
+  scheduledAt      DateTime? @map("scheduled_at")
+  durationMinutes  Int?      @map("duration_minutes")
+  location         String?
+  /// Hourly or flat quote in cents
+  priceCents       Int?      @map("price_cents")
+  currency         String    @default("usd")
+  stripeCheckoutSessionId String? @unique @map("stripe_checkout_session_id")
+  stripePaymentIntentId String? @map("stripe_payment_intent_id")
+  paidAt           DateTime? @map("paid_at")
+  clientNotes      String?   @map("client_notes") @db.Text
+  providerNotes    String?   @map("provider_notes") @db.Text
+  /// Disclaimer: platform connects users; professionals remain responsible for clinical/interpreting work
+  disclaimerAck    Boolean   @default(false) @map("disclaimer_ack")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  client   User      @relation("BookingClient", fields: [clientId], references: [id], onDelete: Cascade)
+  provider Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([providerId])
+  @@index([bookingType])
+  @@index([status])
+  @@map("service_bookings")
+}
+
+/// Certified / professional translation marketplace orders
+model TranslationOrder {
+  id                      Int       @id @default(autoincrement())
+  clientId                Int       @map("client_id")
+  providerId              Int?      @map("provider_id")
+  sourceLanguage          String    @map("source_language")
+  targetLanguage          String    @map("target_language")
+  documentType            String    @map("document_type")
+  /// standard | certified
+  translationType         String    @default("standard") @map("translation_type")
+  /// regular | rush
+  turnaround              String    @default("regular")
+  /// pending_payment | pending | accepted | in_progress | quality_review | completed | delivered | cancelled | refunded
+  status                  String    @default("pending_payment")
+  priceCents              Int?      @map("price_cents")
+  currency                String    @default("usd")
+  /// What attestation the provider will include (never blanket "USCIS certified")
+  certificationNote       String?   @map("certification_note") @db.Text
+  clientNotes             String?   @map("client_notes") @db.Text
+  providerNotes           String?   @map("provider_notes") @db.Text
+  stripeCheckoutSessionId String?   @unique @map("stripe_checkout_session_id")
+  stripePaymentIntentId   String?   @map("stripe_payment_intent_id")
+  paidAt                  DateTime? @map("paid_at")
+  deliveredAt             DateTime? @map("delivered_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  client   User                   @relation("TranslationClient", fields: [clientId], references: [id], onDelete: Cascade)
+  provider Provider?              @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  files    TranslationOrderFile[]
+
+  @@index([clientId])
+  @@index([providerId])
+  @@index([status])
+  @@map("translation_orders")
+}
+
+model TranslationOrderFile {
+  id           Int      @id @default(autoincrement())
+  orderId      Int      @map("order_id")
+  /// source | delivery | certification
+  kind         String   @default("source")
+  originalName String   @map("original_name")
+  storedName   String   @map("stored_name")
+  relativePath String   @map("relative_path")
+  mimeType     String?  @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  uploadedById Int      @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order      TranslationOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  uploadedBy User             @relation("TranslationFileUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("translation_order_files")
+}
+
+model ProviderCredential {
+  id             Int       @id @default(autoincrement())
+  providerId     Int       @map("provider_id")
+  label          String    // e.g. "State bar", "ATA certification", "License"
+  organization   String?
+  credentialNumber String? @map("credential_number")
+  issuedAt       DateTime? @map("issued_at")
+  expiresAt      DateTime? @map("expires_at")
+  /// pending | verified | rejected | expired
+  status         String    @default("pending")
+  documentUrl    String?   @map("document_url") @db.MediumText
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([expiresAt])
+  @@map("provider_credentials")
+}
+
+model ProviderLanguagePair {
+  id             Int    @id @default(autoincrement())
+  providerId     Int    @map("provider_id")
+  sourceLanguage String @map("source_language")
+  targetLanguage String @map("target_language")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, sourceLanguage, targetLanguage], map: "provider_lang_pairs_unique")
+  @@index([providerId], map: "provider_lang_pairs_provider_idx")
+  @@map("provider_language_pairs")
+}
+
+model ProviderReview {
+  id         Int      @id @default(autoincrement())
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId Int      @map("provider_id")
+  reviewer   User     @relation("ProviderReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewerId Int      @map("reviewer_id")
+  rating     Int
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([providerId, reviewerId], map: "provider_reviews_provider_reviewer_key")
+  @@index([providerId])
+  @@map("provider_reviews")
 }
 
 model Attorney {
@@ -135,6 +353,7 @@ model Message {
 model SiteContent {
   key       String   @id
   value     String   @db.Text
+  translations Json?
   type      String   @default("text") // 'text', 'textarea', 'image', 'number'
   section   String   // e.g. 'home.hero', 'home.stats', 'footer'
   label     String   // Descriptive label in the admin UI

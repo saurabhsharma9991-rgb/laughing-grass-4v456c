@@ -22,6 +22,7 @@ export async function POST(req) {
       email: body.email,
       password: body.password,
       data: body.data,
+      accountType: body.accountType || body.data?.account_type || "attorney",
     });
 
     if (isEmailConfigured()) {
@@ -29,19 +30,23 @@ export async function POST(req) {
         email: user.email,
         name: fullName,
         verificationToken,
+        locale: user.preferredLocale || body.data?.locale || "en",
       });
       logEvent("email", "verification_sent", { userId: user.id });
     } else if (process.env.NODE_ENV !== "production") {
       console.info("[dev] Email verification link:", buildVerificationUrl(verificationToken));
     }
 
+    const needsApproval = user.signupStatus === "pending";
     return apiSuccess(
       {
         success: true,
         requiresVerification: true,
+        pendingApproval: needsApproval,
         email: user.email,
-        message:
-          "Account created. Check your email for a verification link before logging in.",
+        message: needsApproval
+          ? "Account created. Check your email for a verification link. After verifying, your registration will be reviewed by our team before you can log in."
+          : "Account created. Check your email for a verification link before logging in.",
       },
       201
     );

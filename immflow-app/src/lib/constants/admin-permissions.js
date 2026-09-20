@@ -25,6 +25,36 @@ export const ADMIN_RESOURCES = {
     description: "Job board listings moderation",
     actions: ["view", "create", "edit", "delete"],
   },
+  categories: {
+    label: "Service categories",
+    description: "Marketplace categories (attorney, translation, interpreter, …)",
+    actions: ["view", "create", "edit", "delete"],
+  },
+  providers: {
+    label: "Providers",
+    description: "All marketplace provider profiles and verification",
+    actions: ["view", "create", "edit", "delete"],
+  },
+  orders: {
+    label: "Translation orders",
+    description: "Moderate translation marketplace orders and assignments",
+    actions: ["view", "edit"],
+  },
+  bookings: {
+    label: "Bookings",
+    description: "Interpreter and psychological evaluation bookings",
+    actions: ["view", "edit"],
+  },
+  applications: {
+    label: "Applications",
+    description: "Review and moderate job board applications",
+    actions: ["view", "edit", "delete"],
+  },
+  reviews: {
+    label: "Reviews",
+    description: "Moderate attorney peer reviews",
+    actions: ["view", "delete"],
+  },
   broadcast: {
     label: "Broadcast emails",
     description: "Send announcements to all users",
@@ -94,6 +124,12 @@ export const TAB_PERMISSIONS = {
   settings: ["settings", "view"],
   attorneys: ["attorneys", "view"],
   listings: ["listings", "view"],
+  categories: ["categories", "view"],
+  providers: ["providers", "view"],
+  orders: ["orders", "view"],
+  bookings: ["bookings", "view"],
+  applications: ["applications", "view"],
+  reviews: ["reviews", "view"],
   broadcast: ["broadcast", "view"],
   users: ["users", "view"],
 };

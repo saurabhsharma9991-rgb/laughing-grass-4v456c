@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import Avatar from "../Avatar";
 import AttorneyCard from "../AttorneyCard";
+import ProviderCard from "../ProviderCard";
 import { useContent } from "../SiteContentContext";
+import { useI18n } from "../I18nProvider";
 
 const AI_PREVIEW_SCORES = [97, 91, 88];
 const AI_PREVIEW_FALLBACK = [
@@ -10,11 +13,23 @@ const AI_PREVIEW_FALLBACK = [
   { id: "p3", initials: "SP", bg: "#EEEDFE", fg: "#3C3489", name: "Sunita Patel, Esq.", location: "Chicago, IL" },
 ];
 
+const CATEGORY_ICONS = {
+  attorney: "⚖️",
+  translation: "📄",
+  interpreter: "🎙️",
+  psychological: "🧠",
+};
+
 export default function HomePage({ setPage, setShowAuth }) {
   const { get } = useContent();
+  const { t } = useI18n();
   const [attorneys, setAttorneys] = useState([]);
   const [featuredAttorneys, setFeaturedAttorneys] = useState([]);
   const [liveStats, setLiveStats] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [serviceQuery, setServiceQuery] = useState("");
+  const [finding, setFinding] = useState(false);
+  const [finderResult, setFinderResult] = useState(null);
 
   useEffect(() => {
     fetch("/api/attorneys")
@@ -36,13 +51,57 @@ export default function HomePage({ setPage, setShowAuth }) {
         if (!data.error) setLiveStats(data);
       })
       .catch(() => {});
+
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setCategories(data);
+      })
+      .catch(() => {});
   }, []);
 
-  const heroBadge = get("home.hero.badge", "Immigration only · Verified attorneys");
-  const heroTitle = get("home.hero.title", "The network built for\nimmigration attorneys");
+  const runServiceFinder = async (e) => {
+    e?.preventDefault();
+    if (!serviceQuery.trim()) {
+      setPage("services");
+      return;
+    }
+    setFinding(true);
+    setFinderResult(null);
+    try {
+      const res = await fetch("/api/service-finder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: serviceQuery }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setPage("services");
+        return;
+      }
+
+      setFinderResult(data);
+
+      // If no inline matches yet, still deep-link into the category directory
+      if (!data.matches?.length && data.categorySlug) {
+        const params = new URLSearchParams({ q: serviceQuery });
+        if (data.filters?.sourceLanguage) params.set("source", data.filters.sourceLanguage);
+        if (data.filters?.targetLanguage) params.set("target", data.filters.targetLanguage);
+        if (data.filters?.language) params.set("language", data.filters.language);
+        window.location.href = `/services/${data.categorySlug}?${params}`;
+      }
+    } catch {
+      setPage("services");
+    } finally {
+      setFinding(false);
+    }
+  };
+
+  const heroBadge = get("home.hero.badge", "Immigration services marketplace");
+  const heroTitle = get("home.hero.title", "Find the right\nimmigration help");
   const heroSubtitle = get(
     "home.hero.subtitle",
-    "Find hearing coverage, outsource cases, post jobs, and connect with fellow immigration practitioners — all in one verified network."
+    "Attorneys, certified translation, interpreters, and psychological evaluations — verified professionals in one place."
   );
   const ctaPrimary = get("home.hero.cta_primary", "Find an attorney");
   const ctaSecondary = get("home.hero.cta_secondary", "Browse job board");
@@ -102,20 +161,22 @@ export default function HomePage({ setPage, setShowAuth }) {
     const parts = text.split("\n");
     return parts.map((part, index) => {
       const lowerPart = part.toLowerCase();
-      const matchWord = "immigration attorneys";
-      if (lowerPart.includes(matchWord)) {
-        const start = lowerPart.indexOf(matchWord);
-        const before = part.substring(0, start);
-        const matched = part.substring(start, start + matchWord.length);
-        const after = part.substring(start + matchWord.length);
-        return (
-          <span key={index}>
-            {index > 0 && <br />}
-            {before}
-            <span className="text-green">{matched}</span>
-            {after}
-          </span>
-        );
+      const highlights = ["immigration help", "immigration attorneys", "immigration services"];
+      for (const matchWord of highlights) {
+        if (lowerPart.includes(matchWord)) {
+          const start = lowerPart.indexOf(matchWord);
+          const before = part.substring(0, start);
+          const matched = part.substring(start, start + matchWord.length);
+          const after = part.substring(start + matchWord.length);
+          return (
+            <span key={index}>
+              {index > 0 && <br />}
+              {before}
+              <span className="text-green">{matched}</span>
+              {after}
+            </span>
+          );
+        }
       }
       return (
         <span key={index}>
@@ -132,46 +193,179 @@ export default function HomePage({ setPage, setShowAuth }) {
 
   return (
     <div>
-      {/* Hero */}
-      <section className="relative bg-hero-light border-b border-[rgba(20,30,48,0.10)] py-16 md:py-20 px-6 overflow-hidden">
+      {/* Marketplace hero */}
+      <section className="relative bg-hero-light border-b border-[rgba(20,30,48,0.10)] py-14 md:py-16 px-6 overflow-hidden">
         <div
           className="pointer-events-none absolute inset-0 opacity-60"
           style={{ background: "var(--gradient-glow)" }}
           aria-hidden
         />
-        <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-[1fr_400px] gap-12 md:gap-16 items-center relative">
-          <div>
-            <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-4">
+        <div className="max-w-[1100px] mx-auto relative">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <div className="font-syne text-[28px] md:text-[34px] font-extrabold text-text mb-2">
+              Imm<span className="text-green">Flow</span>
+            </div>
+            <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
               {heroBadge}
             </div>
-            <h1 className="font-syne text-[42px] md:text-[50px] font-extrabold leading-[1.1] tracking-tight mb-5 text-text">
+            <h1 className="font-syne text-[36px] md:text-[46px] font-extrabold leading-[1.12] tracking-tight mb-4 text-text">
               {formatHeroTitle(heroTitle)}
             </h1>
-            <p className="text-base md:text-[17px] text-muted leading-relaxed mb-8 max-w-lg">
-              {heroSubtitle}
+            <p className="text-base text-muted leading-relaxed">{heroSubtitle}</p>
+          </div>
+
+          <h2 className="font-syne text-xl font-bold text-text text-center mb-5">
+            {t("home.whatDoYouNeed", "What do you need help with?")}
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+            {(categories.length
+              ? categories
+              : [
+                  { slug: "attorney", name: "Immigration Attorneys" },
+                  { slug: "translation", name: "Certified Translation" },
+                  { slug: "interpreter", name: "Interpreters" },
+                  { slug: "psychological", name: "Psychological Services" },
+                ]
+            ).map((c) => (
+              <button
+                key={c.slug}
+                type="button"
+                onClick={() => {
+                  window.location.href = `/services/${c.slug}`;
+                }}
+                className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 text-left cursor-pointer hover:border-green/50 shadow-sm transition-all"
+              >
+                <div className="text-xl mb-2">{CATEGORY_ICONS[c.slug] || "✦"}</div>
+                <div className="font-semibold text-sm text-text">{c.name}</div>
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={runServiceFinder} className="max-w-2xl mx-auto">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-green block mb-2 text-center">
+              {t("home.tellUs", "Tell us what you need...")}
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={serviceQuery}
+                onChange={(e) => setServiceQuery(e.target.value)}
+                placeholder={t(
+                  "home.aiSearchPlaceholder",
+                  "e.g., I need a certified Hindi to English translation."
+                )}
+                className="flex-1 text-sm py-3.5 px-4 border border-[rgba(0,0,0,0.12)] rounded-xl bg-white focus:outline-none focus:border-green shadow-sm"
+              />
+              <button
+                type="submit"
+                disabled={finding}
+                className="bg-green hover:bg-green-dark text-white font-semibold text-sm py-3.5 px-6 rounded-xl border-none cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              >
+                {finding ? "…" : "Find help"}
+              </button>
+            </div>
+          </form>
+
+          {finderResult && (
+            <div className="max-w-3xl mx-auto mt-8 bg-white/90 border border-[rgba(0,0,0,0.09)] rounded-2xl p-5 shadow-sm text-left">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-green">
+                    AI Service Finder
+                    {finderResult.source === "openai" ? " · AI" : " · smart search"}
+                  </div>
+                  <p className="text-sm font-semibold text-text mt-1">
+                    {finderResult.summary || "Matching providers…"}
+                  </p>
+                </div>
+                {finderResult.categorySlug && (
+                  <Link
+                    href={`/services/${finderResult.categorySlug}?q=${encodeURIComponent(serviceQuery)}`}
+                    className="text-xs font-semibold text-green hover:underline"
+                  >
+                    Browse all {finderResult.categorySlug.replace(/_/g, " ")} →
+                  </Link>
+                )}
+              </div>
+              {(finderResult.matches || []).length === 0 ? (
+                <p className="text-xs text-muted">
+                  No verified matches yet in that category. Browse the directory or try another search.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {finderResult.matches.slice(0, 4).map((p) => (
+                    <div key={p.id} className="relative">
+                      {p.matchScore != null && (
+                        <span className="absolute top-2 right-2 z-10 text-[10px] font-bold bg-green-light text-green-dark px-2 py-0.5 rounded">
+                          {p.matchScore}% match
+                        </span>
+                      )}
+                      <ProviderCard provider={p} />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-muted mt-3 leading-relaxed">
+                ImmFlow helps you find professionals. It does not provide legal advice, clinical assessments, or translation certification.
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap justify-center gap-4 mt-8 text-sm">
+            <button
+              type="button"
+              onClick={() => setPage("jobs")}
+              className="text-muted hover:text-green bg-transparent border-none cursor-pointer"
+            >
+              Job board / hearing coverage
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage("matcher")}
+              className="text-muted hover:text-green bg-transparent border-none cursor-pointer"
+            >
+              AI attorney matcher
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAuth(true)}
+              className="text-green font-semibold bg-transparent border-none cursor-pointer"
+            >
+              {ctaTertiary}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Attorney network strip */}
+      <section className="bg-white border-b border-[rgba(20,30,48,0.10)] py-12 px-6">
+        <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-[1fr_360px] gap-10 items-center">
+          <div>
+            <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
+              Attorney network
+            </div>
+            <h2 className="font-syne text-2xl md:text-[28px] font-extrabold text-text mb-3 leading-tight">
+              Hearing coverage, jobs &amp; referrals
+            </h2>
+            <p className="text-sm text-muted leading-relaxed mb-5 max-w-lg">
+              Attorneys can still post listings, find coverage, and connect peer-to-peer — alongside the services marketplace.
             </p>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setPage("attorneys")}
-                className="bg-green text-white py-3 px-[26px] rounded-lg text-[15px] font-medium border-none cursor-pointer hover:bg-green-dark transition-all duration-200"
+                className="bg-green text-white py-2.5 px-5 rounded-lg text-sm font-medium border-none cursor-pointer hover:bg-green-dark"
               >
                 {ctaPrimary}
               </button>
               <button
                 onClick={() => setPage("jobs")}
-                className="bg-transparent text-text py-3 px-[26px] rounded-lg text-[15px] font-medium border border-[rgba(0,0,0,0.15)] cursor-pointer hover:bg-bg transition-all duration-200"
+                className="bg-transparent text-text py-2.5 px-5 rounded-lg text-sm font-medium border border-[rgba(0,0,0,0.15)] cursor-pointer hover:bg-bg"
               >
                 {ctaSecondary}
               </button>
-              <button
-                onClick={() => setShowAuth(true)}
-                className="bg-transparent text-green py-3 px-[26px] rounded-lg text-[15px] font-medium border border-green cursor-pointer hover:bg-green-light transition-all duration-200"
-              >
-                {ctaTertiary}
-              </button>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-[rgba(0,0,0,0.09)] p-6 mt-8 md:mt-0">
+          <div className="bg-bg rounded-2xl border border-[rgba(0,0,0,0.09)] p-5">
             <div className="text-[11px] font-medium tracking-wider uppercase text-green mb-3">
               ✦ AI matched for you
             </div>
@@ -186,16 +380,14 @@ export default function HomePage({ setPage, setShowAuth }) {
                   <div className="text-[11px] text-muted">{a.location}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[13px] font-medium text-green">
-                    {AI_PREVIEW_SCORES[i]}%
-                  </div>
+                  <div className="text-[13px] font-medium text-green">{AI_PREVIEW_SCORES[i]}%</div>
                   <div className="text-[10px] text-muted-high">fit score</div>
                 </div>
               </div>
             ))}
             <button
               onClick={() => setPage("matcher")}
-              className="bg-green text-white w-full mt-4 py-2.5 rounded-lg border-none cursor-pointer text-[13px] font-medium hover:bg-green-dark transition-all duration-200"
+              className="bg-green text-white w-full mt-4 py-2.5 rounded-lg border-none cursor-pointer text-[13px] font-medium hover:bg-green-dark"
             >
               Run AI match ✦
             </button>

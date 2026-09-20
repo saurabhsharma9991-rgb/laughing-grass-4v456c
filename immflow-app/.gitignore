@@ -43,3 +43,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Uploaded documents (translation orders, etc.)
+/uploads
+!/uploads/.gitkeep

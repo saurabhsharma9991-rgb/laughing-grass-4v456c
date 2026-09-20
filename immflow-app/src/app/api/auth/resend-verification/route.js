@@ -23,6 +23,7 @@ export async function POST(req) {
           email: result.user.email,
           name: result.fullName,
           verificationToken: result.verificationToken,
+          locale: result.user.preferredLocale || "en",
         });
         logEvent("email", "verification_resent", { userId: result.user.id });
       } else if (process.env.NODE_ENV !== "production") {

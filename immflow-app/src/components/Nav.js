@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useContent } from "./SiteContentContext";
+import { useI18n } from "./I18nProvider";
 import { pathForPage } from "@/lib/constants/routes";
 
 export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
   const go = navigate || setPage;
   const { get } = useContent();
+  const { t, locale, setLocale, locales } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const getInitials = (u) => {
@@ -19,15 +21,31 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
   };
 
   const logoText = get("nav.logo_text", "ImmFlow");
-  const loginLabel = get("nav.btn_login", "Log in");
-  const signupLabel = get("nav.btn_signup", "Sign up");
+  const loginLabel = get("nav.btn_login", t("nav.login", "Log in"));
+  const signupLabel = get("nav.btn_signup", t("nav.signup", "Sign up"));
 
   const navLinks = [
-    ["Find attorneys", "attorneys"],
-    ["Job board", "jobs"],
-    ["Network", "network"],
-    ["AI matcher", "matcher"],
+    [t("nav.services", "Services"), "services"],
+    [t("nav.findAttorneys", "Find attorneys"), "attorneys"],
+    [t("nav.jobBoard", "Job board"), "jobs"],
+    [t("nav.network", "Network"), "network"],
+    [t("nav.aiMatcher", "AI matcher"), "matcher"],
   ];
+
+  const languageSelect = (
+    <select
+      value={locale}
+      onChange={(e) => setLocale(e.target.value)}
+      aria-label={t("nav.language", "Language")}
+      className="text-xs py-1.5 px-2 rounded-lg border border-[rgba(0,0,0,0.12)] bg-white text-text cursor-pointer max-w-[120px]"
+    >
+      {locales.map((l) => (
+        <option key={l.code} value={l.code}>
+          {l.nativeLabel}
+        </option>
+      ))}
+    </select>
+  );
 
   return (
     <nav className="bg-nav border-b border-[rgba(20,30,48,0.12)] sticky top-0 z-50 backdrop-blur-sm">
@@ -46,7 +64,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
           )}
         </Link>
 
-        <div className="hidden md:flex gap-6 items-center">
+        <div className="hidden md:flex gap-5 items-center">
           {navLinks.map(([label, key]) => (
             <Link
               key={key}
@@ -59,6 +77,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
               {label}
             </Link>
           ))}
+          {languageSelect}
           {user ? (
             <Link
               href={user.role === "admin" ? "/admin" : pathForPage("dashboard")}
@@ -86,7 +105,8 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
           )}
         </div>
 
-        <div className="md:hidden flex items-center">
+        <div className="md:hidden flex items-center gap-2">
+          {languageSelect}
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}

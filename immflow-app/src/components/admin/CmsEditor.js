@@ -9,10 +9,16 @@ export default function CmsEditor({
   cmsFormValues,
   setCmsFormValues,
   onPublish,
+  onCreateField,
+  onDeleteField,
   saving,
   loading,
 }) {
   const [activeSection, setActiveSection] = useState("home.hero");
+  const [newKey, setNewKey] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newType, setNewType] = useState("text");
+  const [editingLocale, setEditingLocale] = useState("en");
 
   const grouped = useMemo(() => {
     const map = {};
@@ -90,35 +96,133 @@ export default function CmsEditor({
           <p className="text-xs text-muted mt-1">{activeMeta?.description}</p>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex flex-wrap gap-1">
+            {[
+              ["en", "English"],
+              ["es", "Español"],
+              ["hi", "हिन्दी"],
+              ["ru", "Русский"],
+              ["zh", "中文"],
+            ].map(([code, label]) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setEditingLocale(code)}
+                className={`text-[10px] px-2 py-1 rounded border ${
+                  editingLocale === code
+                    ? "bg-green text-white"
+                    : "bg-white text-muted"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {activeItems.length === 0 ? (
             <p className="text-sm text-muted">No editable fields in this section.</p>
           ) : (
             activeItems.map((item) => (
-              <div key={item.key}>
+              <div key={item.key} className="relative">
                 <label className="text-xs font-semibold text-text block mb-1.5">
                   {item.label}
                 </label>
                 <p className="text-[10px] text-muted-high mb-1.5 font-mono">{item.key}</p>
                 {item.type === "textarea" ? (
                   <textarea
-                    value={cmsFormValues[item.key] || ""}
+                    value={
+                      cmsFormValues[
+                        editingLocale === "en"
+                          ? item.key
+                          : `${item.key}::${editingLocale}`
+                      ] || ""
+                    }
                     onChange={(e) =>
-                      setCmsFormValues({ ...cmsFormValues, [item.key]: e.target.value })
+                      setCmsFormValues({
+                        ...cmsFormValues,
+                        [editingLocale === "en"
+                          ? item.key
+                          : `${item.key}::${editingLocale}`]: e.target.value,
+                      })
                     }
                     className="w-full p-3 text-sm border border-[rgba(20,30,48,0.15)] rounded-lg min-h-[88px] focus:outline-none focus:border-green bg-bg"
                   />
                 ) : (
                   <input
                     type="text"
-                    value={cmsFormValues[item.key] || ""}
+                    value={
+                      cmsFormValues[
+                        editingLocale === "en"
+                          ? item.key
+                          : `${item.key}::${editingLocale}`
+                      ] || ""
+                    }
                     onChange={(e) =>
-                      setCmsFormValues({ ...cmsFormValues, [item.key]: e.target.value })
+                      setCmsFormValues({
+                        ...cmsFormValues,
+                        [editingLocale === "en"
+                          ? item.key
+                          : `${item.key}::${editingLocale}`]: e.target.value,
+                      })
                     }
                     className="w-full p-3 text-sm border border-[rgba(20,30,48,0.15)] rounded-lg focus:outline-none focus:border-green bg-bg"
                   />
                 )}
+                {onDeleteField && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteField(item.key)}
+                    className="mt-2 text-[10px] text-red bg-transparent border-none cursor-pointer hover:underline"
+                  >
+                    Delete field
+                  </button>
+                )}
               </div>
             ))
+          )}
+          {onCreateField && (
+            <div className="border border-dashed border-[rgba(20,30,48,0.2)] rounded-lg p-4 space-y-2">
+              <div className="text-xs font-semibold text-text">Add field to this section</div>
+              <input
+                type="text"
+                value={newKey}
+                onChange={(e) => setNewKey(e.target.value)}
+                placeholder="Key (e.g. home.hero.cta)"
+                className="w-full p-2 text-xs border rounded-lg"
+              />
+              <input
+                type="text"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="Label shown in admin"
+                className="w-full p-2 text-xs border rounded-lg"
+              />
+              <select
+                value={newType}
+                onChange={(e) => setNewType(e.target.value)}
+                className="w-full p-2 text-xs border rounded-lg bg-white"
+              >
+                <option value="text">Text</option>
+                <option value="textarea">Textarea</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newKey.trim() || !newLabel.trim()) return;
+                  onCreateField({
+                    key: newKey.trim(),
+                    label: newLabel.trim(),
+                    type: newType,
+                    section: activeSection,
+                    value: "",
+                  });
+                  setNewKey("");
+                  setNewLabel("");
+                }}
+                className="text-xs bg-green text-white py-2 px-3 rounded-lg border-none cursor-pointer"
+              >
+                Add field
+              </button>
+            </div>
           )}
         </div>
         <div className="p-4 border-t border-[rgba(20,30,48,0.10)] shrink-0">

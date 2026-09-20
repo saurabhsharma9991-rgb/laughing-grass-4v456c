@@ -13,6 +13,9 @@ if (process.env.NGROK_HOST) {
 
 const nextConfig = {
   allowedDevOrigins,
+  outputFileTracingExcludes: {
+    "/api/translation-orders/[id]/files": ["./uploads/**/*"],
+  },
 };
 
 export default nextConfig;
