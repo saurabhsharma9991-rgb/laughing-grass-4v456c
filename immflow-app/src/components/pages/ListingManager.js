@@ -3,14 +3,15 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/client/auth-storage";
-import { toastError, toastSuccess } from "@/lib/client/alerts";
+import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import {
   APPLICATION_STATUS,
   LISTING_STATUS,
   applicationStatusLabel,
 } from "@/lib/constants/application-status";
+import { LISTING_TYPES as LISTING_TYPE_OPTIONS } from "@/lib/constants/listing-types";
 
-const LISTING_TYPES = ["One-time", "Full-time", "Contract", "Hearing coverage", "Outsource"];
+const LISTING_TYPES = LISTING_TYPE_OPTIONS.map((t) => t.value);
 
 function AppStatusBadge({ status }) {
   const meta = APPLICATION_STATUS[status] || APPLICATION_STATUS.applied;
@@ -220,6 +221,27 @@ export default function ListingManager({ user, setPage }) {
       else load();
     } catch {
       toastError("Failed to update listing status.");
+    }
+  };
+
+  const deleteListing = async (id) => {
+    const ok = await confirmDialog({
+      title: "Delete listing",
+      message: "Permanently delete this listing and all related applications?",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const res = await authFetch(`/api/listings/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.error) toastError(data.error.message);
+      else {
+        toastSuccess("Listing deleted.");
+        load();
+      }
+    } catch {
+      toastError("Failed to delete listing.");
     }
   };
 
@@ -433,6 +455,13 @@ export default function ListingManager({ user, setPage }) {
                           className="text-[11px] font-semibold text-muted border border-[rgba(0,0,0,0.12)] py-2 px-3 rounded-lg cursor-pointer bg-white"
                         >
                           View on job board
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteListing(l.id)}
+                          className="text-[11px] font-semibold text-red border border-red/30 py-2 px-3 rounded-lg cursor-pointer bg-white"
+                        >
+                          Delete listing
                         </button>
                       </div>
 

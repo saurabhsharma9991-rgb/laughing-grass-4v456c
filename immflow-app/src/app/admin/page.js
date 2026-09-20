@@ -8,6 +8,12 @@ import AttorneyEditorModal from "@/components/admin/AttorneyEditorModal";
 import ListingEditorModal from "@/components/admin/ListingEditorModal";
 import JobCard from "@/components/JobCard";
 import UsersRolesPanel from "@/components/admin/UsersRolesPanel";
+import AdminApplicationsPanel from "@/components/admin/AdminApplicationsPanel";
+import AdminReviewsPanel from "@/components/admin/AdminReviewsPanel";
+import AdminCategoriesPanel from "@/components/admin/AdminCategoriesPanel";
+import AdminProvidersPanel from "@/components/admin/AdminProvidersPanel";
+import AdminTranslationOrdersPanel from "@/components/admin/AdminTranslationOrdersPanel";
+import AdminBookingsPanel from "@/components/admin/AdminBookingsPanel";
 import { authFetch, getStoredUser, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
@@ -41,8 +47,12 @@ export default function AdminPage() {
     openListings: 0,
     filledListings: 0,
     proSubscribers: 0,
-    estimatedRevenue: 0
+    pendingSignups: 0,
+    estimatedRevenue: 0,
   });
+  const [billing, setBilling] = useState(null);
+  const [rejectingAttorney, setRejectingAttorney] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   // Announcement Compose
   const [announcementSubject, setAnnouncementSubject] = useState("");
@@ -108,6 +118,10 @@ export default function AdminPage() {
         const formVals = {};
         data.forEach(item => {
           formVals[item.key] = item.value;
+          for (const locale of ["es", "hi", "ru", "zh"]) {
+            formVals[`${item.key}::${locale}`] =
+              item.translations?.[locale] || "";
+          }
         });
         setCmsFormValues(formVals);
       }
@@ -137,15 +151,18 @@ export default function AdminPage() {
       }
       if (check("analytics", "view")) {
         fetches.push(authFetch("/api/admin/analytics").then((r) => r.json()));
+        fetches.push(authFetch("/api/admin/billing").then((r) => r.json()));
       } else {
         fetches.push(Promise.resolve({}));
+        fetches.push(Promise.resolve(null));
       }
 
-      const [dataAttorneys, dataListings, dataAnalytics] = await Promise.all(fetches);
+      const [dataAttorneys, dataListings, dataAnalytics, dataBilling] = await Promise.all(fetches);
 
       if (Array.isArray(dataAttorneys)) setAttorneys(dataAttorneys);
       if (Array.isArray(dataListings)) setListings(dataListings);
       if (!dataAnalytics.error) setAnalytics(dataAnalytics);
+      if (dataBilling && !dataBilling.error) setBilling(dataBilling);
     } catch (e) {
       console.error(e);
     } finally {
@@ -175,7 +192,7 @@ export default function AdminPage() {
         const access = await loadAdminAccess();
         if (access) {
           loadAllData(access);
-          const tabOrder = ["overview", "cms", "settings", "attorneys", "listings", "broadcast", "users"];
+          const tabOrder = ["overview", "cms", "settings", "categories", "providers", "orders", "bookings", "attorneys", "listings", "applications", "reviews", "broadcast", "users"];
           const check = (resource, action) =>
             canPerform(access.permissions, resource, action, { isSuperAdmin: access.isSuperAdmin });
           const firstTab = tabOrder.find((t) => {
@@ -224,6 +241,49 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreateCmsField = async ({ key, value, type, section, label }) => {
+    try {
+      const res = await authFetch("/api/admin/content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value, type, section, label }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toastSuccess("Content field created.");
+        loadCmsContent();
+      } else {
+        toastError(data.error?.message || "Failed to create field.");
+      }
+    } catch {
+      toastError("Failed to create field.");
+    }
+  };
+
+  const handleDeleteCmsField = async (key) => {
+    const ok = await confirmDialog({
+      title: "Delete content field",
+      message: `Delete CMS field "${key}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const res = await authFetch(`/api/admin/content?key=${encodeURIComponent(key)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toastSuccess("Content field deleted.");
+        loadCmsContent();
+      } else {
+        toastError(data.error?.message || "Failed to delete field.");
+      }
+    } catch {
+      toastError("Failed to delete field.");
+    }
+  };
+
   const handleToggleAttorneyPro = async (attorney) => {
     try {
       const targetPro = !attorney.user?.isPro;
@@ -262,18 +322,65 @@ export default function AdminPage() {
       const res = await authFetch("/api/admin/attorneys", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isVerified: targetVerified }),
+        body: JSON.stringify({
+          id,
+          isVerified: targetVerified,
+          ...(targetVerified ? { signupAction: "approve" } : {}),
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        setAttorneys(attorneys.map((a) => (a.id === id ? { ...a, isVerified: targetVerified } : a)));
+        const updated = data.attorney;
+        setAttorneys(
+          attorneys.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  isVerified: updated?.isVerified ?? targetVerified,
+                  user: updated?.user || {
+                    ...a.user,
+                    signupStatus: targetVerified ? "approved" : a.user?.signupStatus,
+                  },
+                }
+              : a
+          )
+        );
         loadResourcesAndAnalytics();
+        toastSuccess(targetVerified ? "Attorney approved and verified." : "Verification revoked.");
       } else {
         toastError("Verification update failed: " + (data.error?.message || data.error || ""));
       }
     } catch (e) {
       console.error(e);
       toastError("Verification update failed. Connection error.");
+    }
+  };
+
+  const handleRejectSignup = async () => {
+    if (!rejectingAttorney) return;
+    try {
+      const res = await authFetch("/api/admin/attorneys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: rejectingAttorney.id,
+          signupAction: "reject",
+          rejectionReason: rejectReason.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const updated = data.attorney;
+        setAttorneys(attorneys.map((a) => (a.id === rejectingAttorney.id ? updated : a)));
+        setRejectingAttorney(null);
+        setRejectReason("");
+        loadResourcesAndAnalytics();
+        toastSuccess("Registration rejected and applicant notified.");
+      } else {
+        toastError(data.error?.message || "Failed to reject signup.");
+      }
+    } catch {
+      toastError("Failed to reject signup. Connection error.");
     }
   };
 
@@ -478,8 +585,14 @@ export default function AdminPage() {
     ["overview", "📊 Overview"],
     ["cms", "✏️ Site content"],
     ["settings", "⚙️ Features & test mode"],
+    ["categories", "🗂️ Categories"],
+    ["providers", "🪪 Providers"],
+    ["orders", "📄 Translation orders"],
+    ["bookings", "📅 Bookings"],
     ["attorneys", "⚖️ Attorneys"],
     ["listings", "📋 Listings"],
+    ["applications", "📨 Applications"],
+    ["reviews", "⭐ Reviews"],
     ["broadcast", "📢 Broadcast"],
     ["users", "👥 Users & roles"],
   ].filter(([key]) => canViewTab(key));
@@ -518,12 +631,13 @@ export default function AdminPage() {
         {activeTab === "overview" && (
           <div>
             <h1 className="font-syne text-2xl font-extrabold text-text mb-6">Overview</h1>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
               {[
                 ["Signups", analytics.totalSignups],
+                ["Pending approval", analytics.pendingSignups ?? 0],
                 ["Listings", analytics.totalListings],
                 ["Pro", analytics.proSubscribers],
-                ["Revenue", `$${analytics.estimatedRevenue}`],
+                ["Est. MRR", billing?.stripe?.configured ? `$${billing.stripe.mrrUsd}` : `$${analytics.estimatedRevenue}`],
               ].map(([lbl, val]) => (
                 <div key={lbl} className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 shadow-sm">
                   <div className="text-[10px] text-muted uppercase font-semibold">{lbl}</div>
@@ -531,6 +645,42 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+            {billing?.stripe?.configured && (
+              <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 shadow-sm">
+                <h2 className="font-syne text-sm font-bold text-text mb-3">Stripe billing</h2>
+                <p className="text-xs text-muted mb-4">
+                  {billing.stripe.activeSubscriptions} active subscription
+                  {billing.stripe.activeSubscriptions !== 1 ? "s" : ""} · MRR ${billing.stripe.mrrUsd}
+                  {billing.promoSubscribers > 0 ? ` · ${billing.promoSubscribers} promo subscriber(s)` : ""}
+                </p>
+                {billing.stripe.recentPayments?.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="text-muted border-b border-[rgba(0,0,0,0.09)]">
+                          <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">Amount</th>
+                          <th className="py-2">Email</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {billing.stripe.recentPayments.map((p) => (
+                          <tr key={p.id} className="border-b border-[rgba(0,0,0,0.05)]">
+                            <td className="py-2 pr-3 text-muted">
+                              {new Date(p.created).toLocaleDateString()}
+                            </td>
+                            <td className="py-2 pr-3 font-semibold">
+                              ${p.amount} {p.currency}
+                            </td>
+                            <td className="py-2 text-muted">{p.email || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -548,6 +698,8 @@ export default function AdminPage() {
               cmsFormValues={cmsFormValues}
               setCmsFormValues={setCmsFormValues}
               onPublish={can("cms", "edit") ? handleSaveCms : undefined}
+              onCreateField={can("cms", "create") ? handleCreateCmsField : undefined}
+              onDeleteField={can("cms", "delete") ? handleDeleteCmsField : undefined}
               saving={savingCms}
               loading={loadingCms}
             />
@@ -563,6 +715,53 @@ export default function AdminPage() {
               Manage Free vs Pro feature access and enable test mode for staging.
             </p>
             <PlatformSettingsPanel readOnly={!can("settings", "edit")} />
+          </div>
+        )}
+
+        {activeTab === "categories" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Service categories</h1>
+            <p className="text-sm text-muted mb-6">
+              Create and manage marketplace categories. New categories can be added without code changes.
+            </p>
+            <AdminCategoriesPanel
+              canCreate={can("categories", "create")}
+              canEdit={can("categories", "edit")}
+              canDelete={can("categories", "delete")}
+            />
+          </div>
+        )}
+
+        {activeTab === "providers" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Providers</h1>
+            <p className="text-sm text-muted mb-6">
+              Verify credentials across all provider types. Only admins can grant verification badges.
+            </p>
+            <AdminProvidersPanel
+              canEdit={can("providers", "edit")}
+              canDelete={can("providers", "delete")}
+            />
+          </div>
+        )}
+
+        {activeTab === "orders" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Translation orders</h1>
+            <p className="text-sm text-muted mb-6">
+              Moderate translation marketplace orders, statuses, and assignments.
+            </p>
+            <AdminTranslationOrdersPanel canEdit={can("orders", "edit")} />
+          </div>
+        )}
+
+        {activeTab === "bookings" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Bookings</h1>
+            <p className="text-sm text-muted mb-6">
+              Interpreter sessions and psychological evaluation requests.
+            </p>
+            <AdminBookingsPanel canEdit={can("bookings", "edit")} />
           </div>
         )}
 
@@ -587,6 +786,7 @@ export default function AdminPage() {
                         <th className="p-3">Rate · Exp</th>
                         <th className="p-3">State bar</th>
                         <th className="p-3">Plan</th>
+                        <th className="p-3 text-center">Signup</th>
                         <th className="p-3 text-center">Verified</th>
                         <th className="p-3 text-right pr-4">Actions</th>
                       </tr>
@@ -630,6 +830,23 @@ export default function AdminPage() {
                             <div className="text-[10px] text-muted-high mt-1">
                               {a.user?.subscriptionPlan || "Free"}
                             </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                a.user?.signupStatus === "approved"
+                                  ? "bg-green-light text-green-dark"
+                                  : a.user?.signupStatus === "rejected"
+                                    ? "bg-red-light text-red"
+                                    : "bg-amber-light text-amber"
+                              }`}
+                            >
+                              {a.user?.signupStatus === "approved"
+                                ? "Approved"
+                                : a.user?.signupStatus === "rejected"
+                                  ? "Rejected"
+                                  : "Pending"}
+                            </span>
                           </td>
                           <td className="p-3 text-center">
                             <span
@@ -679,6 +896,18 @@ export default function AdminPage() {
                                   {a.isVerified ? "Revoke verification" : "Approve & verify"}
                                 </button>
                               )}
+                              {can("attorneys", "edit") && a.user?.signupStatus === "pending" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectingAttorney(a);
+                                    setRejectReason("");
+                                  }}
+                                  className="border-none bg-transparent cursor-pointer font-bold text-[11px] text-red hover:text-red-dark"
+                                >
+                                  Reject signup
+                                </button>
+                              )}
                               {can("attorneys", "delete") && (
                                 <button
                                   type="button"
@@ -700,6 +929,29 @@ export default function AdminPage() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "applications" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Applications</h1>
+            <p className="text-sm text-muted mb-6">
+              Review and moderate all job board applications across the platform.
+            </p>
+            <AdminApplicationsPanel
+              canEdit={can("applications", "edit")}
+              canDelete={can("applications", "delete")}
+            />
+          </div>
+        )}
+
+        {activeTab === "reviews" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Reviews</h1>
+            <p className="text-sm text-muted mb-6">
+              Moderate peer reviews on attorney profiles. Deleting a review recalculates ratings.
+            </p>
+            <AdminReviewsPanel canDelete={can("reviews", "delete")} />
           </div>
         )}
 
@@ -744,6 +996,43 @@ export default function AdminPage() {
 
       {editingAttorney && <AttorneyEditorModal attorney={editingAttorney} onClose={() => setEditingAttorney(null)} onSave={handleSaveAttorney} saving={savingAttorney} />}
       {editingListing && <ListingEditorModal listing={editingListing} onClose={() => setEditingListing(null)} onSave={handleSaveListing} saving={savingListing} />}
+
+      {rejectingAttorney && (
+        <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+            <h2 className="font-syne text-lg font-bold text-text mb-2">Reject signup</h2>
+            <p className="text-sm text-muted mb-4">
+              Reject <strong>{rejectingAttorney.name}</strong>? They will receive an email and cannot log in.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={4}
+              placeholder="Optional reason shown to the applicant"
+              className="w-full text-sm p-3 border border-[rgba(0,0,0,0.15)] rounded-lg mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingAttorney(null);
+                  setRejectReason("");
+                }}
+                className="text-sm py-2 px-4 rounded-lg border border-[rgba(0,0,0,0.15)] bg-transparent cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectSignup}
+                className="text-sm py-2 px-4 rounded-lg border-none bg-red text-white font-semibold cursor-pointer"
+              >
+                Reject signup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

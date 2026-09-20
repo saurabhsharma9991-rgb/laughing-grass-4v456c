@@ -10,8 +10,11 @@ import {
   subscriptionRenewalEmailHtml,
   verifyEmailHtml,
   welcomeEmailHtml,
+  signupRejectedEmailHtml,
+  signupApprovedEmailHtml,
   buildVerificationUrl,
 } from "@/lib/email/send";
+import { emailBody, emailSubject } from "@/lib/email/i18n";
 
 function displayName(user) {
   return user?.attorney?.name || user?.displayName || user?.email?.split("@")[0] || "there";
@@ -39,6 +42,7 @@ export async function notifyListingOwnerOfApplication(listingId, applicantId, me
         select: {
           email: true,
           displayName: true,
+          preferredLocale: true,
           attorney: { select: { name: true } },
         },
       },
@@ -58,18 +62,27 @@ export async function notifyListingOwnerOfApplication(listingId, applicantId, me
   const dashboardUrl = `${appBaseUrl()}/dashboard`;
   const ownerName = displayName(listing.postedBy);
   const applicantName = displayName(applicant);
+  const locale = listing.postedBy.preferredLocale || "en";
+  const localizedText = emailBody(locale, "application", [
+    ownerName,
+    `new application from ${applicantName}`,
+    dashboardUrl,
+  ]);
 
   await sendTransactionalEmail({
     to: listing.postedBy.email,
-    subject: `New application: ${listing.title}`,
-    html: newApplicationEmailHtml({
-      ownerName,
-      listingTitle: listing.title,
-      applicantName,
-      message: message?.trim() || null,
-      dashboardUrl,
-    }),
-    text: `${applicantName} applied to "${listing.title}". Review applicants: ${dashboardUrl}`,
+    subject: `${emailSubject(locale, "newApplication")}: ${listing.title}`,
+    html:
+      locale === "en"
+        ? newApplicationEmailHtml({
+            ownerName,
+            listingTitle: listing.title,
+            applicantName,
+            message: message?.trim() || null,
+            dashboardUrl,
+          })
+        : textEmailHtml(localizedText),
+    text: localizedText,
     event: "application_submitted_owner",
     meta: { listingId, applicantId },
   });
@@ -84,6 +97,7 @@ export async function notifyApplicantOfStatus(applicationId, status) {
         select: {
           email: true,
           displayName: true,
+          preferredLocale: true,
           attorney: { select: { name: true } },
         },
       },
@@ -94,17 +108,26 @@ export async function notifyApplicantOfStatus(applicationId, status) {
   const dashboardUrl = `${appBaseUrl()}/dashboard`;
   const applicantName = displayName(app.applicant);
   const statusLabel = { reviewed: "Reviewed", accepted: "Accepted", rejected: "Update" }[status] || "Update";
+  const locale = app.applicant.preferredLocale || "en";
+  const localizedText = emailBody(locale, "application", [
+    applicantName,
+    status,
+    dashboardUrl,
+  ]);
 
   await sendTransactionalEmail({
     to: app.applicant.email,
-    subject: `${statusLabel}: ${app.listing.title}`,
-    html: applicationStatusEmailHtml({
-      applicantName,
-      listingTitle: app.listing.title,
-      status,
-      dashboardUrl,
-    }),
-    text: `Your application for "${app.listing.title}" was ${status}. View: ${dashboardUrl}`,
+    subject: `${emailSubject(locale, "applicationStatus", statusLabel)}: ${app.listing.title}`,
+    html:
+      locale === "en"
+        ? applicationStatusEmailHtml({
+            applicantName,
+            listingTitle: app.listing.title,
+            status,
+            dashboardUrl,
+          })
+        : textEmailHtml(localizedText),
+    text: localizedText,
     event: "application_status_applicant",
     meta: { applicationId, status },
   });
@@ -117,6 +140,7 @@ export async function notifyReceiverOfMessage({ receiverId, senderId, content })
       select: {
         email: true,
         displayName: true,
+        preferredLocale: true,
         attorney: { select: { name: true } },
       },
     }),
@@ -135,41 +159,52 @@ export async function notifyReceiverOfMessage({ receiverId, senderId, content })
   const dashboardUrl = `${appBaseUrl()}/dashboard`;
   const recipientName = displayName(receiver);
   const senderName = displayName(sender);
+  const locale = receiver.preferredLocale || "en";
+  const localizedText = emailBody(locale, "message", [
+    recipientName,
+    senderName,
+    dashboardUrl,
+  ]);
 
   await sendTransactionalEmail({
     to: receiver.email,
-    subject: `New message from ${senderName}`,
-    html: newMessageEmailHtml({
-      recipientName,
-      senderName,
-      preview: content,
-      dashboardUrl,
-    }),
-    text: `${senderName} sent you a message on ImmFlow. Open: ${dashboardUrl}`,
+    subject: `${emailSubject(locale, "newMessage")} — ${senderName}`,
+    html:
+      locale === "en"
+        ? newMessageEmailHtml({
+            recipientName,
+            senderName,
+            preview: content,
+            dashboardUrl,
+          })
+        : textEmailHtml(localizedText),
+    text: localizedText,
     event: "message_received",
     meta: { receiverId, senderId },
   });
 }
 
-export async function sendVerificationEmail({ email, name, verificationToken }) {
+export async function sendVerificationEmail({ email, name, verificationToken, locale = "en" }) {
   const verifyUrl = buildVerificationUrl(verificationToken);
+  const text = emailBody(locale, "verify", [name || "there", verifyUrl]);
   return sendTransactionalEmail({
     to: email,
-    subject: "Verify your ImmFlow email",
-    html: verifyEmailHtml({ name, verifyUrl }),
-    text: `Verify your ImmFlow email: ${verifyUrl}`,
+    subject: emailSubject(locale, "verify"),
+    html: locale === "en" ? verifyEmailHtml({ name, verifyUrl }) : textEmailHtml(text),
+    text,
     event: "verification_sent",
     meta: { email },
   });
 }
 
-export async function notifyWelcomeAfterVerification({ email, name }) {
+export async function notifyWelcomeAfterVerification({ email, name, locale = "en" }) {
   const dashboardUrl = `${appBaseUrl()}/dashboard`;
+  const text = emailBody(locale, "welcome", [name || "there", dashboardUrl]);
   return sendTransactionalEmail({
     to: email,
-    subject: "Welcome to ImmFlow",
-    html: welcomeEmailHtml({ name, dashboardUrl }),
-    text: `Welcome to ImmFlow, ${name}! Open your dashboard: ${dashboardUrl}`,
+    subject: emailSubject(locale, "welcome"),
+    html: locale === "en" ? welcomeEmailHtml({ name, dashboardUrl }) : textEmailHtml(text),
+    text,
     event: "welcome_sent",
     meta: { email },
   });
@@ -181,6 +216,7 @@ export async function notifySubscriptionRenewal({ userId, renewalDate, amount })
     select: {
       email: true,
       displayName: true,
+      preferredLocale: true,
       attorney: { select: { name: true } },
     },
   });
@@ -188,18 +224,172 @@ export async function notifySubscriptionRenewal({ userId, renewalDate, amount })
 
   const portalUrl = `${appBaseUrl()}/dashboard`;
   const name = displayName(user);
+  const locale = user.preferredLocale || "en";
+  const text = emailBody(locale, "renewal", [name, renewalDate, portalUrl]);
 
   await sendTransactionalEmail({
     to: user.email,
-    subject: "ImmFlow Pro renewal reminder",
-    html: subscriptionRenewalEmailHtml({
-      name,
-      renewalDate,
-      amount,
-      portalUrl,
-    }),
-    text: `Your ImmFlow Pro subscription renews on ${renewalDate}${amount ? ` for ${amount}` : ""}. Manage billing: ${portalUrl}`,
+    subject: emailSubject(locale, "renewal"),
+    html:
+      locale === "en"
+        ? subscriptionRenewalEmailHtml({
+            name,
+            renewalDate,
+            amount,
+            portalUrl,
+          })
+        : textEmailHtml(text),
+    text,
     event: "subscription_renewal_reminder",
     meta: { userId },
+  });
+}
+
+export async function notifySignupRejected({ email, name, reason, locale = "en" }) {
+  if (!email) return false;
+  const text = emailBody(locale, "providerRejected", [name || "there", reason || ""]);
+  return sendTransactionalEmail({
+    to: email,
+    subject: emailSubject(locale, "providerRejected"),
+    html: locale === "en" ? signupRejectedEmailHtml({ name, reason }) : textEmailHtml(text),
+    text,
+    event: "signup_rejected",
+    meta: { email },
+  });
+}
+
+export async function notifySignupApproved({ email, name, locale = "en" }) {
+  if (!email) return false;
+  const loginUrl = `${appBaseUrl()}/dashboard`;
+  const text = emailBody(locale, "providerApproved", [
+    name || "there",
+    "",
+    loginUrl,
+  ]);
+  return sendTransactionalEmail({
+    to: email,
+    subject: emailSubject(locale, "providerApproved"),
+    html:
+      locale === "en"
+        ? signupApprovedEmailHtml({ name, loginUrl })
+        : textEmailHtml(text),
+    text,
+    event: "signup_approved",
+    meta: { email },
+  });
+}
+
+function textEmailHtml(text) {
+  return `<div style="font-family:Arial,sans-serif;line-height:1.6;max-width:600px;margin:auto">${String(
+    text
+  )
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>")}</div>`;
+}
+
+export async function notifyTranslationOrderUpdate(orderId, status) {
+  const order = await prisma.translationOrder.findUnique({
+    where: { id: Number(orderId) },
+    include: {
+      client: {
+        select: { email: true, displayName: true, preferredLocale: true },
+      },
+      provider: {
+        include: {
+          user: {
+            select: { email: true, displayName: true, preferredLocale: true },
+          },
+        },
+      },
+    },
+  });
+  if (!order) return;
+  const url = `${appBaseUrl()}/dashboard?tab=orders`;
+  const recipients = [order.client, order.provider?.user].filter(Boolean);
+  await Promise.all(
+    recipients.map((recipient) => {
+      const locale = recipient.preferredLocale || "en";
+      const text = emailBody(locale, "order", [
+        recipient.displayName || "there",
+        String(status).replace(/_/g, " "),
+        url,
+      ]);
+      return sendTransactionalEmail({
+        to: recipient.email,
+        subject: `${emailSubject(locale, "orderUpdate")} #${order.id}`,
+        text,
+        html: textEmailHtml(text),
+        event: "translation_order_update",
+        meta: { orderId: order.id, status },
+      });
+    })
+  );
+}
+
+export async function notifyBookingUpdate(bookingId, status) {
+  const booking = await prisma.serviceBooking.findUnique({
+    where: { id: Number(bookingId) },
+    include: {
+      client: {
+        select: { email: true, displayName: true, preferredLocale: true },
+      },
+      provider: {
+        include: {
+          user: {
+            select: { email: true, displayName: true, preferredLocale: true },
+          },
+        },
+      },
+    },
+  });
+  if (!booking) return;
+  const url = `${appBaseUrl()}/dashboard?tab=bookings`;
+  const recipients = [booking.client, booking.provider?.user].filter(Boolean);
+  await Promise.all(
+    recipients.map((recipient) => {
+      const locale = recipient.preferredLocale || "en";
+      const text = emailBody(locale, "booking", [
+        recipient.displayName || "there",
+        String(status).replace(/_/g, " "),
+        url,
+      ]);
+      return sendTransactionalEmail({
+        to: recipient.email,
+        subject: `${emailSubject(locale, "bookingUpdate")} #${booking.id}`,
+        text,
+        html: textEmailHtml(text),
+        event: "booking_update",
+        meta: { bookingId: booking.id, status },
+      });
+    })
+  );
+}
+
+export async function notifyCredentialUpdateRequested(providerId, note) {
+  const provider = await prisma.provider.findUnique({
+    where: { id: Number(providerId) },
+    include: {
+      user: {
+        select: { email: true, displayName: true, preferredLocale: true },
+      },
+    },
+  });
+  if (!provider?.user?.email) return;
+  const locale = provider.user.preferredLocale || "en";
+  const url = `${appBaseUrl()}/dashboard?tab=profile`;
+  const text = emailBody(locale, "credential", [
+    provider.displayName || provider.user.displayName || "there",
+    note || "",
+    url,
+  ]);
+  return sendTransactionalEmail({
+    to: provider.user.email,
+    subject: emailSubject(locale, "credentialUpdate"),
+    text,
+    html: textEmailHtml(text),
+    event: "credential_update_requested",
+    meta: { providerId },
   });
 }

@@ -4,12 +4,19 @@ import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { PENDING_CHAT_KEY } from "@/lib/client/start-chat";
 import { pathForPage } from "@/lib/constants/routes";
 import ProfileEditor from "./ProfileEditor";
+import ProviderProfileEditor from "./ProviderProfileEditor";
 import ListingManager from "./ListingManager";
 import MyApplications from "./MyApplications";
+import TranslationOrdersPanel from "./TranslationOrdersPanel";
+import TranslationOrderForm from "@/components/TranslationOrderForm";
+import BookingsPanel from "./BookingsPanel";
+import BookingRequestForm from "@/components/BookingRequestForm";
 import { usePlatform } from "@/components/PlatformContext";
 import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
+import { useI18n } from "@/components/I18nProvider";
 
 export default function Dashboard({ user, setUser, onLogout, setPage }) {
+  const { t } = useI18n();
   const { testMode, canAccess, freeListingLimit } = usePlatform();
   const hasMessaging = canAccess("direct_messaging", user?.isPro);
   const hasMatcher = canAccess("ai_matcher", user?.isPro);
@@ -134,7 +141,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         const updatedUser = { ...user, ...data.user };
         setUser(updatedUser);
         setStoredUser(updatedUser);
-        toastSuccess("Upgraded to Pro (test mode).");
+        toastSuccess(testMode ? "Upgraded to Pro (test mode)." : "Promo applied — welcome to ImmFlow Pro!");
       } else {
         toastError(data.error?.message || "Upgrade failed.");
       }
@@ -180,13 +187,50 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   };
 
   useEffect(() => {
+    if (!user?.id) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("billing") === "success") {
+      const sessionId = params.get("session_id");
+      setUserTab("billing");
+      window.history.replaceState({}, "", `${pathForPage("dashboard")}?tab=billing`);
+
+      if (sessionId) {
+        authFetch("/api/billing/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.success && data.user) {
+              setUser(data.user);
+              setStoredUser(data.user);
+              toastSuccess("ImmFlow Pro activated!");
+            } else {
+              toastError(
+                data.error?.message ||
+                  "Payment received — refresh if Pro is not active yet."
+              );
+            }
+          })
+          .catch(() => {
+            toastError("Payment received — refresh if Pro is not active yet.");
+          });
+      } else {
+        toastSuccess("Payment received! Pro may take a moment to activate.");
+      }
+    }
+  }, [user?.id, setUser]);
+
+  useEffect(() => {
     if (!user?.id || chatBootstrapped.current) return;
 
     const params = new URLSearchParams(window.location.search);
     const chatId = params.get("chat");
     const tab = params.get("tab");
 
-    if (tab) setUserTab(tab);
+    if (tab && params.get("billing") !== "success") setUserTab(tab);
 
     const openPartner = (partner) => {
       if (Number.isNaN(Number(partner.id))) return;
@@ -332,12 +376,14 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       {/* Navigation tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {[
-          ["overview", "🏠 Dashboard"],
-          ["listings", "📋 My listings"],
-          ["applications", "📨 My applications"],
-          ["profile", "👤 My profile"],
-          ["messages", "💬 Chat & Messages"],
-          ["billing", "💳 Billing & Subscriptions"],
+          ["overview", `🏠 ${t("dashboard.overview", "Dashboard")}`],
+          ["orders", `📄 ${t("dashboard.translations", "Translations")}`],
+          ["bookings", `📅 ${t("dashboard.bookings", "Bookings")}`],
+          ["listings", `📋 ${t("dashboard.listings", "My listings")}`],
+          ["applications", `📨 ${t("dashboard.applications", "My applications")}`],
+          ["profile", `👤 ${t("dashboard.profile", "My profile")}`],
+          ["messages", `💬 ${t("dashboard.messages", "Chat & Messages")}`],
+          ["billing", `💳 ${t("dashboard.billing", "Billing & Subscriptions")}`],
         ].map(([tabKey, label]) => {
           const isSel = userTab === tabKey;
           return (
@@ -462,6 +508,49 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         </div>
       )}
 
+      {userTab === "orders" && (
+        <div className="space-y-6">
+          {user?.role !== "provider" && (
+            <TranslationOrderForm
+              user={user}
+              onCreated={() => {
+                /* panel below refreshes on next focus; force remount via key */
+              }}
+            />
+          )}
+          <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
+            <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
+              {user?.role === "provider" ? "Translation jobs" : "My translation orders"}
+            </h2>
+            <TranslationOrdersPanel
+              key={`orders-${user?.id}`}
+              user={user}
+              mode={user?.role === "provider" ? "provider" : "client"}
+            />
+          </div>
+        </div>
+      )}
+
+      {userTab === "bookings" && (
+        <div className="space-y-6">
+          {user?.role !== "provider" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <BookingRequestForm user={user} bookingType="interpreter" />
+              <BookingRequestForm user={user} bookingType="psychological" />
+            </div>
+          )}
+          <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
+            <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
+              {user?.role === "provider" ? "Incoming bookings" : "My bookings"}
+            </h2>
+            <BookingsPanel
+              user={user}
+              mode={user?.role === "provider" ? "provider" : "client"}
+            />
+          </div>
+        </div>
+      )}
+
       {userTab === "applications" && (
         <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
           <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
@@ -474,7 +563,19 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       {/* Tab: Profile editor */}
       {userTab === "profile" && (
         <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
-          <ProfileEditor user={user} setUser={setUser} />
+          {user?.role === "provider" ? (
+            <ProviderProfileEditor />
+          ) : user?.role === "attorney" ? (
+            <ProfileEditor user={user} setUser={setUser} />
+          ) : (
+            <div>
+              <h2 className="font-syne text-lg font-bold">Account profile</h2>
+              <p className="text-sm text-muted mt-2">
+                Your service preferences and bookings are available in this
+                dashboard.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -528,7 +629,8 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                   })}
                   {conversations.length === 0 && (
                     <div className="text-center py-12 text-muted text-xs">
-                      No active conversations. Click "Contact" on attorney profiles to start chatting.
+                      No active conversations. Click &quot;Contact&quot; on
+                      provider profiles to start chatting.
                     </div>
                   )}
                 </div>
@@ -622,7 +724,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
         {userTab === "billing" && (
           <div>
             <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
-              Billing &amp; Subscriptions
+              {t("dashboard.billing", "Billing & Subscriptions")}
             </h2>
 
             <div className="border border-[rgba(0,0,0,0.09)] rounded-xl p-6 max-w-xl">
@@ -697,6 +799,23 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                           </a>
                           .
                         </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value)}
+                            placeholder={`Promo code (e.g. ${PROMO_CODE_TEST})`}
+                            className="flex-1 py-2 px-3 text-xs border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
+                          />
+                          <button
+                            type="button"
+                            disabled={activatingSubscription || !promoCode.trim()}
+                            onClick={() => handleTestUpgrade({ promoCode: promoCode.trim() })}
+                            className="bg-transparent hover:bg-bg text-text border border-[rgba(0,0,0,0.15)] text-xs py-2 px-4 rounded-lg cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                          >
+                            Apply promo
+                          </button>
+                        </div>
                         <button
                           type="button"
                           disabled={startingCheckout}

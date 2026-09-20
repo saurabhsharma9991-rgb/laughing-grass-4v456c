@@ -50,6 +50,59 @@ export async function updateAttorneyProfile(attorneyId, input) {
     include: { user: { select: { email: true, isPro: true } } },
   });
 
+  // Keep the provider-agnostic marketplace profile synchronized with the
+  // legacy Attorney model used by the job board.
+  const providerData = {};
+  if (input.name !== undefined) providerData.displayName = input.name;
+  if (input.initials !== undefined) providerData.initials = input.initials;
+  if (input.location !== undefined) providerData.location = input.location;
+  if (input.experienceYears !== undefined) {
+    providerData.experienceYears = input.experienceYears;
+  }
+  if (input.rate !== undefined) providerData.rate = input.rate;
+  if (input.availability !== undefined) providerData.availability = input.availability;
+  if (input.bio !== undefined) providerData.bio = input.bio;
+  if (input.languages !== undefined) {
+    providerData.languages = stringifyJsonArray(input.languages);
+  }
+  if (input.stars !== undefined) providerData.stars = input.stars;
+  if (input.reviewsCount !== undefined) providerData.reviewsCount = input.reviewsCount;
+  if (input.isVerified !== undefined) {
+    providerData.verificationStatus = input.isVerified ? "verified" : "pending";
+  }
+  if (input.photoUrl !== undefined) providerData.photoUrl = input.photoUrl;
+  if (input.availabilitySlots !== undefined) {
+    providerData.availabilitySlots = Array.isArray(input.availabilitySlots)
+      ? input.availabilitySlots
+      : [];
+  }
+  if (
+    input.barNumber !== undefined ||
+    input.stateBar !== undefined ||
+    input.specialties !== undefined
+  ) {
+    const provider = await prisma.provider.findFirst({
+      where: { userId: existing.userId, category: { slug: "attorney" } },
+      select: { profileData: true },
+    });
+    providerData.profileData = {
+      ...(provider?.profileData && typeof provider.profileData === "object"
+        ? provider.profileData
+        : {}),
+      ...(input.barNumber !== undefined ? { barNumber: input.barNumber } : {}),
+      ...(input.stateBar !== undefined ? { stateBar: input.stateBar } : {}),
+      ...(input.specialties !== undefined
+        ? { specialties: input.specialties }
+        : {}),
+    };
+  }
+  if (Object.keys(providerData).length) {
+    await prisma.provider.updateMany({
+      where: { userId: existing.userId, category: { slug: "attorney" } },
+      data: providerData,
+    });
+  }
+
   return formatAttorneyFull(attorney);
 }
 

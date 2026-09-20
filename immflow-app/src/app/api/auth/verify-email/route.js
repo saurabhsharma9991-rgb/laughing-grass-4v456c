@@ -11,12 +11,29 @@ export async function POST(req) {
 
     const result = await verifyUserEmail(token);
 
-    if (!result.alreadyVerified && isEmailConfigured()) {
+    if (!result.alreadyVerified && !result.pendingApproval && isEmailConfigured()) {
       const name = result.user.user_metadata?.full_name || result.user.email.split("@")[0];
-      void notifyWelcomeAfterVerification({ email: result.user.email, name });
+      void notifyWelcomeAfterVerification({
+        email: result.user.email,
+        name,
+        locale: result.user.preferredLocale || "en",
+      });
     }
 
-    logEvent("auth", "email_verified", { userId: result.user.id, alreadyVerified: result.alreadyVerified });
+    logEvent("auth", "email_verified", {
+      userId: result.user.id,
+      alreadyVerified: result.alreadyVerified,
+      pendingApproval: result.pendingApproval,
+    });
+
+    if (result.pendingApproval || !result.access_token) {
+      return apiSuccess({
+        user: result.user,
+        pendingApproval: true,
+        message:
+          "Email verified. Your account is pending admin approval — we'll email you when you can log in.",
+      });
+    }
 
     return apiSuccessWithSession(
       {

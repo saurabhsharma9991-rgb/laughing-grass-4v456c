@@ -37,7 +37,38 @@ async function run() {
   const attorneys = await get("/api/attorneys");
   checks.push(["GET /api/attorneys", attorneys.status === 200 && Array.isArray(attorneys.json)]);
 
-  for (const route of ["/", "/jobs", "/attorneys", "/network", "/matcher", "/dashboard", "/post"]) {
+  const categories = await get("/api/categories");
+  checks.push([
+    "GET /api/categories",
+    categories.status === 200 &&
+      Array.isArray(categories.json) &&
+      categories.json.length >= 4,
+  ]);
+
+  const providers = await get("/api/providers?category=translation");
+  checks.push([
+    "GET /api/providers",
+    providers.status === 200 && Array.isArray(providers.json),
+  ]);
+
+  const localizedContent = await get("/api/content?locale=es");
+  checks.push([
+    "GET /api/content?locale=es",
+    localizedContent.status === 200 && localizedContent.json?.["help.intro"],
+  ]);
+
+  for (const route of [
+    "/",
+    "/services",
+    "/services/translation",
+    "/help",
+    "/jobs",
+    "/attorneys",
+    "/network",
+    "/matcher",
+    "/dashboard",
+    "/post",
+  ]) {
     const page = await get(route);
     checks.push([`GET ${route}`, page.status === 200 && page.text.includes("Imm")]);
   }

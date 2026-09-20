@@ -22,6 +22,16 @@ export const CMS_SECTION_GROUPS = [
     ],
   },
   {
+    page: "Support",
+    sections: [
+      {
+        id: "help",
+        label: "Help & FAQ",
+        description: "Marketplace help introduction and frequently asked questions",
+      },
+    ],
+  },
+  {
     page: "Footer",
     sections: [
       { id: "footer", label: "Footer", description: "Logo, description, legal" },

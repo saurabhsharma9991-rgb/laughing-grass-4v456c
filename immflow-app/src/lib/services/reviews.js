@@ -4,8 +4,21 @@ import { parseJsonArray } from "@/lib/utils/json-fields";
 import { formatAttorney } from "@/lib/services/attorneys";
 
 export async function createReview(reviewerId, attorneyId, { rating, comment }) {
-  const attorney = await prisma.attorney.findUnique({ where: { id: attorneyId } });
+  const [attorney, reviewer] = await Promise.all([
+    prisma.attorney.findUnique({ where: { id: attorneyId } }),
+    prisma.user.findUnique({
+      where: { id: reviewerId },
+      include: { attorney: true },
+    }),
+  ]);
   if (!attorney) throw new AuthError("Attorney not found.", 404, "NOT_FOUND");
+  if (reviewer?.role !== "attorney" || !reviewer.attorney?.isVerified) {
+    throw new AuthError(
+      "Only verified attorneys can leave attorney peer reviews.",
+      403,
+      "ATTORNEY_REQUIRED"
+    );
+  }
   if (attorney.userId === reviewerId) {
     throw new AuthError("You cannot review your own profile.", 400, "SELF_REVIEW");
   }
@@ -40,8 +53,15 @@ async function recalculateAttorneyRating(attorneyId) {
     _count: { rating: true },
   });
 
-  await prisma.attorney.update({
+  const attorney = await prisma.attorney.update({
     where: { id: attorneyId },
+    data: {
+      stars: agg._avg.rating ?? 5,
+      reviewsCount: agg._count.rating,
+    },
+  });
+  await prisma.provider.updateMany({
+    where: { userId: attorney.userId, category: { slug: "attorney" } },
     data: {
       stars: agg._avg.rating ?? 5,
       reviewsCount: agg._count.rating,
@@ -64,12 +84,49 @@ export async function listReviewsForAttorney(attorneyId) {
 
   return reviews.map((r) => ({
     id: r.id,
+    reviewType: "attorney",
     rating: r.rating,
     comment: r.comment,
     createdAt: r.createdAt,
     reviewerName: r.reviewer.attorney?.name || r.reviewer.displayName || "Attorney",
     reviewerInitials: r.reviewer.attorney?.initials || "AT",
   }));
+}
+
+export async function listAllReviewsForAdmin() {
+  const reviews = await prisma.review.findMany({
+    include: {
+      attorney: { select: { id: true, name: true } },
+      reviewer: {
+        include: {
+          attorney: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  return reviews.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    createdAt: r.createdAt,
+    attorneyId: r.attorneyId,
+    attorneyName: r.attorney.name,
+    reviewerId: r.reviewerId,
+    reviewerName: r.reviewer.attorney?.name || r.reviewer.displayName || "Attorney",
+  }));
+}
+
+export async function deleteReview(reviewId) {
+  const review = await prisma.review.findUnique({ where: { id: Number(reviewId) } });
+  if (!review) throw new AuthError("Review not found.", 404, "NOT_FOUND");
+
+  const attorneyId = review.attorneyId;
+  await prisma.review.delete({ where: { id: review.id } });
+  await recalculateAttorneyRating(attorneyId);
+  return { success: true };
 }
 
 export async function getAttorneyPublicProfile(attorneyId) {

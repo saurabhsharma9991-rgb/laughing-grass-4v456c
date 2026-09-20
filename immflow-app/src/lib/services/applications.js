@@ -154,6 +154,113 @@ export async function updateApplicationStatus(applicationId, ownerUserId, status
   return { success: true, status };
 }
 
+export async function withdrawApplication(applicationId, applicantUserId) {
+  const app = await prisma.application.findUnique({
+    where: { id: Number(applicationId) },
+    include: { listing: { select: { id: true, status: true } } },
+  });
+  if (!app) throw new AuthError("Application not found.", 404, "NOT_FOUND");
+  if (app.applicantId !== applicantUserId) {
+    throw new AuthError("You can only withdraw your own applications.", 403, "FORBIDDEN");
+  }
+  if (app.status === "accepted") {
+    throw new AuthError("Accepted applications cannot be withdrawn.", 400, "INVALID_STATUS");
+  }
+
+  await prisma.$transaction([
+    prisma.application.delete({ where: { id: app.id } }),
+    prisma.listing.update({
+      where: { id: app.listing.id },
+      data: { applicantsCount: { decrement: 1 } },
+    }),
+  ]);
+
+  return { success: true };
+}
+
+export async function listAllApplicationsForAdmin({ status, listingId } = {}) {
+  const where = {};
+  if (status && status !== "all") where.status = status;
+  if (listingId) where.listingId = Number(listingId);
+
+  const applications = await prisma.application.findMany({
+    where,
+    include: {
+      listing: { select: { id: true, title: true, status: true, postedById: true } },
+      applicant: {
+        include: {
+          attorney: { select: { id: true, name: true, location: true, isVerified: true } },
+        },
+      },
+    },
+    orderBy: { appliedAt: "desc" },
+    take: 200,
+  });
+
+  return applications.map((app) => ({
+    id: app.id,
+    status: app.status,
+    message: app.message,
+    appliedAt: app.appliedAt,
+    appliedLabel: formatRelativeTime(app.appliedAt),
+    listing: app.listing,
+    applicant: {
+      userId: app.applicantId,
+      email: app.applicant.email,
+      name: app.applicant.attorney?.name || app.applicant.email?.split("@")[0],
+      location: app.applicant.attorney?.location,
+      attorneyId: app.applicant.attorney?.id,
+      isVerified: app.applicant.attorney?.isVerified,
+    },
+  }));
+}
+
+export async function updateApplicationStatusAsAdmin(applicationId, status) {
+  const allowed = ["applied", "reviewed", "accepted", "rejected"];
+  if (!allowed.includes(status)) {
+    throw new AuthError("Invalid status.", 400, "VALIDATION_ERROR");
+  }
+
+  const app = await prisma.application.findUnique({
+    where: { id: Number(applicationId) },
+    include: { listing: { select: { id: true } } },
+  });
+  if (!app) throw new AuthError("Application not found.", 404, "NOT_FOUND");
+
+  await prisma.application.update({
+    where: { id: app.id },
+    data: { status },
+  });
+
+  if (status === "accepted") {
+    await prisma.listing.update({
+      where: { id: app.listing.id },
+      data: { status: "filled" },
+    });
+  }
+
+  void notifyApplicantOfStatus(app.id, status);
+  return { success: true, status };
+}
+
+export async function deleteApplicationAsAdmin(applicationId) {
+  const app = await prisma.application.findUnique({
+    where: { id: Number(applicationId) },
+    select: { id: true, listingId: true },
+  });
+  if (!app) throw new AuthError("Application not found.", 404, "NOT_FOUND");
+
+  await prisma.$transaction([
+    prisma.application.delete({ where: { id: app.id } }),
+    prisma.listing.update({
+      where: { id: app.listingId },
+      data: { applicantsCount: { decrement: 1 } },
+    }),
+  ]);
+
+  return { success: true };
+}
+
 export async function getPlatformStats() {
   const [attorneyCount, listingCount, attorneys] = await Promise.all([
     prisma.attorney.count({ where: { isVerified: true } }),

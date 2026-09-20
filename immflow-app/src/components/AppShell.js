@@ -14,7 +14,15 @@ import MatcherPage from "@/components/pages/MatcherPage";
 import PostPage from "@/components/pages/PostPage";
 import Dashboard from "@/components/pages/Dashboard";
 import AttorneyProfilePage from "@/components/pages/AttorneyProfilePage";
-import { pageForPath, pathForPage } from "@/lib/constants/routes";
+import ServicesPage from "@/components/pages/ServicesPage";
+import ServiceCategoryPage from "@/components/pages/ServiceCategoryPage";
+import ProviderProfilePage from "@/components/pages/ProviderProfilePage";
+import {
+  pageForPath,
+  pathForPage,
+  serviceSlugFromPath,
+  providerIdFromPath,
+} from "@/lib/constants/routes";
 import {
   getStoredUser,
   setStoredUser,
@@ -26,6 +34,7 @@ import { toastSuccess } from "@/lib/client/alerts";
 
 const PAGES = {
   home: HomePage,
+  services: ServicesPage,
   attorneys: AttorneysPage,
   jobs: JobsPage,
   network: NetworkPage,
@@ -34,7 +43,12 @@ const PAGES = {
   dashboard: Dashboard,
 };
 
-export default function AppShell({ initialPage, attorneyProfileId }) {
+export default function AppShell({
+  initialPage,
+  attorneyProfileId,
+  serviceCategorySlug,
+  providerProfileId,
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [page, setPage] = useState(initialPage || pageForPath(pathname));
@@ -45,6 +59,9 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
   const [user, setUser] = useState(null);
   const [sessionReady, setSessionReady] = useState(false);
   const topRef = useRef(null);
+
+  const categorySlug = serviceCategorySlug || serviceSlugFromPath(pathname);
+  const providerId = providerProfileId || providerIdFromPath(pathname);
 
   const navigate = useCallback(
     (nextPage) => {
@@ -120,6 +137,15 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
             body: JSON.stringify({ token: verifyToken }),
           });
           const data = await res.json();
+          if (data.pendingApproval) {
+            toastSuccess(
+              data.message ||
+                "Email verified. Your account is pending admin approval — we'll notify you when you can log in."
+            );
+            setAuthMode("login");
+            setShowAuth(true);
+            return;
+          }
           if (data.user) {
             setStoredUser(data.user);
             setUser(data.user);
@@ -153,7 +179,7 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
 
   useEffect(() => {
     topRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [page]);
+  }, [page, categorySlug, providerId, attorneyProfileId]);
 
   const handleAuth = (u) => {
     setStoredUser(u);
@@ -172,6 +198,55 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
   };
 
   const PageComponent = PAGES[page] || HomePage;
+  const initialQ =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("q") || ""
+      : "";
+
+  let mainContent = null;
+  if (!sessionReady) {
+    mainContent = <div className="text-center py-24 text-muted text-sm">Loading…</div>;
+  } else if (attorneyProfileId) {
+    mainContent = (
+      <AttorneyProfilePage
+        attorneyId={attorneyProfileId}
+        user={user}
+        setShowAuth={setShowAuth}
+        setPage={navigate}
+      />
+    );
+  } else if (providerId) {
+    mainContent = (
+      <ProviderProfilePage
+        providerId={providerId}
+        user={user}
+        setShowAuth={setShowAuth}
+        setPage={navigate}
+      />
+    );
+  } else if (page === "serviceCategory" && categorySlug) {
+    mainContent = (
+      <ServiceCategoryPage
+        categorySlug={categorySlug}
+        initialQuery={initialQ}
+        setPage={navigate}
+        user={user}
+        setShowAuth={setShowAuth}
+      />
+    );
+  } else {
+    mainContent = (
+      <PageComponent
+        navigate={navigate}
+        setPage={navigate}
+        user={user}
+        setUser={setUser}
+        setShowAuth={setShowAuth}
+        onLogout={handleLogout}
+        initialQuery={initialQ}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-bg text-text">
@@ -194,29 +269,7 @@ export default function AppShell({ initialPage, attorneyProfileId }) {
         />
       )}
 
-      <main className="flex-auto">
-        {sessionReady ? (
-          attorneyProfileId ? (
-            <AttorneyProfilePage
-              attorneyId={attorneyProfileId}
-              user={user}
-              setShowAuth={setShowAuth}
-              setPage={navigate}
-            />
-          ) : (
-            <PageComponent
-              navigate={navigate}
-              setPage={navigate}
-              user={user}
-              setUser={setUser}
-              setShowAuth={setShowAuth}
-              onLogout={handleLogout}
-            />
-          )
-        ) : (
-          <div className="text-center py-24 text-muted text-sm">Loading…</div>
-        )}
-      </main>
+      <main className="flex-auto">{mainContent}</main>
 
       <Footer navigate={navigate} setPage={navigate} />
     </div>

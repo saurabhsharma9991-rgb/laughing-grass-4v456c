@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { authFetch } from "@/lib/client/auth-storage";
+import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import {
   APPLICATION_STATUS,
   applicationStatusLabel,
@@ -26,6 +27,7 @@ function StatusBadge({ status }) {
 export default function MyApplications({ setPage }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [withdrawing, setWithdrawing] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -41,6 +43,30 @@ export default function MyApplications({ setPage }) {
   useEffect(() => {
     load();
   }, []);
+
+  const withdraw = async (id) => {
+    const ok = await confirmDialog({
+      title: "Withdraw application",
+      message: "Remove your application from this listing?",
+      confirmLabel: "Withdraw",
+      danger: true,
+    });
+    if (!ok) return;
+    setWithdrawing(id);
+    try {
+      const res = await authFetch(`/api/applications/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.error) toastError(data.error.message);
+      else {
+        toastSuccess("Application withdrawn.");
+        load();
+      }
+    } catch {
+      toastError("Failed to withdraw application.");
+    } finally {
+      setWithdrawing(null);
+    }
+  };
 
   if (loading) {
     return <div className="text-center py-12 text-muted text-sm">Loading your applications…</div>;
@@ -98,6 +124,16 @@ export default function MyApplications({ setPage }) {
               >
                 Listing: {app.listing?.status}
               </span>
+              {(app.status === "applied" || app.status === "reviewed") && (
+                <button
+                  type="button"
+                  disabled={withdrawing === app.id}
+                  onClick={() => withdraw(app.id)}
+                  className="text-[10px] text-red bg-transparent border-none cursor-pointer font-semibold hover:underline"
+                >
+                  {withdrawing === app.id ? "Withdrawing…" : "Withdraw"}
+                </button>
+              )}
             </div>
           </div>
           {app.status === "accepted" && (

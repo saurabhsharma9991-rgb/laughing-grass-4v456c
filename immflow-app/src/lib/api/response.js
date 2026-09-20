@@ -33,6 +33,17 @@ export function handleApiError(error, fallbackMessage = "An unexpected error occ
   if (error instanceof AuthError) {
     return apiError(error.message, error.status, error.code);
   }
+  if (
+    Number.isInteger(error?.status) &&
+    error.status >= 400 &&
+    error.status < 500
+  ) {
+    return apiError(
+      error.message || fallbackMessage,
+      error.status,
+      error.code || "BAD_REQUEST"
+    );
+  }
 
   console.error("[API]", error);
   const message =

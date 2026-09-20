@@ -2,21 +2,23 @@ import React from "react";
 import Link from "next/link";
 import { useContent } from "./SiteContentContext";
 import { pathForPage } from "@/lib/constants/routes";
+import { useI18n } from "@/components/I18nProvider";
 
 export default function Footer({ navigate, setPage }) {
   const go = navigate || setPage;
   const { get } = useContent();
+  const { t } = useI18n();
 
   const logoText = get("footer.logo_text", "ImmFlow");
-  const description = get("footer.description", "The immigration attorney network. Find coverage, post listings, and connect with fellow practitioners.");
+  const description = get("footer.description", "Find verified immigration service professionals.");
   const copyright = get("footer.copyright", "© 2026 ImmFlow. All rights reserved.");
-  const notes = get("footer.notes", "Immigration attorneys only · Verified network");
+  const notes = get("footer.notes", "Verified providers · Discovery and connection only");
 
   const link = (label, pageKey) => (
     <Link
       key={label}
-      href={pathForPage(pageKey)}
-      onClick={() => go(pageKey)}
+      href={pageKey === "help" ? "/help" : pathForPage(pageKey)}
+      onClick={() => pageKey !== "help" && go(pageKey)}
       className="text-[13px] text-white/65 hover:text-white block mb-2 cursor-pointer transition-all duration-250 no-underline"
     >
       {label}
@@ -61,6 +63,7 @@ export default function Footer({ navigate, setPage }) {
             [
               ["About", "home"],
               ["Contact", "home"],
+              [t("help.title", "Help & FAQ"), "help"],
               ["Terms", "home"],
             ],
           ],

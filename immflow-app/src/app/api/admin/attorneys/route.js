@@ -3,6 +3,7 @@ import { requireAdminPermission } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateAttorneyProfile } from "@/lib/validators/attorney";
 import { updateAttorneyProfile } from "@/lib/services/attorneys";
+import { notifySignupRejected, notifySignupApproved } from "@/lib/email/notify";
 
 export async function GET(req) {
   try {
@@ -10,7 +11,14 @@ export async function GET(req) {
     const attorneys = await prisma.attorney.findMany({
       include: {
         user: {
-          select: { email: true, isPro: true, subscriptionPlan: true },
+          select: {
+            email: true,
+            isPro: true,
+            subscriptionPlan: true,
+            signupStatus: true,
+            rejectionReason: true,
+            emailVerified: true,
+          },
         },
       },
       orderBy: { name: "asc" },
@@ -25,16 +33,51 @@ export async function PATCH(req) {
   try {
     await requireAdminPermission(req, "attorneys", "edit");
     const body = await req.json();
-    const { id, isVerified, isPro, ...profileFields } = body;
+    const { id, isVerified, isPro, signupAction, rejectionReason, ...profileFields } = body;
 
     if (!id) return apiError("id is required.", 400, "VALIDATION_ERROR");
 
     const attorneyId = parseInt(id, 10);
     const existing = await prisma.attorney.findUnique({
       where: { id: attorneyId },
-      select: { userId: true },
+      include: {
+        user: {
+          select: { id: true, email: true },
+        },
+      },
     });
     if (!existing) return apiError("Attorney not found.", 404, "NOT_FOUND");
+
+    if (signupAction === "approve") {
+      await prisma.user.update({
+        where: { id: existing.userId },
+        data: { signupStatus: "approved", rejectionReason: null },
+      });
+      await prisma.attorney.update({
+        where: { id: attorneyId },
+        data: { isVerified: true },
+      });
+      void notifySignupApproved({ email: existing.user.email, name: existing.name });
+    }
+
+    if (signupAction === "reject") {
+      const reason =
+        rejectionReason?.trim() ||
+        "We could not verify your bar credentials against our records.";
+      await prisma.user.update({
+        where: { id: existing.userId },
+        data: { signupStatus: "rejected", rejectionReason: reason },
+      });
+      await prisma.attorney.update({
+        where: { id: attorneyId },
+        data: { isVerified: false },
+      });
+      void notifySignupRejected({
+        email: existing.user.email,
+        name: existing.name,
+        reason,
+      });
+    }
 
     if (isPro !== undefined) {
       await prisma.user.update({
@@ -72,7 +115,16 @@ export async function PATCH(req) {
     const attorney = await prisma.attorney.findUnique({
       where: { id: attorneyId },
       include: {
-        user: { select: { email: true, isPro: true, subscriptionPlan: true } },
+        user: {
+          select: {
+            email: true,
+            isPro: true,
+            subscriptionPlan: true,
+            signupStatus: true,
+            rejectionReason: true,
+            emailVerified: true,
+          },
+        },
       },
     });
 

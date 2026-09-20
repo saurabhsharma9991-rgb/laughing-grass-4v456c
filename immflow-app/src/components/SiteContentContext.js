@@ -1,16 +1,18 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 const SiteContentContext = createContext(null);
 
 export function SiteContentProvider({ children }) {
+  const { locale } = useI18n();
   const [content, setContent] = useState({});
   const [loading, setLoading] = useState(true);
 
   const refreshContent = async () => {
     try {
-      const res = await fetch("/api/content");
+      const res = await fetch(`/api/content?locale=${encodeURIComponent(locale)}`);
       const data = await res.json();
       if (!data.error) {
         setContent(data);
@@ -24,7 +26,7 @@ export function SiteContentProvider({ children }) {
 
   useEffect(() => {
     refreshContent();
-  }, []);
+  }, [locale]);
 
   const get = (key, fallback = "") => {
     return content[key] !== undefined ? content[key] : fallback;
