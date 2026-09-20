@@ -5,6 +5,7 @@ import AttorneyCard from "../AttorneyCard";
 import ProviderCard from "../ProviderCard";
 import { useContent } from "../SiteContentContext";
 import { useI18n } from "../I18nProvider";
+import { usePlatform } from "../PlatformContext";
 
 const AI_PREVIEW_SCORES = [97, 91, 88];
 const AI_PREVIEW_FALLBACK = [
@@ -23,6 +24,12 @@ const CATEGORY_ICONS = {
 export default function HomePage({ setPage, setShowAuth }) {
   const { get } = useContent();
   const { t } = useI18n();
+  const {
+    subscriptionPriceLabel,
+    subscriptionPriceCadence,
+    subscriptionBillingPeriod,
+    loading: platformLoading,
+  } = usePlatform();
   const [attorneys, setAttorneys] = useState([]);
   const [featuredAttorneys, setFeaturedAttorneys] = useState([]);
   const [liveStats, setLiveStats] = useState(null);
@@ -556,8 +563,18 @@ export default function HomePage({ setPage, setShowAuth }) {
                 Most popular
               </span>
               <div className="text-lg font-semibold text-text mb-1">Pro</div>
-              <div className="font-syne text-3xl font-extrabold text-text mb-1">$39<span className="text-base font-normal text-muted">/mo</span></div>
-              <div className="text-xs text-muted mb-5">Billed monthly</div>
+              <div className="font-syne text-3xl font-extrabold text-text mb-1">
+                {subscriptionPriceLabel || "—"}
+                {subscriptionPriceLabel && (
+                  <span className="text-base font-normal text-muted">
+                    {subscriptionPriceCadence}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted mb-5">
+                {subscriptionBillingPeriod ||
+                  (platformLoading ? "Loading current price…" : "Price unavailable")}
+              </div>
               <ul className="text-[13px] text-muted space-y-2 mb-6">
                 <li>✓ Unlimited listings</li>
                 <li>✓ AI matcher access</li>
