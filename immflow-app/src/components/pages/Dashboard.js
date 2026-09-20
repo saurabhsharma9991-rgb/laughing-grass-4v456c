@@ -789,7 +789,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                     ) : (
                       <div className="space-y-3">
                         <p className="text-sm text-muted leading-relaxed">
-                          ImmFlow Pro ($29/month) unlocks premium features. Upgrade securely with
+                          ImmFlow Pro ($39/month) unlocks premium features. Upgrade securely with
                           Stripe, or contact{" "}
                           <a
                             href="mailto:support@myimmflow.com"
@@ -822,7 +822,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                           onClick={handleStripeCheckout}
                           className="bg-green hover:bg-green-dark text-white font-semibold text-sm py-2.5 px-5 rounded-lg border-none cursor-pointer disabled:opacity-50"
                         >
-                          {startingCheckout ? "Redirecting…" : "Upgrade with Stripe — $29/mo"}
+                          {startingCheckout ? "Redirecting…" : "Upgrade with Stripe — $39/mo"}
                         </button>
                       </div>
                     )}
