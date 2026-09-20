@@ -556,7 +556,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                 Most popular
               </span>
               <div className="text-lg font-semibold text-text mb-1">Pro</div>
-              <div className="font-syne text-3xl font-extrabold text-text mb-1">$29<span className="text-base font-normal text-muted">/mo</span></div>
+              <div className="font-syne text-3xl font-extrabold text-text mb-1">$39<span className="text-base font-normal text-muted">/mo</span></div>
               <div className="text-xs text-muted mb-5">Billed monthly</div>
               <ul className="text-[13px] text-muted space-y-2 mb-6">
                 <li>✓ Unlimited listings</li>
