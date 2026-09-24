@@ -382,7 +382,11 @@ export async function updateProviderVerification(providerId, { status, rejection
       ? "approved"
       : status === "rejected" || status === "suspended"
         ? "rejected"
-        : "pending";
+        : status === "expired"
+          ? provider.user.signupStatus || "approved"
+          : provider.user.signupStatus === "approved"
+            ? "approved"
+            : "pending";
   await prisma.user.update({
     where: { id: provider.userId },
     data: {

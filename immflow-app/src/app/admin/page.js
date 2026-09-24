@@ -14,7 +14,7 @@ import AdminCategoriesPanel from "@/components/admin/AdminCategoriesPanel";
 import AdminProvidersPanel from "@/components/admin/AdminProvidersPanel";
 import AdminTranslationOrdersPanel from "@/components/admin/AdminTranslationOrdersPanel";
 import AdminBookingsPanel from "@/components/admin/AdminBookingsPanel";
-import { authFetch, getStoredUser, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
+import { authFetch, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
 
@@ -90,12 +90,9 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const saved = getStoredUser();
-    if (saved?.role === "admin") {
-      loadAdminAccess().then((access) => {
-        if (access) loadAllData(access);
-      });
-    }
+    loadAdminAccess().then((access) => {
+      if (access) loadAllData(access);
+    });
   }, []);
 
   const loadAllData = (access = adminAccess) => {
@@ -186,6 +183,7 @@ export default function AdminPage() {
       if (data.error) {
         setLoginError(data.error.message || "Login failed");
       } else if (data.user.role !== "admin") {
+        await logoutSession();
         setLoginError("Access denied: Admin role required.");
       } else {
         setStoredUser(data.user);

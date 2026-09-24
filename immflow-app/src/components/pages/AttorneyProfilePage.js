@@ -154,7 +154,7 @@ export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, set
           </div>
         )}
 
-        {user && user.id !== profile.userId && (
+        {(!user || user.id !== profile.userId) && (
           <button
             type="button"
             onClick={handleContact}

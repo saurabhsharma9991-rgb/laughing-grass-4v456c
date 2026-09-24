@@ -8,6 +8,8 @@ export default function AuthModal({
   initialMode = "signup",
   resetToken: resetTokenProp = "",
   initialError = "",
+  initialAccountType = "seeker",
+  intentLabel = "",
 }) {
   const { t, locale } = useI18n();
   const [mode, setMode] = useState(initialMode);
@@ -16,15 +18,16 @@ export default function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resetToken, setResetToken] = useState(resetTokenProp);
   const [name, setName] = useState("");
-  const [accountType, setAccountType] = useState("attorney");
+  const [accountType, setAccountType] = useState(initialAccountType);
   const [categoryId, setCategoryId] = useState("");
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     setMode(initialMode);
+    setAccountType(initialAccountType);
     if (resetTokenProp) setResetToken(resetTokenProp);
     if (initialError) setError(initialError);
-  }, [initialMode, resetTokenProp, initialError]);
+  }, [initialMode, initialAccountType, resetTokenProp, initialError]);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -82,6 +85,23 @@ export default function AuthModal({
           setError("Please select a service category.");
           setLoading(false);
           return;
+        }
+        if (accountType === "provider") {
+          const missingField = selectedCategory?.profileSchema?.fields?.find((field) => {
+            if (!field.required) return false;
+            const value = dynamicProfileData[field.key];
+            return (
+              value === undefined ||
+              value === null ||
+              value === "" ||
+              (Array.isArray(value) && value.length === 0)
+            );
+          });
+          if (missingField) {
+            setError(`${missingField.label || missingField.key} is required.`);
+            setLoading(false);
+            return;
+          }
         }
         if (isTranslationSignup) {
           if (!sourceLang || !targetLang) {
@@ -291,6 +311,9 @@ export default function AuthModal({
         {title && (
           <h2 className="font-syne text-lg font-bold text-text mb-4">{title}</h2>
         )}
+        {intentLabel && (mode === "signup" || mode === "login") && (
+          <p className="text-sm text-muted mb-4 leading-relaxed">{intentLabel}</p>
+        )}
 
         {(mode === "signup" || mode === "login") && (
           <div className="flex gap-1.5 mb-6">
@@ -481,7 +504,7 @@ export default function AuthModal({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@lawfirm.com"
+              placeholder="you@example.com"
               readOnly={mode === "verify" && Boolean(email)}
               className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
             />
@@ -553,7 +576,11 @@ export default function AuthModal({
           {loading
             ? "Please wait…"
             : mode === "signup"
-            ? "Create attorney account"
+            ? accountType === "seeker"
+              ? "Create client account"
+              : accountType === "provider"
+                ? "Create provider account"
+                : "Create attorney account"
             : mode === "login"
             ? "Log in"
             : mode === "forgot"
@@ -593,7 +620,13 @@ export default function AuthModal({
 
         {(mode === "signup" || mode === "login") && (
           <p className="text-xs text-muted-high text-center mt-4 leading-relaxed">
-            Immigration attorneys only. Bar number required for verification.
+            {mode === "login"
+              ? "Clients, attorneys, providers, and administrators can log in here."
+              : accountType === "attorney"
+                ? "Attorney accounts require bar verification before access."
+                : accountType === "provider"
+                  ? "Provider accounts require credential approval before access."
+                  : "Client accounts are free. Verify your email to continue."}
           </p>
         )}
       </div>

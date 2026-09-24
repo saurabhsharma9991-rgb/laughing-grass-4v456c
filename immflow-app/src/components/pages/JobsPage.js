@@ -5,6 +5,7 @@ import JobCard from "../JobCard";
 import { authFetch } from "@/lib/client/auth-storage";
 import { toastError } from "@/lib/client/alerts";
 import { listingMatchesTab } from "@/lib/constants/listing-types";
+import { savePendingAction } from "@/lib/client/pending-action";
 
 function ApplyModal({ listing, onClose, onSubmit, applying }) {
   const [message, setMessage] = useState("");
@@ -73,10 +74,6 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
   }, [statusFilter, search, location, language, user?.id]);
 
   const handleApplyClick = (listing) => {
-    if (!user) {
-      setShowAuth(true);
-      return;
-    }
     if (listing.myApplication) return;
     if (listing.isOwnListing) {
       setPage("dashboard");
@@ -87,6 +84,20 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
 
   const submitApplication = async (message) => {
     if (!applyTarget) return;
+    if (!user) {
+      savePendingAction("apply_listing", {
+        listingId: applyTarget.id,
+        listingTitle: applyTarget.title,
+        message,
+      });
+      setApplyTarget(null);
+      setShowAuth({
+        show: true,
+        accountType: "seeker",
+        intentLabel: `Create a free account or log in to apply for “${applyTarget.title}”.`,
+      });
+      return;
+    }
     setApplyingId(applyTarget.id);
     try {
       const res = await authFetch("/api/applications", {

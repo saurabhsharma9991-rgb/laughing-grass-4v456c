@@ -57,6 +57,10 @@ export async function PATCH(req) {
         where: { id: attorneyId },
         data: { isVerified: true },
       });
+      await prisma.provider.updateMany({
+        where: { userId: existing.userId },
+        data: { verificationStatus: "verified", rejectionReason: null },
+      });
       void notifySignupApproved({ email: existing.user.email, name: existing.name });
     }
 
@@ -71,6 +75,10 @@ export async function PATCH(req) {
       await prisma.attorney.update({
         where: { id: attorneyId },
         data: { isVerified: false },
+      });
+      await prisma.provider.updateMany({
+        where: { userId: existing.userId },
+        data: { verificationStatus: "rejected", rejectionReason: reason },
       });
       void notifySignupRejected({
         email: existing.user.email,
@@ -94,6 +102,13 @@ export async function PATCH(req) {
       await prisma.attorney.update({
         where: { id: attorneyId },
         data: { isVerified: Boolean(isVerified) },
+      });
+      await prisma.provider.updateMany({
+        where: { userId: existing.userId },
+        data: {
+          verificationStatus: Boolean(isVerified) ? "verified" : "pending",
+          rejectionReason: null,
+        },
       });
     }
 

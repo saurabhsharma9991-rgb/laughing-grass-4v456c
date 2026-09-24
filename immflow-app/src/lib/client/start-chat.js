@@ -1,5 +1,6 @@
 import { toastError } from "@/lib/client/alerts";
 import { pathForPage } from "@/lib/constants/routes";
+import { savePendingAction } from "@/lib/client/pending-action";
 
 const PENDING_CHAT_KEY = "immflow_pending_chat";
 
@@ -14,27 +15,8 @@ export function startChatWithAttorney(
   attorney,
   { user, setShowAuth, setPage, canAccessMessaging = false }
 ) {
-  if (!user) {
-    setShowAuth(true);
-    return;
-  }
-
   if (!attorney?.userId) {
     toastError("Unable to start chat — attorney profile is missing a user ID.");
-    return;
-  }
-
-  if (Number(attorney.userId) === Number(user.id)) {
-    toastError("You cannot message your own profile.");
-    goToDashboardChat("tab=profile");
-    return;
-  }
-
-  if (!canAccessMessaging) {
-    toastError(
-      "Direct messaging requires ImmFlow Pro. Upgrade under Billing & Subscriptions."
-    );
-    goToDashboardChat("tab=billing");
     return;
   }
 
@@ -44,6 +26,30 @@ export function startChatWithAttorney(
     initials: attorney.initials || "AT",
     email: attorney.email || attorney.contactEmail || "",
   };
+
+  if (!user) {
+    savePendingAction("start_chat", { partner });
+    setShowAuth({
+      show: true,
+      accountType: "seeker",
+      intentLabel: `Enter your details to contact ${partner.name}.`,
+    });
+    return;
+  }
+
+  if (Number(attorney.userId) === Number(user.id)) {
+    toastError("You cannot message your own profile.");
+    goToDashboardChat("tab=profile");
+    return;
+  }
+
+  if (user.role !== "public" && !canAccessMessaging) {
+    toastError(
+      "Direct messaging requires ImmFlow Pro. Upgrade under Billing & Subscriptions."
+    );
+    goToDashboardChat("tab=billing");
+    return;
+  }
 
   sessionStorage.setItem(PENDING_CHAT_KEY, JSON.stringify(partner));
 

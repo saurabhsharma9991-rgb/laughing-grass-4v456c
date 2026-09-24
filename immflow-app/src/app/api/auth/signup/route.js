@@ -17,6 +17,13 @@ export async function POST(req) {
       const firstError = Object.values(validation.errors)[0];
       return apiError(firstError, 400, "VALIDATION_ERROR", validation.errors);
     }
+    if (process.env.NODE_ENV === "production" && !isEmailConfigured()) {
+      return apiError(
+        "Account registration is temporarily unavailable because email verification is not configured.",
+        503,
+        "EMAIL_NOT_CONFIGURED"
+      );
+    }
 
     const { user, verificationToken, fullName } = await registerUser({
       email: body.email,

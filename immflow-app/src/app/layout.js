@@ -3,6 +3,7 @@ import { SiteContentProvider } from "@/components/SiteContentContext";
 import { PlatformProvider } from "@/components/PlatformContext";
 import { AlertProvider } from "@/components/AlertProvider";
 import { I18nProvider } from "@/components/I18nProvider";
+import TawkTo from "@/components/TawkTo";
 import "./globals.css";
 
 /**
@@ -43,6 +44,7 @@ export default function RootLayout({ children }) {
             </PlatformProvider>
           </I18nProvider>
         </AlertProvider>
+        <TawkTo />
       </body>
     </html>
   );

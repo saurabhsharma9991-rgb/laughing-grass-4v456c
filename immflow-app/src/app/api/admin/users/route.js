@@ -50,6 +50,7 @@ export async function POST(req) {
         displayName,
         adminRoleId,
         emailVerified: true,
+        signupStatus: "approved",
       },
       include: { adminRole: true },
     });
