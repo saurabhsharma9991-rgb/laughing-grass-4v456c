@@ -30,7 +30,9 @@ import {
   logoutSession,
   authFetch,
 } from "@/lib/client/auth-storage";
-import { toastSuccess } from "@/lib/client/alerts";
+import { toastError, toastSuccess } from "@/lib/client/alerts";
+import { clearPendingAction, getPendingAction } from "@/lib/client/pending-action";
+import { PENDING_CHAT_KEY } from "@/lib/client/start-chat";
 
 const PAGES = {
   home: HomePage,
@@ -56,6 +58,8 @@ export default function AppShell({
   const [authMode, setAuthMode] = useState("signup");
   const [authResetToken, setAuthResetToken] = useState("");
   const [authInitialError, setAuthInitialError] = useState("");
+  const [authAccountType, setAuthAccountType] = useState("seeker");
+  const [authIntentLabel, setAuthIntentLabel] = useState("");
   const [user, setUser] = useState(null);
   const [sessionReady, setSessionReady] = useState(false);
   const topRef = useRef(null);
@@ -72,6 +76,71 @@ export default function AppShell({
       }
     },
     [router, pathname]
+  );
+
+  const openAuth = useCallback((value = true) => {
+    if (value && typeof value === "object") {
+      setAuthAccountType(value.accountType || "seeker");
+      setAuthIntentLabel(value.intentLabel || "");
+      setAuthMode(value.mode || "signup");
+      setShowAuth(value.show !== false);
+      return;
+    }
+    setAuthIntentLabel("");
+    setShowAuth(Boolean(value));
+  }, []);
+
+  const finishAuthentication = useCallback(
+    async (authenticatedUser) => {
+      setStoredUser(authenticatedUser);
+      setUser(authenticatedUser);
+      if (authenticatedUser.role === "admin") {
+        window.location.href = "/admin";
+        return;
+      }
+
+      const pending = getPendingAction();
+      if (pending?.type === "apply_listing") {
+        const res = await authFetch("/api/applications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            listingId: pending.payload.listingId,
+            message: pending.payload.message || "",
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && !data.error) {
+          clearPendingAction();
+          sessionStorage.setItem("immflow_dashboard_tab", "applications");
+          toastSuccess("Your application was submitted.");
+          navigate("dashboard");
+          return;
+        }
+        if (res.status === 409) clearPendingAction();
+        toastError(data.error?.message || "Your account is ready, but the application could not be submitted.");
+        navigate("jobs");
+        return;
+      }
+
+      if (pending?.type === "start_chat" && pending.payload?.partner?.id) {
+        const partner = pending.payload.partner;
+        sessionStorage.setItem(PENDING_CHAT_KEY, JSON.stringify(partner));
+        clearPendingAction();
+        const params = new URLSearchParams({
+          tab: "messages",
+          chat: String(partner.id),
+          chatName: partner.name || "Professional",
+          chatInitials: partner.initials || "PR",
+        });
+        if (partner.email) params.set("chatEmail", partner.email);
+        window.location.assign(`${pathForPage("dashboard")}?${params}`);
+        return;
+      }
+
+      navigate("dashboard");
+    },
+    [navigate]
   );
 
   useEffect(() => {
@@ -147,13 +216,7 @@ export default function AppShell({
             return;
           }
           if (data.user) {
-            setStoredUser(data.user);
-            setUser(data.user);
-            if (data.user.role === "admin") {
-              window.location.href = "/admin";
-              return;
-            }
-            navigate("dashboard");
+            await finishAuthentication(data.user);
           } else {
             setAuthInitialError(data.error?.message || "Invalid or expired verification link.");
             setAuthMode("verify");
@@ -175,21 +238,13 @@ export default function AppShell({
       navigate("dashboard");
       window.history.replaceState({}, "", pathForPage("dashboard"));
     }
-  }, [navigate]);
+  }, [finishAuthentication, navigate]);
 
   useEffect(() => {
     topRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [page, categorySlug, providerId, attorneyProfileId]);
 
-  const handleAuth = (u) => {
-    setStoredUser(u);
-    setUser(u);
-    if (u.role === "admin") {
-      window.location.href = "/admin";
-      return;
-    }
-    navigate("dashboard");
-  };
+  const handleAuth = (u) => finishAuthentication(u);
 
   const handleLogout = async () => {
     await logoutSession();
@@ -211,7 +266,7 @@ export default function AppShell({
       <AttorneyProfilePage
         attorneyId={attorneyProfileId}
         user={user}
-        setShowAuth={setShowAuth}
+        setShowAuth={openAuth}
         setPage={navigate}
       />
     );
@@ -220,7 +275,7 @@ export default function AppShell({
       <ProviderProfilePage
         providerId={providerId}
         user={user}
-        setShowAuth={setShowAuth}
+        setShowAuth={openAuth}
         setPage={navigate}
       />
     );
@@ -231,7 +286,7 @@ export default function AppShell({
         initialQuery={initialQ}
         setPage={navigate}
         user={user}
-        setShowAuth={setShowAuth}
+        setShowAuth={openAuth}
       />
     );
   } else {
@@ -241,7 +296,7 @@ export default function AppShell({
         setPage={navigate}
         user={user}
         setUser={setUser}
-        setShowAuth={setShowAuth}
+        setShowAuth={openAuth}
         onLogout={handleLogout}
         initialQuery={initialQ}
       />
@@ -253,7 +308,7 @@ export default function AppShell({
       <div ref={topRef} />
       <TestModeBanner />
 
-      <Nav page={page} navigate={navigate} user={user} setShowAuth={setShowAuth} />
+      <Nav page={page} navigate={navigate} user={user} setShowAuth={openAuth} />
 
       {showAuth && (
         <AuthModal
@@ -266,6 +321,8 @@ export default function AppShell({
           initialMode={authMode}
           resetToken={authResetToken}
           initialError={authInitialError}
+          initialAccountType={authAccountType}
+          intentLabel={authIntentLabel}
         />
       )}
 

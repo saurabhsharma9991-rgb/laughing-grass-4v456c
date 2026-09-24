@@ -98,26 +98,37 @@ export async function POST(req) {
 
     const receiver = await prisma.user.findUnique({
       where: { id: parsedReceiverId },
-      select: { id: true },
+      select: { id: true, role: true },
     });
     if (!receiver) {
       return apiError("Recipient not found.", 404, "NOT_FOUND");
     }
 
-    const messaging = await assertFeatureAccess(session.userId, "direct_messaging");
-    if (!messaging.allowed) {
-      throw new AuthError(
-        "Direct messaging is not available on your plan. Upgrade to Pro to send messages.",
-        403,
-        "PRO_UPGRADE_REQUIRED"
-      );
+    const sender = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { role: true },
+    });
+    const professionalRoles = new Set(["attorney", "provider"]);
+    const isClientIntake =
+      (sender?.role === "public" && professionalRoles.has(receiver.role)) ||
+      (receiver.role === "public" && professionalRoles.has(sender?.role));
+
+    if (!isClientIntake) {
+      const messaging = await assertFeatureAccess(session.userId, "direct_messaging");
+      if (!messaging.allowed) {
+        throw new AuthError(
+          "Professional peer messaging is not available on your plan. Upgrade to Pro to send messages.",
+          403,
+          "PRO_UPGRADE_REQUIRED"
+        );
+      }
     }
 
     const message = await prisma.message.create({
       data: {
         senderId: session.userId,
         receiverId: parsedReceiverId,
-        content: content.trim(),
+        content: content.trim().slice(0, 10000),
       },
       include: {
         sender: {

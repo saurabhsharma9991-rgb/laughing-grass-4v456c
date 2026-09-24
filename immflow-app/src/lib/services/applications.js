@@ -118,7 +118,14 @@ export async function listApplicationsForListing(listingId, ownerUserId) {
           isVerified: app.applicant.attorney.isVerified,
           attorneyId: app.applicant.attorney.id,
         }
-      : { userId: app.applicantId, name: "Attorney", attorneyId: null },
+      : {
+          userId: app.applicantId,
+          name:
+            app.applicant.displayName ||
+            app.applicant.email?.split("@")[0] ||
+            "Applicant",
+          attorneyId: null,
+        },
   }));
 }
 
