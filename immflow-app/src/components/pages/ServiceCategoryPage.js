@@ -52,15 +52,22 @@ export default function ServiceCategoryPage({
       .catch(() => setCategory(null));
   }, [categorySlug]);
 
-  const load = () => {
+  const load = (overrides = {}) => {
+    const nextQ = overrides.q ?? q;
+    const nextLanguage = overrides.language ?? language;
+    const nextLocation = overrides.location ?? location;
+    const nextSource = overrides.source ?? source;
+    const nextTarget = overrides.target ?? target;
+    const nextFilters = overrides.filters ?? filters;
+
     setLoading(true);
     const params = new URLSearchParams({ category: categorySlug });
-    if (q.trim()) params.set("q", q.trim());
-    if (language.trim()) params.set("language", language.trim());
-    if (location.trim()) params.set("location", location.trim());
-    if (source.trim()) params.set("source", source.trim());
-    if (target.trim()) params.set("target", target.trim());
-    for (const [key, value] of Object.entries(filters)) {
+    if (String(nextQ).trim()) params.set("q", String(nextQ).trim());
+    if (String(nextLanguage).trim()) params.set("language", String(nextLanguage).trim());
+    if (String(nextLocation).trim()) params.set("location", String(nextLocation).trim());
+    if (String(nextSource).trim()) params.set("source", String(nextSource).trim());
+    if (String(nextTarget).trim()) params.set("target", String(nextTarget).trim());
+    for (const [key, value] of Object.entries(nextFilters)) {
       if (value === true) params.set(key, "1");
       else if (value !== false && String(value).trim()) {
         params.set(key, String(value).trim());
@@ -77,9 +84,62 @@ export default function ServiceCategoryPage({
   };
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    async function hydrate() {
+      if (!initialQuery.trim()) {
+        load();
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await fetch("/api/service-finder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: initialQuery }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        const f = data.filters || {};
+        const nextFilters = {
+          ...filters,
+          remote: Boolean(f.remote),
+          inPerson: Boolean(f.inPerson),
+          certified: Boolean(f.certified),
+          rush: Boolean(f.rush),
+          documentType: f.documentType || "",
+          turnaround: f.turnaround || "",
+          serviceType: f.serviceType || "",
+          professionalType: f.professionalType || "",
+          licenseState: f.licenseState || "",
+          availability: f.availability || "",
+          maxPrice: f.maxPrice || "",
+          minRating: f.minRating || "",
+        };
+        const next = {
+          q: initialQuery,
+          language: f.language || "",
+          location: f.location || "",
+          source: f.sourceLanguage || "",
+          target: f.targetLanguage || "",
+          filters: nextFilters,
+        };
+        setQ(next.q);
+        setLanguage(next.language);
+        setLocation(next.location);
+        setSource(next.source);
+        setTarget(next.target);
+        setFilters(nextFilters);
+        load(next);
+      } catch {
+        if (!cancelled) load();
+      }
+    }
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categorySlug]);
+  }, [categorySlug, initialQuery]);
 
   const isTranslation = categorySlug === "translation" || categorySlug === "interpreter";
 

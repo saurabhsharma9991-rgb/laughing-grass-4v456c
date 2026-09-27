@@ -4,9 +4,21 @@ import { listAttorneys } from "@/lib/services/attorneys";
 import { matchAttorneys } from "@/lib/services/matcher-ai";
 import { getPlatformSettings } from "@/lib/services/platform-settings";
 import { prisma } from "@/lib/db";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function POST(req) {
   try {
+    const limited = rateLimit(`matcher:${clientIp(req)}`, {
+      limit: 8,
+      windowMs: 60_000,
+    });
+    if (!limited.allowed) {
+      return apiError(
+        "Too many matcher requests. Please try again in a minute.",
+        429,
+        "RATE_LIMITED"
+      );
+    }
     const session = requireAuth(req);
     const settings = await getPlatformSettings();
     const user = await prisma.user.findUnique({

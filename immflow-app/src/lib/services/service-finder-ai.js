@@ -1,8 +1,10 @@
 import { parseServiceIntent } from "@/lib/utils/service-finder";
 import { listProviders } from "@/lib/services/providers";
 import { listCategories } from "@/lib/services/categories";
+import { normalizeAiText, requestOpenAiJson } from "@/lib/ai/openai";
 
-const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const INTENT_TTL_SECONDS = Number(process.env.OPENAI_INTENT_TTL_SECONDS) || 86_400;
+const MATCH_TTL_SECONDS = Number(process.env.OPENAI_MATCH_TTL_SECONDS) || 21_600;
 
 const DEFAULT_CATEGORIES = [
   { slug: "attorney", name: "Immigration Attorneys", description: "" },
@@ -77,11 +79,19 @@ function normalizeIntent(raw, query, categories) {
   };
 }
 
-async function parseIntentWithOpenAi(query, categories) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  if (!apiKey) return null;
+function shouldSkipIntentLlm(rules) {
+  const f = rules.filters || {};
+  if ((rules.confidence || 0) < 0.8 || !rules.categorySlug) return false;
+  if (rules.categorySlug === "translation") {
+    return Boolean(f.sourceLanguage && f.targetLanguage);
+  }
+  if (rules.categorySlug === "interpreter") {
+    return Boolean(f.language);
+  }
+  return rules.categorySlug === "psychological" || rules.categorySlug === "attorney";
+}
 
+async function parseIntentWithOpenAi(query, categories) {
   const categoryList = categories.map(({ slug, name, description }) => ({
     slug,
     name,
@@ -125,30 +135,14 @@ Rules:
 - Prefer translation over interpreter when the user says translate/document; prefer interpreter for live/oral/interview/court interpreting.
 - summary: one short non-advice sentence describing the marketplace search.`;
 
-  const response = await fetch(OPENAI_CHAT_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: query },
-      ],
-    }),
+  return requestOpenAiJson({
+    feature: "service_intent",
+    ttlSeconds: INTENT_TTL_SECONDS,
+    cacheParts: categoryList.map((c) => c.slug),
+    maxCompletionTokens: 350,
+    system: systemPrompt,
+    user: normalizeAiText(query),
   });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error ${response.status}`);
-  }
-
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  return JSON.parse(content || "{}");
 }
 
 /** Parse NL query → category + filters (OpenAI when configured, else rules). */
@@ -164,6 +158,10 @@ export async function resolveServiceIntent(query) {
   const rules = ruleIntentForCategories(trimmed, categories);
 
   if (!trimmed) {
+    return { ...rules, source: "rules" };
+  }
+
+  if (shouldSkipIntentLlm(rules)) {
     return { ...rules, source: "rules" };
   }
 
@@ -318,9 +316,70 @@ export async function matchProvidersForIntent(intent, { limit = 6 } = {}) {
       };
     })
     .sort((a, b) => b.matchScore - a.matchScore || b.stars - a.stars)
-    .slice(0, limit);
+    .slice(0, Math.max(limit, 8));
 
-  return ranked;
+  const reranked = await rerankProvidersWithOpenAi(ranked, intent);
+  return reranked.slice(0, limit);
+}
+
+async function rerankProvidersWithOpenAi(ranked, intent) {
+  if (ranked.length < 2) return ranked;
+
+  try {
+    const candidates = ranked.slice(0, 8).map((p) => ({
+      id: p.id,
+      name: p.displayName,
+      location: p.location,
+      languages: p.languages,
+      languagePairs: p.languagePairs,
+      rate: p.rate,
+      stars: p.stars,
+      verificationStatus: p.verificationStatus,
+      remoteAvailable: p.remoteAvailable,
+      inPersonAvailable: p.inPersonAvailable,
+      experienceYears: p.experienceYears,
+    }));
+    const parsed = await requestOpenAiJson({
+      feature: "provider_rerank",
+      ttlSeconds: MATCH_TTL_SECONDS,
+      cacheParts: [
+        intent.categorySlug,
+        JSON.stringify(intent.filters || {}),
+        candidates.map((c) => c.id).join(","),
+      ],
+      maxCompletionTokens: 400,
+      system:
+        "You rank verified immigration-service providers for a marketplace search. Return ONLY JSON {\"matches\":[{\"id\":number,\"score\":number,\"reason\":string}]}. Scores 70-99. Never give legal, clinical, or certification advice.",
+      user: JSON.stringify({
+        category: intent.categorySlug,
+        summary: intent.summary,
+        filters: intent.filters,
+        providers: candidates,
+      }),
+    });
+    const rows = Array.isArray(parsed?.matches) ? parsed.matches : [];
+    if (!parsed || rows.length === 0) return ranked;
+
+    const byId = new Map(ranked.map((p) => [p.id, p]));
+    const reranked = rows
+      .map((row) => {
+        const base = byId.get(Number(row.id));
+        if (!base) return null;
+        return {
+          ...base,
+          matchScore: Math.min(99, Math.max(70, Number(row.score) || base.matchScore)),
+          matchReason: row.reason || base.matchReason,
+        };
+      })
+      .filter(Boolean);
+    const seen = new Set(reranked.map((p) => p.id));
+    return [...reranked, ...ranked.filter((p) => !seen.has(p.id))].slice(
+      0,
+      ranked.length
+    );
+  } catch {
+    return ranked;
+  }
 }
 
 export async function findServices(query) {

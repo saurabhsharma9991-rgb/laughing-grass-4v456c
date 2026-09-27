@@ -375,3 +375,16 @@ model AdminRole {
 
   @@map("admin_roles")
 }
+
+model AiResponseCache {
+  cacheKey  String   @id @map("cache_key") @db.VarChar(64)
+  feature   String   @db.VarChar(40)
+  model     String   @db.VarChar(80)
+  payload   Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([feature, expiresAt])
+  @@map("ai_response_cache")
+}

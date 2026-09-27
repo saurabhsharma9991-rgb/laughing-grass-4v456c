@@ -1,6 +1,7 @@
 import { rankAttorneysForMatch } from "@/lib/utils/matcher";
+import { requestOpenAiJson } from "@/lib/ai/openai";
 
-const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const MATCH_TTL_SECONDS = Number(process.env.OPENAI_MATCH_TTL_SECONDS) || 21_600;
 
 function summarizeAttorney(a) {
   const tags = Array.isArray(a.tags) ? a.tags : [];
@@ -53,57 +54,26 @@ function mergeAiRankings(attorneys, aiRows) {
 }
 
 async function rankWithOpenAi(attorneys, criteria) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-
-  if (!apiKey || attorneys.length === 0) {
-    return {
-      matches: rankAttorneysForMatch(attorneys, criteria),
-      source: "rules",
-    };
+  const rules = rankAttorneysForMatch(attorneys, criteria);
+  if (attorneys.length === 0) {
+    return { matches: rules, source: "rules" };
   }
 
   const condensed = attorneys.slice(0, 40).map(summarizeAttorney);
-  const systemPrompt =
-    "You are an immigration attorney matching assistant. Return ONLY valid JSON: {\"matches\":[{\"userId\":number,\"score\":number,\"reason\":string}]} with up to 3 best attorneys. Scores 70-99. Reasons are one sentence, professional.";
-
-  const userPrompt = JSON.stringify({
-    need: criteria,
-    attorneys: condensed,
-  });
-
   try {
-    const response = await fetch(OPENAI_CHAT_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+    const parsed = await requestOpenAiJson({
+      feature: "attorney_matcher",
+      ttlSeconds: MATCH_TTL_SECONDS,
+      cacheParts: condensed.map((row) => row.userId),
+      maxCompletionTokens: 400,
+      system:
+        "You are an immigration attorney matching assistant for a marketplace. Return ONLY valid JSON: {\"matches\":[{\"userId\":number,\"score\":number,\"reason\":string}]} with up to 3 best attorneys. Scores 70-99. Reasons are one sentence. Never give legal advice or eligibility opinions.",
+      user: JSON.stringify({ need: criteria, attorneys: condensed }),
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error ${response.status}`);
-    }
-
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content;
-    const parsed = JSON.parse(content || "{}");
-    const rows = Array.isArray(parsed.matches) ? parsed.matches : [];
-
-    if (rows.length === 0) {
-      return {
-        matches: rankAttorneysForMatch(attorneys, criteria),
-        source: "rules",
-      };
+    const rows = Array.isArray(parsed?.matches) ? parsed.matches : [];
+    if (!parsed || rows.length === 0) {
+      return { matches: rules, source: "rules" };
     }
 
     return {
@@ -111,23 +81,11 @@ async function rankWithOpenAi(attorneys, criteria) {
       source: "openai",
     };
   } catch {
-    return {
-      matches: rankAttorneysForMatch(attorneys, criteria),
-      source: "rules",
-    };
+    return { matches: rules, source: "rules" };
   }
 }
 
 export async function matchAttorneys(attorneys, criteria) {
   const { query = "", needType = "", caseType = "" } = criteria || {};
-  const result = await rankWithOpenAi(attorneys, { query, needType, caseType });
-
-  if (result.source === "rules") {
-    return {
-      matches: rankAttorneysForMatch(attorneys, { query, needType, caseType }),
-      source: "rules",
-    };
-  }
-
-  return result;
+  return rankWithOpenAi(attorneys, { query, needType, caseType });
 }
