@@ -6,7 +6,7 @@ export async function GET(req) {
   try {
     await requireAdminPermission(req, "analytics", "view");
 
-    const [totalSignups, totalListings, openListings, filledListings, proSubscribers, pendingSignups] =
+    const [totalSignups, totalListings, openListings, filledListings, proSubscribers, pendingSignups, clientCount, clientProCount] =
       await Promise.all([
         prisma.user.count({ where: { role: { not: "admin" } } }),
         prisma.listing.count(),
@@ -14,6 +14,8 @@ export async function GET(req) {
         prisma.listing.count({ where: { status: "filled" } }),
         prisma.user.count({ where: { isPro: true, role: { not: "admin" } } }),
         prisma.user.count({ where: { signupStatus: "pending", role: { not: "admin" } } }),
+        prisma.user.count({ where: { role: "public" } }),
+        prisma.user.count({ where: { role: "public", isPro: true } }),
       ]);
 
     return apiSuccess({
@@ -23,7 +25,9 @@ export async function GET(req) {
       filledListings,
       proSubscribers,
       pendingSignups,
-      estimatedRevenue: proSubscribers * 29,
+      clientCount,
+      clientProCount,
+      estimatedRevenue: proSubscribers * 39.99,
     });
   } catch (error) {
     return handleApiError(error, "Failed to fetch analytics.");

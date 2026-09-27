@@ -27,7 +27,8 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const hasMessaging = canAccess("direct_messaging", user?.isPro);
   const hasMatcher = canAccess("ai_matcher", user?.isPro);
   const hasUnlimitedListings = canAccess("unlimited_listings", user?.isPro);
-  // Attorney tabs: overview, messages, billing
+  const hasPriorityContact = canAccess("priority_contact", user?.isPro);
+  const isClient = user?.role === "public";
   const [userTab, setUserTab] = useState("overview");
   const [listingCount, setListingCount] = useState(0);
   const [applicationCount, setApplicationCount] = useState(0);
@@ -627,7 +628,14 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                           {c.contact.initials || "??"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-semibold text-text truncate">{c.contact.name}</div>
+                          <div className="text-xs font-semibold text-text truncate flex items-center gap-1.5">
+                            <span className="truncate">{c.contact.name}</span>
+                            {c.contact.priorityClient && (
+                              <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-green-light text-green-dark">
+                                Pro
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10px] text-muted truncate">{c.lastMessage}</div>
                         </div>
                       </div>
@@ -652,7 +660,14 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         {activeConversation.contact.initials || "??"}
                       </div>
                       <div>
-                        <div className="text-xs font-semibold text-text">{activeConversation.contact.name}</div>
+                        <div className="text-xs font-semibold text-text flex items-center gap-1.5">
+                          {activeConversation.contact.name}
+                          {activeConversation.contact.priorityClient && (
+                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-green-light text-green-dark">
+                              Priority Pro client
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-muted">{activeConversation.contact.email}</div>
                       </div>
                     </div>
@@ -753,13 +768,27 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                 {!user?.isPro ? (
                   <>
                     <ul className="text-xs text-muted space-y-1 pl-4 list-disc">
-                      <li>
-                        Maximum of {freeListingLimit} active job board listing
-                        {freeListingLimit !== 1 ? "s" : ""}
-                        {!hasUnlimitedListings && " (unless unlimited listings is enabled for your plan)"}
-                      </li>
-                      {!hasMatcher && <li>No access to the AI Matcher</li>}
-                      {!hasMessaging && <li>Direct messaging locked</li>}
+                      {isClient ? (
+                        <>
+                          <li>Browse attorneys and providers on Free</li>
+                          <li>Request translations and bookings on Free</li>
+                          {!hasMatcher && <li>AI attorney matcher locked</li>}
+                          {!hasPriorityContact && (
+                            <li>Priority contact with professionals locked</li>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <li>
+                            Maximum of {freeListingLimit} active job board listing
+                            {freeListingLimit !== 1 ? "s" : ""}
+                            {!hasUnlimitedListings &&
+                              " (unless unlimited listings is enabled for your plan)"}
+                          </li>
+                          {!hasMatcher && <li>No access to the AI Matcher</li>}
+                          {!hasMessaging && <li>Direct messaging locked</li>}
+                        </>
+                      )}
                     </ul>
                     {testMode ? (
                       <div className="border border-amber/40 bg-amber-light rounded-lg p-4 space-y-3">
@@ -799,8 +828,10 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                           {subscriptionPriceLabel
                             ? ` (${subscriptionPriceLabel}${subscriptionPriceCadence})`
                             : ""}{" "}
-                          unlocks premium features. Upgrade securely with
-                          Stripe, or contact{" "}
+                          {isClient
+                            ? "gives clients the AI attorney matcher and priority contact when reaching professionals."
+                            : "unlocks premium features for attorneys and providers."}{" "}
+                          Upgrade securely with Stripe, or contact{" "}
                           <a
                             href="mailto:support@myimmflow.com"
                             className="text-green font-medium hover:underline"
@@ -846,9 +877,21 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                 ) : (
                   <>
                     <ul className="text-xs text-muted space-y-1 pl-4 list-disc">
-                      {hasUnlimitedListings && <li>Unlimited listings</li>}
-                      {hasMatcher && <li>AI matcher access</li>}
-                      {hasMessaging && <li>Direct messaging</li>}
+                      {isClient ? (
+                        <>
+                          {hasMatcher && <li>AI attorney matcher</li>}
+                          {hasPriorityContact && (
+                            <li>Priority contact with attorneys and providers</li>
+                          )}
+                          <li>All Free marketplace tools included</li>
+                        </>
+                      ) : (
+                        <>
+                          {hasUnlimitedListings && <li>Unlimited listings</li>}
+                          {hasMatcher && <li>AI matcher access</li>}
+                          {hasMessaging && <li>Direct messaging</li>}
+                        </>
+                      )}
                     </ul>
                     {user.subscriptionExpires && (
                       <p className="text-[11px] text-green font-medium">

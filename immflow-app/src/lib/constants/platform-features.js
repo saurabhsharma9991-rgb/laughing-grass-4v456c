@@ -26,13 +26,21 @@ export const DEFAULT_FEATURE_FLAGS = {
   },
   ai_matcher: {
     label: "AI matcher",
-    description: "Rank attorneys with the smart matcher.",
+    description: "Rank attorneys with the smart matcher. Available to Pro clients and Pro attorneys.",
     free: false,
     pro: true,
   },
   direct_messaging: {
     label: "Direct messaging",
-    description: "Attorney-to-attorney chat in the dashboard.",
+    description:
+      "Professional peer chat for Pro attorneys/providers. Client-to-professional contact works on Free; Pro clients get priority intake messaging.",
+    free: false,
+    pro: true,
+  },
+  priority_contact: {
+    label: "Priority professional contact",
+    description:
+      "Pro clients are marked as priority when contacting attorneys and providers.",
     free: false,
     pro: true,
   },

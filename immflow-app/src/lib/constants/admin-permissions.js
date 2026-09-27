@@ -35,6 +35,11 @@ export const ADMIN_RESOURCES = {
     description: "All marketplace provider profiles and verification",
     actions: ["view", "create", "edit", "delete"],
   },
+  clients: {
+    label: "Clients",
+    description: "People looking for services (seekers), Pro status, and access",
+    actions: ["view", "edit"],
+  },
   orders: {
     label: "Translation orders",
     description: "Moderate translation marketplace orders and assignments",
@@ -126,6 +131,7 @@ export const TAB_PERMISSIONS = {
   listings: ["listings", "view"],
   categories: ["categories", "view"],
   providers: ["providers", "view"],
+  clients: ["clients", "view"],
   orders: ["orders", "view"],
   bookings: ["bookings", "view"],
   applications: ["applications", "view"],

@@ -14,6 +14,7 @@ import AdminCategoriesPanel from "@/components/admin/AdminCategoriesPanel";
 import AdminProvidersPanel from "@/components/admin/AdminProvidersPanel";
 import AdminTranslationOrdersPanel from "@/components/admin/AdminTranslationOrdersPanel";
 import AdminBookingsPanel from "@/components/admin/AdminBookingsPanel";
+import AdminClientsPanel from "@/components/admin/AdminClientsPanel";
 import { authFetch, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
@@ -190,7 +191,7 @@ export default function AdminPage() {
         const access = await loadAdminAccess();
         if (access) {
           loadAllData(access);
-          const tabOrder = ["overview", "cms", "settings", "categories", "providers", "orders", "bookings", "attorneys", "listings", "applications", "reviews", "broadcast", "users"];
+          const tabOrder = ["overview", "cms", "settings", "categories", "providers", "clients", "orders", "bookings", "attorneys", "listings", "applications", "reviews", "broadcast", "users"];
           const check = (resource, action) =>
             canPerform(access.permissions, resource, action, { isSuperAdmin: access.isSuperAdmin });
           const firstTab = tabOrder.find((t) => {
@@ -585,6 +586,7 @@ export default function AdminPage() {
     ["settings", "⚙️ Features & test mode"],
     ["categories", "🗂️ Categories"],
     ["providers", "🪪 Providers"],
+    ["clients", "🧑‍💼 Clients"],
     ["orders", "📄 Translation orders"],
     ["bookings", "📅 Bookings"],
     ["attorneys", "⚖️ Attorneys"],
@@ -629,12 +631,14 @@ export default function AdminPage() {
         {activeTab === "overview" && (
           <div>
             <h1 className="font-syne text-2xl font-extrabold text-text mb-6">Overview</h1>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
               {[
                 ["Signups", analytics.totalSignups],
+                ["Clients", analytics.clientCount ?? 0],
+                ["Client Pro", analytics.clientProCount ?? 0],
                 ["Pending approval", analytics.pendingSignups ?? 0],
                 ["Listings", analytics.totalListings],
-                ["Pro", analytics.proSubscribers],
+                ["Pro total", analytics.proSubscribers],
                 ["Est. MRR", billing?.stripe?.configured ? `$${billing.stripe.mrrUsd}` : `$${analytics.estimatedRevenue}`],
               ].map(([lbl, val]) => (
                 <div key={lbl} className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 shadow-sm">
@@ -741,6 +745,10 @@ export default function AdminPage() {
               canDelete={can("providers", "delete")}
             />
           </div>
+        )}
+
+        {activeTab === "clients" && (
+          <AdminClientsPanel canEdit={can("clients", "edit")} />
         )}
 
         {activeTab === "orders" && (

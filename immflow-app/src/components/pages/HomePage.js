@@ -576,11 +576,11 @@ export default function HomePage({ setPage, setShowAuth }) {
                   (platformLoading ? "Loading current price…" : "Price unavailable")}
               </div>
               <ul className="text-[13px] text-muted space-y-2 mb-6">
-                <li>✓ Unlimited listings</li>
-                <li>✓ AI matcher access</li>
-                <li>✓ Priority profile</li>
-                <li>✓ Direct messaging</li>
-                <li>✓ Analytics dashboard</li>
+                <li>✓ AI attorney matcher</li>
+                <li>✓ Priority client contact</li>
+                <li>✓ Unlimited attorney listings</li>
+                <li>✓ Professional peer messaging</li>
+                <li>✓ Priority profile &amp; analytics</li>
               </ul>
               <button
                 onClick={() => setShowAuth(true)}

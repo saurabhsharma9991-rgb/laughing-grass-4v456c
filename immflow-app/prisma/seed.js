@@ -372,11 +372,12 @@ async function main() {
     data: {
       name: "Support",
       slug: "support",
-      description: "Moderate providers, orders, bookings, attorneys, and listings.",
+      description: "Moderate providers, clients, orders, bookings, attorneys, and listings.",
       permissions: JSON.stringify(
         normalizePermissions({
           categories: { view: true },
           providers: { view: true, edit: true },
+          clients: { view: true, edit: true },
           orders: { view: true, edit: true },
           bookings: { view: true, edit: true },
           attorneys: { view: true, edit: true },

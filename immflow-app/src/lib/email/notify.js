@@ -133,7 +133,12 @@ export async function notifyApplicantOfStatus(applicationId, status) {
   });
 }
 
-export async function notifyReceiverOfMessage({ receiverId, senderId, content }) {
+export async function notifyReceiverOfMessage({
+  receiverId,
+  senderId,
+  content,
+  priorityClient = false,
+}) {
   const [receiver, sender] = await Promise.all([
     prisma.user.findUnique({
       where: { id: Number(receiverId) },
@@ -165,22 +170,23 @@ export async function notifyReceiverOfMessage({ receiverId, senderId, content })
     senderName,
     dashboardUrl,
   ]);
+  const priorityPrefix = priorityClient ? "[Priority Pro client] " : "";
 
   await sendTransactionalEmail({
     to: receiver.email,
-    subject: `${emailSubject(locale, "newMessage")} — ${senderName}`,
+    subject: `${priorityPrefix}${emailSubject(locale, "newMessage")} — ${senderName}`,
     html:
       locale === "en"
         ? newMessageEmailHtml({
             recipientName,
-            senderName,
+            senderName: priorityClient ? `${senderName} (Priority Pro client)` : senderName,
             preview: content,
             dashboardUrl,
           })
         : textEmailHtml(localizedText),
     text: localizedText,
     event: "message_received",
-    meta: { receiverId, senderId },
+    meta: { receiverId, senderId, priorityClient },
   });
 }
 
