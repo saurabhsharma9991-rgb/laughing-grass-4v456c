@@ -61,6 +61,65 @@ export const HOME_BLOCK_TYPES = [
   ...GENERIC_HOME_BLOCKS,
 ];
 
+export const DEFAULT_WAYS_CARDS = [
+  {
+    icon: "⚖️",
+    title: "Find an attorney",
+    desc: "Browse verified immigration attorneys by case type, language, and availability.",
+    cta: "Browse attorneys",
+    href: "/attorneys",
+  },
+  {
+    icon: "📄",
+    title: "Certified translation",
+    desc: "Request professional or certified document translation. Pay securely, then work with a verified translator.",
+    cta: "Request translation",
+    href: "/services/translation",
+  },
+  {
+    icon: "🎙️",
+    title: "Interpreters",
+    desc: "Book remote ($150/hr) or in-person ($200/hr) interpreters for hearings, interviews, and appointments.",
+    cta: "Find an interpreter",
+    href: "/services/interpreter",
+  },
+  {
+    icon: "🧠",
+    title: "Psychological evaluations",
+    desc: "Connect with professionals who provide immigration-related psychological evaluations.",
+    cta: "Browse evaluations",
+    href: "/services/psychological",
+  },
+  {
+    icon: "📋",
+    title: "Job board & hearing coverage",
+    desc: "Post and find full-time roles, hearing coverage, and outsource projects on the ImmFlow job board.",
+    cta: "Browse jobs",
+    href: "/jobs",
+  },
+  {
+    icon: "🤝",
+    title: "Attorney network",
+    desc: "Attorney-to-attorney connections for coverage, co-counsel, and referrals.",
+    cta: "Explore network",
+    href: "/network",
+  },
+  {
+    icon: "✦",
+    title: "AI matcher",
+    desc: "Describe what you need in plain language. Get ranked attorney and service matches with fit scores.",
+    cta: "Try AI matcher",
+    href: "/matcher",
+  },
+  {
+    icon: "✍️",
+    title: "Post a listing",
+    desc: "Attorneys can post roles, coverage needs, and projects for the ImmFlow community.",
+    cta: "Post a listing",
+    href: "/post",
+  },
+];
+
 export function defaultHomeBlockData(type) {
   switch (type) {
     case "home_hero":
@@ -101,29 +160,7 @@ export function defaultHomeBlockData(type) {
       return {
         badge: "Ways to use ImmFlow",
         title: "Ways to Use ImmFlow",
-        cards: [
-          {
-            icon: "⚖️",
-            title: "Find an attorney",
-            desc: "Browse verified immigration attorneys by case type, language, and availability.",
-            cta: "Browse attorneys",
-            href: "/attorneys",
-          },
-          {
-            icon: "🌐",
-            title: "Translation, interpreters & psych",
-            desc: "Book certified translation, interpreters ($150/hr remote · $200/hr in-person), and psychological evaluations.",
-            cta: "Browse services",
-            href: "/services",
-          },
-          {
-            icon: "🤝",
-            title: "Job board & attorney network",
-            desc: "Post and find roles, hearing coverage, and peer connections for coverage, co-counsel, and referrals.",
-            cta: "Explore network",
-            href: "/network",
-          },
-        ],
+        cards: DEFAULT_WAYS_CARDS.map((c) => ({ ...c })),
       };
     case "home_ai":
       return {
@@ -191,20 +228,62 @@ export function createHomeBlock(type) {
 
 const CARD_HREFS = ["/attorneys", "/services", "/network"];
 
+/** True when ways cards look like the old combined 3-card set (missing split options). */
+export function waysCardsNeedExpansion(cards) {
+  if (!Array.isArray(cards) || cards.length < DEFAULT_WAYS_CARDS.length) return true;
+  const hrefs = new Set(cards.map((c) => String(c?.href || "")));
+  return (
+    !hrefs.has("/services/translation") ||
+    !hrefs.has("/services/interpreter") ||
+    !hrefs.has("/services/psychological") ||
+    !hrefs.has("/jobs") ||
+    !hrefs.has("/matcher")
+  );
+}
+
+/** Merge missing default Ways cards into an existing list (by href). */
+export function expandWaysCards(existing) {
+  const cards = Array.isArray(existing) ? [...existing] : [];
+  const combined =
+    cards.length <= 3 &&
+    cards.some((c) =>
+      /translation.*interpreter|job board.*network|interpreters\s*&\s*psych/i.test(
+        `${c?.title || ""} ${c?.desc || ""}`
+      )
+    );
+
+  if (combined || cards.length === 0) {
+    return DEFAULT_WAYS_CARDS.map((c) => ({ ...c }));
+  }
+
+  const hrefs = new Set(cards.map((c) => String(c?.href || "")));
+  for (const def of DEFAULT_WAYS_CARDS) {
+    if (!hrefs.has(def.href)) {
+      cards.push({ ...def });
+      hrefs.add(def.href);
+    }
+  }
+  return cards;
+}
+
 /** Build homepage layout from legacy flat CMS keys when home.layout is missing. */
 export function buildDefaultHomepageDocument(getFn) {
   const get = typeof getFn === "function" ? getFn : () => "";
 
-  const waysCards = [1, 2, 3].map((n, i) => ({
-    icon: get(`home.card${n}.icon`, defaultHomeBlockData("home_ways").cards[i]?.icon || "✦"),
-    title: get(`home.card${n}.title`, defaultHomeBlockData("home_ways").cards[i]?.title || ""),
-    desc: get(
-      `home.card${n}.desc`,
-      defaultHomeBlockData("home_ways").cards[i]?.desc || ""
-    ),
-    cta: get(`home.card${n}.cta`, defaultHomeBlockData("home_ways").cards[i]?.cta || "Learn more"),
-    href: CARD_HREFS[i] || "/",
-  }));
+  // Prefer full platform ways list; only overlay legacy card1–3 titles if present.
+  const legacyOverlay = [1, 2, 3].map((n, i) => {
+    const title = get(`home.card${n}.title`, "");
+    if (!title) return null;
+    return {
+      icon: get(`home.card${n}.icon`, DEFAULT_WAYS_CARDS[i]?.icon || "✦"),
+      title,
+      desc: get(`home.card${n}.desc`, DEFAULT_WAYS_CARDS[i]?.desc || ""),
+      cta: get(`home.card${n}.cta`, DEFAULT_WAYS_CARDS[i]?.cta || "Learn more"),
+      href: CARD_HREFS[i] || DEFAULT_WAYS_CARDS[i]?.href || "/",
+    };
+  }).filter(Boolean);
+
+  const waysCards = expandWaysCards(legacyOverlay);
 
   const heroDefaults = defaultHomeBlockData("home_hero");
   const networkDefaults = defaultHomeBlockData("home_network");

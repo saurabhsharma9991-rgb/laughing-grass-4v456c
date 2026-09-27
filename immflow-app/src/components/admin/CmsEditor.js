@@ -2,8 +2,15 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CMS_SECTION_GROUPS } from "@/lib/constants/cms-sections";
-import { buildDefaultHomepageDocument } from "@/lib/constants/homepage-blocks";
-import { serializeHomepageDocument } from "@/lib/utils/homepage-document";
+import {
+  buildDefaultHomepageDocument,
+  expandWaysCards,
+  waysCardsNeedExpansion,
+} from "@/lib/constants/homepage-blocks";
+import {
+  parseHomepageDocument,
+  serializeHomepageDocument,
+} from "@/lib/utils/homepage-document";
 import HomepageBlockEditor from "./HomepageBlockEditor";
 import CmsFullPreview from "./CmsFullPreview";
 
@@ -45,18 +52,36 @@ export default function CmsEditor({
     const raw = cmsFormValues["home.layout"];
     const hasValue = raw != null && String(raw).trim() !== "";
     const hasDbField = cmsItems.some((i) => i.key === "home.layout");
+    const get = (key, fallback) => cmsFormValues[key] ?? fallback;
 
-    if (hasValue && hasDbField) {
-      homeLayoutSeeded.current = true;
-      return;
+    let serialized;
+    if (hasValue) {
+      const parsed = parseHomepageDocument(raw);
+      if (parsed) {
+        const blocks = parsed.blocks.map((b) => {
+          if (b.type !== "home_ways" || !waysCardsNeedExpansion(b.data?.cards)) return b;
+          return {
+            ...b,
+            data: {
+              ...b.data,
+              badge: b.data?.badge || "Ways to use ImmFlow",
+              title: b.data?.title || "Ways to Use ImmFlow",
+              cards: expandWaysCards(b.data?.cards),
+            },
+          };
+        });
+        serialized = serializeHomepageDocument({ ...parsed, blocks });
+      } else {
+        serialized = serializeHomepageDocument(buildDefaultHomepageDocument(get));
+      }
+    } else {
+      serialized = serializeHomepageDocument(buildDefaultHomepageDocument(get));
     }
 
-    const get = (key, fallback) => cmsFormValues[key] ?? fallback;
-    const serialized = hasValue
-      ? String(raw)
-      : serializeHomepageDocument(buildDefaultHomepageDocument(get));
+    const needsWrite =
+      !hasValue || String(raw).trim() !== String(serialized).trim();
 
-    if (!hasValue) {
+    if (needsWrite) {
       setCmsFormValues((prev) => ({
         ...prev,
         "home.layout": serialized,
@@ -164,10 +189,10 @@ export default function CmsEditor({
             <HomepageBlockEditor
               value={cmsFormValues["home.layout"] || ""}
               onChange={(json) =>
-                setCmsFormValues({
-                  ...cmsFormValues,
+                setCmsFormValues((prev) => ({
+                  ...prev,
                   "home.layout": json,
-                })
+                }))
               }
             />
           ) : activeItems.length === 0 ? (
@@ -289,8 +314,8 @@ export default function CmsEditor({
         </div>
       </div>
 
-      {/* Full scrollable preview */}
-      <div className="min-h-0 hidden lg:block">
+      {/* Full scrollable preview — always show on lg+; stack below editor on smaller */}
+      <div className="min-h-[420px] lg:min-h-0">
         <CmsFullPreview values={cmsFormValues} activeSection={activeSection} />
       </div>
     </div>

@@ -2,6 +2,8 @@ import { createBlockId } from "../constants/cms-page-blocks.js";
 import {
   createEmptyHomepageDocument,
   buildDefaultHomepageDocument,
+  expandWaysCards,
+  waysCardsNeedExpansion,
 } from "../constants/homepage-blocks.js";
 import { PAGE_PATHS, pageForPath } from "../constants/routes.js";
 
@@ -53,7 +55,20 @@ export function serializeHomepageDocument(doc) {
 export function resolveHomepageDocument(raw, getFn) {
   const parsed = parseHomepageDocument(raw);
   if (parsed && parsed.blocks?.length) {
-    return parsed;
+    const blocks = parsed.blocks.map((b) => {
+      if (b.type !== "home_ways") return b;
+      if (!waysCardsNeedExpansion(b.data?.cards)) return b;
+      return {
+        ...b,
+        data: {
+          ...b.data,
+          badge: b.data?.badge || "Ways to use ImmFlow",
+          title: b.data?.title || "Ways to Use ImmFlow",
+          cards: expandWaysCards(b.data?.cards),
+        },
+      };
+    });
+    return { ...parsed, blocks };
   }
   return buildDefaultHomepageDocument(getFn);
 }
