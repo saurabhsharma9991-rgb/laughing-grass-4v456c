@@ -22,13 +22,28 @@ export async function GET(req) {
         orderBy: { sentAt: "asc" },
         include: {
           sender: {
-            select: { email: true, attorney: { select: { name: true, initials: true } } },
+            select: {
+              id: true,
+              email: true,
+              role: true,
+              isPro: true,
+              displayName: true,
+              attorney: { select: { name: true, initials: true } },
+            },
           },
           receiver: {
-            select: { email: true, attorney: { select: { name: true, initials: true } } },
+            select: {
+              id: true,
+              email: true,
+              role: true,
+              isPro: true,
+              displayName: true,
+              attorney: { select: { name: true, initials: true } },
+            },
           },
         },
       });
+
       return apiSuccess(messages);
     }
 
@@ -42,6 +57,9 @@ export async function GET(req) {
           select: {
             id: true,
             email: true,
+            role: true,
+            isPro: true,
+            displayName: true,
             attorney: { select: { name: true, initials: true } },
           },
         },
@@ -49,6 +67,9 @@ export async function GET(req) {
           select: {
             id: true,
             email: true,
+            role: true,
+            isPro: true,
+            displayName: true,
             attorney: { select: { name: true, initials: true } },
           },
         },
@@ -64,8 +85,14 @@ export async function GET(req) {
           contact: {
             id: contactUser.id,
             email: contactUser.email,
-            name: contactUser.attorney?.name || contactUser.email.split("@")[0],
+            role: contactUser.role,
+            isPro: contactUser.isPro,
+            name:
+              contactUser.attorney?.name ||
+              contactUser.displayName ||
+              contactUser.email.split("@")[0],
             initials: contactUser.attorney?.initials || "??",
+            priorityClient: contactUser.role === "public" && contactUser.isPro,
           },
           lastMessage: msg.content,
           sentAt: msg.sentAt,
@@ -106,12 +133,13 @@ export async function POST(req) {
 
     const sender = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { role: true },
+      select: { role: true, isPro: true, displayName: true, email: true },
     });
     const professionalRoles = new Set(["attorney", "provider"]);
     const isClientIntake =
       (sender?.role === "public" && professionalRoles.has(receiver.role)) ||
       (receiver.role === "public" && professionalRoles.has(sender?.role));
+    const priorityClient = sender?.role === "public" && Boolean(sender.isPro);
 
     if (!isClientIntake) {
       const messaging = await assertFeatureAccess(session.userId, "direct_messaging");
@@ -141,6 +169,7 @@ export async function POST(req) {
       receiverId: message.receiverId,
       senderId: message.senderId,
       content: message.content,
+      priorityClient,
     });
 
     return apiSuccess(message, 201);

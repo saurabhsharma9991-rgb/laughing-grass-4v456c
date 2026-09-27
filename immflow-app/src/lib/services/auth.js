@@ -26,8 +26,6 @@ export function formatUserResponse(user, attorney) {
 
 function assertSignupApproved(user) {
   if (user.role === "admin") return;
-  // Seekers are auto-approved after email verification
-  if (user.role === "public") return;
 
   const status = user.signupStatus || "approved";
   if (status === "rejected") {
@@ -37,6 +35,10 @@ function assertSignupApproved(user) {
       "SIGNUP_REJECTED"
     );
   }
+
+  // Seekers are auto-approved after email verification and skip pending review.
+  if (user.role === "public") return;
+
   if (status === "pending") {
     throw new AuthError(
       "Your account is pending admin approval. You will receive an email once your credentials are verified.",
