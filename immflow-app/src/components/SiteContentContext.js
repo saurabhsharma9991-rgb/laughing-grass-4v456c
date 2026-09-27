@@ -8,14 +8,25 @@ const SiteContentContext = createContext(null);
 export function SiteContentProvider({ children }) {
   const { locale } = useI18n();
   const [content, setContent] = useState({});
+  const [menu, setMenu] = useState({ footer: [], nav: [] });
   const [loading, setLoading] = useState(true);
 
   const refreshContent = async () => {
     try {
-      const res = await fetch(`/api/content?locale=${encodeURIComponent(locale)}`);
-      const data = await res.json();
-      if (!data.error) {
-        setContent(data);
+      const [contentRes, menuRes] = await Promise.all([
+        fetch(`/api/content?locale=${encodeURIComponent(locale)}`),
+        fetch(`/api/pages?menu=1&locale=${encodeURIComponent(locale)}`),
+      ]);
+      const contentData = await contentRes.json();
+      const menuData = await menuRes.json();
+      if (!contentData.error) {
+        setContent(contentData);
+      }
+      if (!menuData.error) {
+        setMenu({
+          footer: Array.isArray(menuData.footer) ? menuData.footer : [],
+          nav: Array.isArray(menuData.nav) ? menuData.nav : [],
+        });
       }
     } catch (e) {
       console.error("Failed to load site content:", e);
@@ -33,7 +44,9 @@ export function SiteContentProvider({ children }) {
   };
 
   return (
-    <SiteContentContext.Provider value={{ content, get, loading, refreshContent }}>
+    <SiteContentContext.Provider
+      value={{ content, get, menu, loading, refreshContent }}
+    >
       {children}
     </SiteContentContext.Provider>
   );

@@ -7,7 +7,7 @@ export const ADMIN_RESOURCES = {
   },
   cms: {
     label: "Site content",
-    description: "Homepage copy, navigation, and footer CMS",
+    description: "Homepage copy, custom pages, navigation, and footer CMS",
     actions: ["view", "create", "edit", "delete"],
   },
   settings: {
@@ -126,6 +126,7 @@ export function canPerform(permissions, resource, action, { isSuperAdmin = false
 export const TAB_PERMISSIONS = {
   overview: ["analytics", "view"],
   cms: ["cms", "view"],
+  pages: ["cms", "view"],
   settings: ["settings", "view"],
   attorneys: ["attorneys", "view"],
   listings: ["listings", "view"],

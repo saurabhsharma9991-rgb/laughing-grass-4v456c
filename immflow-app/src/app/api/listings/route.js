@@ -3,6 +3,8 @@ import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { validateCreateListing } from "@/lib/validators/listings";
 import { listListings, createListing, enrichListingsForUser } from "@/lib/services/listings";
 import { extractAuthToken, verifyToken } from "@/lib/auth/jwt";
+import { prisma } from "@/lib/db";
+import { isProOnlyListingType } from "@/lib/constants/listing-types";
 
 function getOptionalUserId(req) {
   try {
@@ -27,8 +29,23 @@ export async function GET(req) {
     });
 
     const userId = getOptionalUserId(req);
+    let isPro = false;
     if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isPro: true },
+      });
+      isPro = Boolean(user?.isPro);
       listings = await enrichListingsForUser(listings, userId);
+    }
+
+    // Hearing / Outsource / Contract listings are Pro-only for browsing
+    if (!isPro) {
+      listings = listings.filter(
+        (l) =>
+          !isProOnlyListingType(l.type) ||
+          (userId && Number(l.postedById) === Number(userId))
+      );
     }
 
     return apiSuccess(listings);

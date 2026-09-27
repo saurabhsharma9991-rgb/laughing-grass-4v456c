@@ -49,6 +49,13 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
   const [sendingMessage, setSendingMessage] = useState(false);
   const chatBootstrapped = useRef(false);
 
+  // Client↔professional intake works on Free; peer professional chat needs Pro
+  const canComposeMessage =
+    hasMessaging ||
+    isClient ||
+    activeConversation?.contact?.role === "public";
+
+
   const loadConversations = useCallback(async () => {
     try {
       const res = await authFetch("/api/messages");
@@ -249,6 +256,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
           name: partner.name,
           initials: partner.initials || "AT",
           email: partner.email || "",
+          role: partner.role || undefined,
         },
         lastMessage: "Conversation started",
         sentAt: new Date(),
@@ -701,7 +709,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
                     {/* Input Field */}
                     <form onSubmit={handleSendMessage} className="flex gap-2 mt-auto">
-                      {hasMessaging ? (
+                      {canComposeMessage ? (
                         <>
                           <input
                             type="text"
@@ -720,7 +728,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         </>
                       ) : (
                         <div className="w-full bg-amber-light border border-amber/40 p-2.5 rounded-lg text-[11px] text-[#633806] text-center">
-                          🔒 Direct Messaging is locked for Free users.{" "}
+                          🔒 Professional peer messaging is Pro-only. Client contact still works on Free.{" "}
                           <button
                             type="button"
                             onClick={() => setUserTab("billing")}

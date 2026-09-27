@@ -3,6 +3,7 @@ import { parseJsonArray, stringifyJsonArray } from "@/lib/utils/json-fields";
 import { formatRelativeTime, getBadgeStyle } from "@/lib/utils/format";
 import { AuthError } from "@/lib/auth/guards.js";
 import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings.js";
+import { isProOnlyListingType } from "@/lib/constants/listing-types.js";
 
 export async function listListings({ status, q, location, language, type } = {}) {
   const where = {};
@@ -116,6 +117,14 @@ export async function createListing(userId, input) {
       "Posting listings is not available on your plan.",
       403,
       "FEATURE_NOT_AVAILABLE"
+    );
+  }
+
+  if (isProOnlyListingType(input.type) && !user.isPro) {
+    throw new AuthError(
+      "Hearing coverage, outsourcing, and contract listings require ImmFlow Pro.",
+      403,
+      "PRO_UPGRADE_REQUIRED"
     );
   }
 

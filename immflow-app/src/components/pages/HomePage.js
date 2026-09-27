@@ -130,22 +130,31 @@ export default function HomePage({ setPage, setShowAuth }) {
   const stat4Label = get("home.stats.languages_label", "Languages");
 
   const howItWorksBadge = get("home.how_it_works.badge", "How it works");
-  const howItWorksTitle = get("home.how_it_works.title", "Three ways to use ImmFlow");
+  const howItWorksTitle = get("home.how_it_works.title", "Ways to use ImmFlow");
 
   const card1Icon = get("home.card1.icon", "⚖️");
   const card1Title = get("home.card1.title", "Find an attorney");
-  const card1Desc = get("home.card1.desc", "Browse verified immigration attorneys by case type, language, and availability.");
+  const card1Desc = get(
+    "home.card1.desc",
+    "Browse verified immigration attorneys by case type, language, and availability."
+  );
   const card1Cta = get("home.card1.cta", "Browse attorneys");
 
-  const card2Icon = get("home.card2.icon", "📋");
-  const card2Title = get("home.card2.title", "Job board");
-  const card2Desc = get("home.card2.desc", "Post and find full-time roles, hearing coverage, and outsource projects.");
-  const card2Cta = get("home.card2.cta", "View listings");
+  const card2Icon = get("home.card2.icon", "🌐");
+  const card2Title = get("home.card2.title", "Translation, interpreters & psych");
+  const card2Desc = get(
+    "home.card2.desc",
+    "Book certified translation, interpreters ($150/hr remote · $200/hr in-person), and psychological evaluations."
+  );
+  const card2Cta = get("home.card2.cta", "Browse services");
 
   const card3Icon = get("home.card3.icon", "🤝");
-  const card3Title = get("home.card3.title", "Attorney network");
-  const card3Desc = get("home.card3.desc", "Attorney-to-attorney connections for coverage, co-counsel, and referrals.");
-  const card3Cta = get("home.card3.cta", "Join network");
+  const card3Title = get("home.card3.title", "Job board & attorney network");
+  const card3Desc = get(
+    "home.card3.desc",
+    "Post and find roles, hearing coverage, and peer connections for coverage, co-counsel, and referrals."
+  );
+  const card3Cta = get("home.card3.cta", "Explore network");
 
   const aiBadge = get("home.ai.badge", "AI-powered");
   const aiTitle = get("home.ai.title", "Smart matching, not just search");
@@ -259,7 +268,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                 onChange={(e) => setServiceQuery(e.target.value)}
                 placeholder={t(
                   "home.aiSearchPlaceholder",
-                  "e.g., I need a certified Hindi to English translation."
+                  'e.g., "I want to know about the immigration process" or "Hindi to English certified translation"'
                 )}
                 className="flex-1 text-sm py-3.5 px-4 border border-[rgba(0,0,0,0.12)] rounded-xl bg-white focus:outline-none focus:border-green shadow-sm"
               />
@@ -433,7 +442,7 @@ export default function HomePage({ setPage, setShowAuth }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             {[
               { icon: card1Icon, title: card1Title, desc: card1Desc, cta: card1Cta, page: "attorneys" },
-              { icon: card2Icon, title: card2Title, desc: card2Desc, cta: card2Cta, page: "jobs" },
+              { icon: card2Icon, title: card2Title, desc: card2Desc, cta: card2Cta, page: "services" },
               { icon: card3Icon, title: card3Title, desc: card3Desc, cta: card3Cta, page: "network" },
             ].map((f) => (
               <div

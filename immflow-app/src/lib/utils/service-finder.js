@@ -56,6 +56,9 @@ const CATEGORY_HINTS = [
       "lawyer",
       "hearing coverage",
       "immigration lawyer",
+      "immigration process",
+      "immigration help",
+      "how do i immigrate",
       "co-counsel",
       "referral",
       "deportation",
@@ -63,6 +66,8 @@ const CATEGORY_HINTS = [
       "h-1b",
       "green card",
       "asylum attorney",
+      "citizenship",
+      "naturalization",
     ],
   },
 ];

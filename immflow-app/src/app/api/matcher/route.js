@@ -1,9 +1,8 @@
-import { requireAuth } from "@/lib/auth/guards";
+import { requireAuth, AuthError } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { listAttorneys } from "@/lib/services/attorneys";
 import { matchAttorneys } from "@/lib/services/matcher-ai";
-import { getPlatformSettings } from "@/lib/services/platform-settings";
-import { prisma } from "@/lib/db";
+import { assertFeatureAccess } from "@/lib/services/platform-settings";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function POST(req) {
@@ -20,16 +19,13 @@ export async function POST(req) {
       );
     }
     const session = requireAuth(req);
-    const settings = await getPlatformSettings();
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { isPro: true },
-    });
-
-    const flags = settings.featureFlags || {};
-    const matcherProOnly = flags.ai_matcher?.free !== true;
-    if (matcherProOnly && !user?.isPro) {
-      return apiError("AI Matcher requires ImmFlow Pro.", 403, "PRO_REQUIRED");
+    const access = await assertFeatureAccess(session.userId, "ai_matcher");
+    if (!access.allowed) {
+      throw new AuthError(
+        "AI Matcher requires ImmFlow Pro.",
+        403,
+        "PRO_UPGRADE_REQUIRED"
+      );
     }
 
     const body = await req.json();

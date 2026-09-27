@@ -3,9 +3,15 @@ import { authFetch } from "@/lib/client/auth-storage";
 import { toastError } from "@/lib/client/alerts";
 import { LISTING_TYPES } from "@/lib/constants/listing-types";
 import TagInput from "../TagInput";
+import { usePlatform } from "@/components/PlatformContext";
 
 export default function PostPage({ user, setShowAuth, setPage }) {
-  const [type, setType] = useState(LISTING_TYPES[0].value);
+  const { canAccess } = usePlatform();
+  const isPro = Boolean(user?.isPro);
+  const canPostProTypes = canAccess("unlimited_listings", isPro) || isPro;
+
+  const availableTypes = LISTING_TYPES.filter((t) => !t.proOnly || canPostProTypes);
+  const [type, setType] = useState(availableTypes[0]?.value || "Full-time");
   const [title, setTitle] = useState("");
   const [org, setOrg] = useState("");
   const [location, setLocation] = useState("");
@@ -16,6 +22,8 @@ export default function PostPage({ user, setShowAuth, setPage }) {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isUpgradeRequired, setIsUpgradeRequired] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState("");
+
 
   const submit = async () => {
     if (!user) {
@@ -43,8 +51,12 @@ export default function PostPage({ user, setShowAuth, setPage }) {
       const res = await response.json();
       
       if (res.error) {
-        if (res.error.code === "PRO_UPGRADE_REQUIRED") {
+        if (
+          res.error.code === "PRO_UPGRADE_REQUIRED" ||
+          res.error.code === "FEATURE_NOT_AVAILABLE"
+        ) {
           setIsUpgradeRequired(true);
+          setUpgradeMessage(res.error.message || "");
         } else {
           toastError(res.error.message || "Failed to create listing.");
         }
@@ -108,19 +120,35 @@ export default function PostPage({ user, setShowAuth, setPage }) {
             What are you posting?
           </h1>
           <div className="flex flex-wrap gap-2">
-            {LISTING_TYPES.map(({ label, value }) => (
-              <button
-                key={value}
-                onClick={() => setType(value)}
-                className={`py-2 px-[18px] rounded-lg border text-xs font-medium cursor-pointer transition-all duration-200 ${
-                  type === value
-                    ? "border-green bg-green text-white"
-                    : "border-[rgba(0,0,0,0.09)] bg-transparent text-muted hover:text-text"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            {LISTING_TYPES.map(({ label, value, proOnly }) => {
+              const locked = proOnly && !canPostProTypes;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    if (locked) {
+                      setIsUpgradeRequired(true);
+                      setUpgradeMessage(
+                        "Hearing coverage, outsourcing, and contract listings require ImmFlow Pro."
+                      );
+                      return;
+                    }
+                    setType(value);
+                  }}
+                  className={`py-2 px-[18px] rounded-lg border text-xs font-medium cursor-pointer transition-all duration-200 ${
+                    type === value
+                      ? "border-green bg-green text-white"
+                      : locked
+                        ? "border-[rgba(0,0,0,0.09)] bg-bg text-muted-high"
+                        : "border-[rgba(0,0,0,0.09)] bg-transparent text-muted hover:text-text"
+                  }`}
+                >
+                  {label}
+                  {locked ? " 🔒" : ""}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -142,7 +170,8 @@ export default function PostPage({ user, setShowAuth, setPage }) {
               <span>🔒 ImmFlow Pro Upgrade Required</span>
             </div>
             <p className="text-xs text-[#633806]/85 leading-relaxed">
-              You have reached the limit of 1 active listing for Free accounts. Upgrade to ImmFlow Pro to enjoy unlimited listings, access to our AI Matcher, and direct messaging with other attorneys.
+              {upgradeMessage ||
+                "You have reached the Free listing limit, or this listing type requires ImmFlow Pro. Upgrade for unlimited listings, AI Matcher, and specialty job board types."}
             </p>
             <div className="flex gap-2.5">
               <button
