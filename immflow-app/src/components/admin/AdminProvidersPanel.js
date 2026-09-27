@@ -142,7 +142,145 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
       ) : providers.length === 0 ? (
         <div className="text-center py-12 text-muted text-sm">No providers found.</div>
       ) : (
-        <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl overflow-hidden">
+        <>
+          <div className="md:hidden space-y-3">
+            {providers.map((p) => (
+              <article
+                key={p.id}
+                className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm">{p.displayName}</div>
+                    <div className="text-[10px] text-muted truncate">{p.email}</div>
+                  </div>
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${STATUS_TONES[p.verificationStatus] || STATUS_TONES.pending}`}
+                  >
+                    {p.verificationStatus}
+                  </span>
+                </div>
+                <div className="text-xs text-muted mb-1">{p.categoryName}</div>
+                <div className="text-[10px] text-muted-high mb-3">{p.location || "—"}</div>
+                {(p.credentials || []).length > 0 && (
+                  <div className="mb-3 space-y-2 border-t border-[rgba(0,0,0,0.06)] pt-2">
+                    {(p.credentials || []).map((c) => (
+                      <div key={c.id} className="text-[10px]">
+                        <span className="font-medium text-text">{c.label}</span>
+                        {c.credentialNumber && (
+                          <span className="text-muted"> · {c.credentialNumber}</span>
+                        )}
+                        {c.expiringSoon && (
+                          <span className="ml-1 text-amber font-semibold">expiring soon</span>
+                        )}
+                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                          {canEdit && (
+                            <select
+                              value={c.status}
+                              disabled={acting === p.id}
+                              onChange={(e) =>
+                                act(p.id, "credential_status", {
+                                  credentialId: c.id,
+                                  status: e.target.value,
+                                })
+                              }
+                              className="text-[10px] border rounded px-1 py-0.5"
+                            >
+                              {["pending", "verified", "rejected", "expired"].map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {canEdit && (
+                            <button
+                              type="button"
+                              disabled={acting === p.id}
+                              onClick={() =>
+                                act(p.id, "request_credential_update", {
+                                  credentialId: c.id,
+                                  notes: "Please upload current credential documentation.",
+                                })
+                              }
+                              className="text-[10px] text-amber font-semibold"
+                            >
+                              Request update
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(p.credentials || []).length === 0 && (
+                  <div className="text-[10px] text-muted mb-3">No credentials</div>
+                )}
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {canEdit && p.verificationStatus !== "verified" && (
+                    <button
+                      type="button"
+                      disabled={acting === p.id}
+                      onClick={() => act(p.id, "verify")}
+                      className="text-[11px] text-green font-semibold bg-transparent border border-green/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                    >
+                      Verify
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setCredentialProviderId(p.id)}
+                      className="text-[11px] text-green font-semibold bg-transparent border border-green/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                    >
+                      Add credential
+                    </button>
+                  )}
+                  {canEdit && p.verificationStatus !== "rejected" && (
+                    <button
+                      type="button"
+                      disabled={acting === p.id}
+                      onClick={() => setRejectId(p.id)}
+                      className="text-[11px] text-red font-semibold bg-transparent border border-red/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                    >
+                      Reject
+                    </button>
+                  )}
+                  {canEdit && p.verificationStatus === "verified" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={acting === p.id}
+                        onClick={() => act(p.id, "suspend")}
+                        className="text-[11px] text-amber font-semibold bg-transparent border border-amber/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Suspend
+                      </button>
+                      <button
+                        type="button"
+                        disabled={acting === p.id}
+                        onClick={() => act(p.id, "expire")}
+                        className="text-[11px] text-muted font-semibold bg-white border border-[rgba(0,0,0,0.12)] rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Mark expired
+                      </button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => remove(p.id)}
+                      className="text-[11px] text-red bg-transparent border-none cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden md:block bg-white border border-[rgba(0,0,0,0.09)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left min-w-[900px]">
               <thead>
@@ -289,6 +427,7 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {rejectId && (

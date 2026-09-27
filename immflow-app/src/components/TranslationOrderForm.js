@@ -43,15 +43,18 @@ export default function TranslationOrderForm({
     if (translationType === "certified") params.set("certified", "1");
     fetch(`/api/providers?${params}`)
       .then((r) => r.json())
-      .then((data) => setTranslators(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setTranslators(list);
+        setSelectedProviderId((prev) =>
+          prev && list.some((p) => String(p.id) === String(prev)) ? prev : ""
+        );
+      })
       .catch(() => setTranslators([]));
   }, [providerId, sourceLanguage, targetLanguage, translationType]);
 
   const estimate = useMemo(
-    () =>
-      formatMoney(
-        quoteTranslationCents({ translationType, turnaround })
-      ),
+    () => formatMoney(quoteTranslationCents({ translationType, turnaround })),
     [translationType, turnaround]
   );
 
@@ -65,13 +68,15 @@ export default function TranslationOrderForm({
       toastError(t("translation.selectLanguages", "Select source and target languages."));
       return;
     }
-    if (!selectedProviderId) {
-      toastError(t("translation.selectProvider", "Select a verified translator."));
-      return;
-    }
 
     setSubmitting(true);
     try {
+      const chosenId = providerId
+        ? Number(providerId)
+        : selectedProviderId
+          ? Number(selectedProviderId)
+          : null;
+
       const res = await authFetch("/api/translation-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -82,7 +87,7 @@ export default function TranslationOrderForm({
           translationType,
           turnaround,
           clientNotes,
-          providerId: Number(selectedProviderId),
+          providerId: chosenId,
           certificationNote:
             translationType === "certified" ? defaultCertificationNote("certified") : null,
         }),
@@ -107,7 +112,14 @@ export default function TranslationOrderForm({
         }
       }
 
-      toastSuccess(t("translation.created", "Order created. Complete payment to submit."));
+      toastSuccess(
+        t(
+          "translation.created",
+          chosenId
+            ? "Order created. Complete payment to submit."
+            : "Order created. Complete payment — we'll match a verified translator."
+        )
+      );
       onCreated?.(order);
     } catch {
       toastError("Failed to create order.");
@@ -122,13 +134,13 @@ export default function TranslationOrderForm({
       className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 space-y-4"
     >
       <div>
-          <h3 className="font-syne text-lg font-extrabold text-text">
-            {t("translation.requestTitle", "Request a translation")}
-          </h3>
+        <h3 className="font-syne text-lg font-extrabold text-text">
+          {t("translation.requestTitle", "Request a translation")}
+        </h3>
         <p className="text-xs text-muted mt-1">
           {providerName
-            ? `Requesting from ${providerName}. Estimated starting price ${estimate}.`
-            : `Get a quote, upload your document, and pay securely. Estimated starting price ${estimate}.`}
+            ? `Requesting from ${providerName}. Starting price ${estimate} (pay to confirm).`
+            : `Upload your document and pay securely. Starting price ${estimate}. A translator can be assigned after payment if none is selected.`}
         </p>
       </div>
 
@@ -183,14 +195,20 @@ export default function TranslationOrderForm({
 
       {!providerId && (
         <label className="block text-xs">
-          <span className="text-muted font-medium">{t("translation.selectProvider", "Verified translator")}</span>
+          <span className="text-muted font-medium">
+            {t("translation.selectProvider", "Preferred translator")}{" "}
+            <span className="font-normal">({t("common.optional", "optional")})</span>
+          </span>
           <select
             value={selectedProviderId}
             onChange={(e) => setSelectedProviderId(e.target.value)}
             className="mt-1 w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white"
-            required
           >
-            <option value="">Select a matching translator…</option>
+            <option value="">
+              {translators.length === 0
+                ? "No matching translator — ImmFlow will assign one"
+                : "Any matching translator (or leave blank)"}
+            </option>
             {translators.map((provider) => (
               <option key={provider.id} value={provider.id}>
                 {provider.displayName}
@@ -199,13 +217,12 @@ export default function TranslationOrderForm({
               </option>
             ))}
           </select>
-          {sourceLanguage &&
-            targetLanguage &&
-            translators.length === 0 && (
-              <span className="block text-[10px] text-amber mt-1">
-                No verified provider currently offers this exact language pair.
-              </span>
-            )}
+          {sourceLanguage && targetLanguage && translators.length === 0 && (
+            <span className="block text-[10px] text-muted mt-1">
+              No verified provider currently offers this exact language pair. You can still create
+              and pay for the order — we&apos;ll match a translator afterward.
+            </span>
+          )}
         </label>
       )}
 
@@ -271,13 +288,13 @@ export default function TranslationOrderForm({
       </label>
 
       <label className="block text-xs">
-        <span className="text-muted font-medium">{t("translation.notes", "Notes for translator")}</span>
+        <span className="text-muted font-medium">{t("translation.notes", "Order notes")}</span>
         <textarea
           value={clientNotes}
           onChange={(e) => setClientNotes(e.target.value)}
           rows={3}
           className="mt-1 w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
-          placeholder="Names to preserve, formatting needs, deadline…"
+          placeholder="Names to preserve, formatting needs, deadline… (shared with translator after payment)"
         />
       </label>
 
@@ -286,7 +303,9 @@ export default function TranslationOrderForm({
         disabled={submitting}
         className="w-full sm:w-auto bg-green text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50"
       >
-        {submitting ? t("common.loading", "Creating…") : `${t("translation.createOrder", "Create order")} · ~${estimate}`}
+        {submitting
+          ? t("common.loading", "Creating…")
+          : `${t("translation.createOrder", "Create order")} · ${estimate}`}
       </button>
     </form>
   );

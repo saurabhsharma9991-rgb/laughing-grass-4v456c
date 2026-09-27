@@ -9,16 +9,11 @@ export const CMS_SECTION_GROUPS = [
   {
     page: "Homepage",
     sections: [
-      { id: "home.hero", label: "Hero", description: "Main headline, CTAs, badge" },
-      { id: "home.stats", label: "Stats banner", description: "Numbers below the hero" },
-      { id: "home.how_it_works", label: "How it works", description: "Section heading" },
-      { id: "home.card1", label: "Card — Find attorney", description: "First feature card" },
-      { id: "home.card2", label: "Card — Job board", description: "Second feature card" },
-      { id: "home.card3", label: "Card — Network", description: "Third feature card" },
-      { id: "home.ai", label: "AI matcher promo", description: "AI section copy" },
-      { id: "home.featured", label: "Featured attorneys", description: "Featured block heading" },
-      { id: "home.pricing", label: "Pricing", description: "Pricing section intro" },
-      { id: "home.join", label: "Join CTA", description: "Bottom call-to-action banner" },
+      {
+        id: "home.layout",
+        label: "Homepage layout",
+        description: "Add, remove, reorder sections & cards",
+      },
     ],
   },
   {

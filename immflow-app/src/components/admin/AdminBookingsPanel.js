@@ -91,8 +91,87 @@ export default function AdminBookingsPanel({ canEdit }) {
 
       {loading ? (
         <p className="text-sm text-muted">Loading…</p>
+      ) : bookings.length === 0 ? (
+        <div className="text-center py-12 text-muted text-sm">No bookings.</div>
       ) : (
-        <div className="overflow-x-auto border border-[rgba(0,0,0,0.09)] rounded-xl bg-white">
+        <>
+          <div className="md:hidden space-y-3">
+            {bookings.map((b) => (
+              <article
+                key={b.id}
+                className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <span className="text-[10px] font-semibold text-muted">#{b.id}</span>
+                  {!canEdit && (
+                    <span className="text-[10px] text-muted capitalize">{b.status}</span>
+                  )}
+                </div>
+                <div className="font-semibold text-sm">{b.client?.displayName || "—"}</div>
+                <div className="text-[10px] text-muted truncate mb-2">{b.client?.email}</div>
+                <div className="text-xs capitalize font-medium">{b.bookingType}</div>
+                <div className="text-[10px] text-muted mb-1">
+                  {b.serviceType} · {b.language} · {b.modality}
+                </div>
+                <div className="text-[10px] text-muted mb-3">
+                  {b.scheduledAt ? new Date(b.scheduledAt).toLocaleString() : "—"}
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-semibold text-muted uppercase">
+                    Provider
+                    {canEdit ? (
+                      <select
+                        value={b.providerId || ""}
+                        disabled={busyId === b.id}
+                        onChange={(e) => patch(b.id, { providerId: Number(e.target.value) })}
+                        className="mt-1 w-full text-sm border rounded-lg px-2 py-2"
+                      >
+                        <option value="">Assign provider…</option>
+                        {providers
+                          .filter(
+                            (p) =>
+                              p.categorySlug ===
+                              (b.bookingType === "interpreter" ? "interpreter" : "psychological")
+                          )
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.displayName}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      <span className="block mt-1 text-sm font-normal text-text normal-case">
+                        {b.provider?.displayName || "—"}
+                      </span>
+                    )}
+                  </label>
+                  <label className="block text-[10px] font-semibold text-muted uppercase">
+                    Status
+                    {canEdit ? (
+                      <select
+                        value={b.status}
+                        disabled={busyId === b.id}
+                        onChange={(e) => patch(b.id, { status: e.target.value })}
+                        className="mt-1 w-full text-sm border rounded-lg px-2 py-2"
+                      >
+                        {BOOKING_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="block mt-1 text-sm font-normal text-text normal-case">
+                        {b.status}
+                      </span>
+                    )}
+                  </label>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto border border-[rgba(0,0,0,0.09)] rounded-xl bg-white">
           <table className="w-full text-xs text-left min-w-[900px]">
             <thead className="bg-bg text-muted">
               <tr>
@@ -173,16 +252,10 @@ export default function AdminBookingsPanel({ canEdit }) {
                   </td>
                 </tr>
               ))}
-              {bookings.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-muted">
-                    No bookings.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

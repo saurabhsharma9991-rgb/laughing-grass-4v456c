@@ -101,14 +101,55 @@ async function getTranslatorProvider(providerId) {
 
 function parseProviderBaseCents(provider) {
   const pd = provider?.profileData || {};
-  if (pd.basePriceCents != null) return Number(pd.basePriceCents);
-  if (pd.priceCents != null) return Number(pd.priceCents);
-  // Parse "$49" style rate strings
-  if (provider?.rate) {
-    const n = Number(String(provider.rate).replace(/[^0-9.]/g, ""));
-    if (Number.isFinite(n) && n > 0) return Math.round(n * 100);
+  if (pd.basePriceCents != null && Number(pd.basePriceCents) > 0) {
+    return Number(pd.basePriceCents);
   }
-  return null;
+  if (pd.priceCents != null && Number(pd.priceCents) > 0) {
+    return Number(pd.priceCents);
+  }
+
+  const rate = String(provider?.rate || "").trim();
+  if (!rate) return null;
+
+  // Per-word / hourly display rates are not flat document fees — ignore them
+  // so we fall back to the platform default ($49) instead of e.g. "$0.18/word" → $15 floor.
+  if (/\/\s*word|per\s*word|\/\s*hr|\/\s*hour|per\s*hour|hourly/i.test(rate)) {
+    return null;
+  }
+
+  const match = rate.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
+  if (!match) return null;
+  const dollars = Number(match[1]);
+  if (!Number.isFinite(dollars) || dollars < 5) return null;
+  return Math.round(dollars * 100);
+}
+
+/** True when a client↔translator pair has at least one paid translation order. */
+export async function hasPaidTranslationRelationship(clientUserId, providerUserId) {
+  const provider = await prisma.provider.findFirst({
+    where: {
+      userId: Number(providerUserId),
+      category: { slug: "translation" },
+    },
+    select: { id: true },
+  });
+  if (!provider) return { isTranslationProvider: false, hasPaid: false };
+
+  const order = await prisma.translationOrder.findFirst({
+    where: {
+      clientId: Number(clientUserId),
+      providerId: provider.id,
+      paidAt: { not: null },
+      status: { notIn: ["cancelled", "refunded"] },
+    },
+    select: { id: true },
+  });
+
+  return {
+    isTranslationProvider: true,
+    hasPaid: Boolean(order),
+    providerId: provider.id,
+  };
 }
 
 export async function createTranslationOrder(clientId, data) {
