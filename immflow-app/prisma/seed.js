@@ -606,7 +606,7 @@ async function seedProviders(passwordHash, categories) {
         initials: initials(first, last),
         location: city,
         experienceYears: 4 + (i % 9),
-        languages: JSON.stringify([source, target, "English"]),
+        languages: JSON.stringify([...new Set([source, target, "English"])]),
         rate: "$150/hr remote · $200/hr in-person",
         availability: "Book 48h ahead",
         stars: 4.4 + (i % 6) * 0.1,

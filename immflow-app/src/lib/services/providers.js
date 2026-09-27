@@ -22,7 +22,7 @@ function initialsFromName(name) {
 
 export function formatProvider(p) {
   const category = p.category;
-  const languages = parseJsonArray(p.languages);
+  const languages = [...new Set(parseJsonArray(p.languages))];
   const pairs = Array.isArray(p.languagePairs)
     ? p.languagePairs.map((lp) => ({
         id: lp.id,
