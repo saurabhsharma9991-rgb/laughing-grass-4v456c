@@ -1225,6 +1225,16 @@ async function seedCmsPages() {
   ];
 
   let created = 0;
+  if (!prisma.cmsPage) {
+    console.warn(
+      "Skipping CMS pages — Prisma client has no cmsPage model.\n" +
+        "On the server run:\n" +
+        "  npx prisma migrate deploy\n" +
+        "  npx prisma generate\n" +
+        "Then re-run: npm run seed:additive"
+    );
+    return 0;
+  }
   for (const p of pages) {
     const existing = await prisma.cmsPage.findUnique({ where: { slug: p.slug } });
     if (existing) {
