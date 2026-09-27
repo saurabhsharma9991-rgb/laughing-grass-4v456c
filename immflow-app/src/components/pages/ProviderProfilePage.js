@@ -165,7 +165,7 @@ export default function ProviderProfilePage({
           <div className="mt-5">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">{t("marketplace.languages", "Languages")}</h2>
             <div className="flex flex-wrap gap-1.5">
-              {profile.languages.map((l) => (
+              {[...new Set(profile.languages)].map((l) => (
                 <Tag key={l}>{l}</Tag>
               ))}
             </div>

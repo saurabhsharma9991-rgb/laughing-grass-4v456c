@@ -606,7 +606,7 @@ async function seedProviders(passwordHash, categories) {
         initials: initials(first, last),
         location: city,
         experienceYears: 4 + (i % 9),
-        languages: JSON.stringify([source, target, "English"]),
+        languages: JSON.stringify([...new Set([source, target, "English"])]),
         rate: "$150/hr remote · $200/hr in-person",
         availability: "Book 48h ahead",
         stars: 4.4 + (i % 6) * 0.1,
@@ -1225,6 +1225,16 @@ async function seedCmsPages() {
   ];
 
   let created = 0;
+  if (!prisma.cmsPage) {
+    console.warn(
+      "Skipping CMS pages — Prisma client has no cmsPage model.\n" +
+        "On the server run:\n" +
+        "  npx prisma migrate deploy\n" +
+        "  npx prisma generate\n" +
+        "Then re-run: npm run seed:additive"
+    );
+    return 0;
+  }
   for (const p of pages) {
     const existing = await prisma.cmsPage.findUnique({ where: { slug: p.slug } });
     if (existing) {
