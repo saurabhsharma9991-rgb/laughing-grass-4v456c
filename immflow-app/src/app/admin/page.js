@@ -6,7 +6,6 @@ import CmsEditor from "@/components/admin/CmsEditor";
 import PlatformSettingsPanel from "@/components/admin/PlatformSettingsPanel";
 import AttorneyEditorModal from "@/components/admin/AttorneyEditorModal";
 import ListingEditorModal from "@/components/admin/ListingEditorModal";
-import JobCard from "@/components/JobCard";
 import UsersRolesPanel from "@/components/admin/UsersRolesPanel";
 import AdminApplicationsPanel from "@/components/admin/AdminApplicationsPanel";
 import AdminReviewsPanel from "@/components/admin/AdminReviewsPanel";
@@ -16,6 +15,7 @@ import AdminTranslationOrdersPanel from "@/components/admin/AdminTranslationOrde
 import AdminBookingsPanel from "@/components/admin/AdminBookingsPanel";
 import AdminClientsPanel from "@/components/admin/AdminClientsPanel";
 import AdminPagesPanel from "@/components/admin/AdminPagesPanel";
+import AdminListingsPanel from "@/components/admin/AdminListingsPanel";
 import { authFetch, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
@@ -30,6 +30,7 @@ export default function AdminPage() {
 
   // Tab controls: 'cms', 'attorneys', 'listings', 'analytics'
   const [activeTab, setActiveTab] = useState("overview");
+  const [navOpen, setNavOpen] = useState(false);
 
   // CMS Content
   const [cmsItems, setCmsItems] = useState([]);
@@ -93,9 +94,34 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadAdminAccess().then((access) => {
-      if (access) loadAllData(access);
+      if (access) {
+        // Lightweight boot: analytics only. Heavy lists load when their tab opens.
+        const check = (resource, action) =>
+          canPerform(access.permissions, resource, action, { isSuperAdmin: access.isSuperAdmin });
+        if (check("analytics", "view")) loadResourcesAndAnalytics(access, { listings: false, attorneys: false });
+      }
     });
   }, []);
+
+  useEffect(() => {
+    if (!adminAccess) return;
+    if (activeTab === "cms" && cmsItems.length === 0) loadCmsContent();
+    if (activeTab === "attorneys" && attorneys.length === 0) {
+      loadResourcesAndAnalytics(adminAccess, { attorneys: true, listings: false });
+    }
+    if (activeTab === "listings" && listings.length === 0) {
+      loadResourcesAndAnalytics(adminAccess, { attorneys: false, listings: true });
+    }
+  }, [activeTab, adminAccess]);
+
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [navOpen]);
 
   const loadAllData = (access = adminAccess) => {
     const check = (resource, action) =>
@@ -131,22 +157,28 @@ export default function AdminPage() {
     }
   };
 
-  const loadResourcesAndAnalytics = async (access = adminAccess) => {
+  const loadResourcesAndAnalytics = async (
+    access = adminAccess,
+    opts = { attorneys: true, listings: true }
+  ) => {
     setLoadingResources(true);
     try {
       const check = (resource, action) =>
         canPerform(access?.permissions, resource, action, { isSuperAdmin: access?.isSuperAdmin });
 
+      const wantAttorneys = opts.attorneys !== false;
+      const wantListings = opts.listings !== false;
+
       const fetches = [];
-      if (check("attorneys", "view")) {
+      if (wantAttorneys && check("attorneys", "view")) {
         fetches.push(authFetch("/api/admin/attorneys").then((r) => r.json()));
       } else {
-        fetches.push(Promise.resolve([]));
+        fetches.push(Promise.resolve(null));
       }
-      if (check("listings", "view")) {
+      if (wantListings && check("listings", "view")) {
         fetches.push(authFetch("/api/listings").then((r) => r.json()));
       } else {
-        fetches.push(Promise.resolve([]));
+        fetches.push(Promise.resolve(null));
       }
       if (check("analytics", "view")) {
         fetches.push(authFetch("/api/admin/analytics").then((r) => r.json()));
@@ -160,7 +192,7 @@ export default function AdminPage() {
 
       if (Array.isArray(dataAttorneys)) setAttorneys(dataAttorneys);
       if (Array.isArray(dataListings)) setListings(dataListings);
-      if (!dataAnalytics.error) setAnalytics(dataAnalytics);
+      if (dataAnalytics && !dataAnalytics.error) setAnalytics(dataAnalytics);
       if (dataBilling && !dataBilling.error) setBilling(dataBilling);
     } catch (e) {
       console.error(e);
@@ -600,21 +632,49 @@ export default function AdminPage() {
   ].filter(([key]) => canViewTab(key));
 
   return (
-    <div className="min-h-screen bg-bg font-dm-sans flex flex-col lg:flex-row">
-      <aside className="lg:w-56 xl:w-64 bg-white border-b lg:border-b-0 lg:border-r border-[rgba(0,0,0,0.09)] shrink-0">
-        <div className="p-5 border-b border-[rgba(0,0,0,0.09)]">
-          <div className="font-syne text-lg font-extrabold text-text">
-            Imm<span className="text-green">Flow</span>
+    <div className="min-h-screen bg-bg font-dm-sans flex">
+      {/* Mobile overlay */}
+      {navOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden border-none cursor-pointer"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — drawer on mobile, fixed on desktop */}
+      <aside
+        className={`fixed lg:sticky top-0 left-0 z-50 h-dvh w-[min(280px,85vw)] lg:w-56 xl:w-64 bg-white border-r border-[rgba(0,0,0,0.09)] flex flex-col shrink-0 transition-transform duration-200 ease-out ${
+          navOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        <div className="p-5 border-b border-[rgba(0,0,0,0.09)] flex items-center justify-between gap-2">
+          <div>
+            <div className="font-syne text-lg font-extrabold text-text">
+              Imm<span className="text-green">Flow</span>
+            </div>
+            <div className="text-[10px] text-muted mt-0.5">Admin dashboard</div>
           </div>
-          <div className="text-[10px] text-muted mt-0.5">Admin dashboard</div>
+          <button
+            type="button"
+            className="lg:hidden p-2 rounded-lg text-muted hover:bg-bg border-none bg-transparent cursor-pointer"
+            onClick={() => setNavOpen(false)}
+            aria-label="Close navigation"
+          >
+            ✕
+          </button>
         </div>
-        <nav className="p-3 flex lg:flex-col gap-1 overflow-x-auto">
+        <nav className="p-3 flex-1 overflow-y-auto flex flex-col gap-0.5">
           {navItems.map(([key, label]) => (
             <button
               key={key}
               type="button"
-              onClick={() => setActiveTab(key)}
-              className={`text-left py-2.5 px-3 rounded-lg text-[13px] font-medium cursor-pointer whitespace-nowrap transition-all ${
+              onClick={() => {
+                setActiveTab(key);
+                setNavOpen(false);
+              }}
+              className={`text-left py-2.5 px-3 rounded-lg text-[13px] font-medium cursor-pointer transition-all ${
                 activeTab === key ? "bg-green text-white" : "text-muted hover:bg-bg hover:text-text"
               }`}
             >
@@ -622,18 +682,49 @@ export default function AdminPage() {
             </button>
           ))}
         </nav>
-        <div className="p-3 border-t border-[rgba(0,0,0,0.09)] hidden lg:block">
-          <Link href="/" className="block text-xs text-green hover:underline mb-2">← View live site</Link>
+        <div className="p-3 border-t border-[rgba(0,0,0,0.09)]">
+          <Link href="/" className="block text-xs text-green hover:underline mb-2">
+            ← View live site
+          </Link>
           <div className="text-[10px] text-muted truncate">{adminUser.email}</div>
-          <button type="button" onClick={handleLogout} className="mt-2 text-xs text-red bg-transparent border-none cursor-pointer hover:underline">Sign out</button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 text-xs text-red bg-transparent border-none cursor-pointer hover:underline"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden">
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Mobile top bar */}
+        <header className="lg:hidden sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[rgba(0,0,0,0.09)] px-4 py-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            className="p-2 -ml-1 rounded-lg border border-[rgba(0,0,0,0.1)] bg-white text-text cursor-pointer"
+            aria-label="Open navigation"
+          >
+            <span className="block w-4 h-0.5 bg-current mb-1" />
+            <span className="block w-4 h-0.5 bg-current mb-1" />
+            <span className="block w-4 h-0.5 bg-current" />
+          </button>
+          <div className="min-w-0">
+            <div className="font-syne text-sm font-extrabold text-text truncate">
+              Imm<span className="text-green">Flow</span> Admin
+            </div>
+            <div className="text-[10px] text-muted truncate">
+              {navItems.find(([k]) => k === activeTab)?.[1]?.replace(/^[^\s]+\s/, "") || "Dashboard"}
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 p-4 sm:p-5 md:p-6 lg:p-8 overflow-x-hidden">
         {activeTab === "overview" && (
           <div>
             <h1 className="font-syne text-2xl font-extrabold text-text mb-6">Overview</h1>
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4 mb-8">
               {[
                 ["Signups", analytics.totalSignups],
                 ["Clients", analytics.clientCount ?? 0],
@@ -643,9 +734,9 @@ export default function AdminPage() {
                 ["Pro total", analytics.proSubscribers],
                 ["Est. MRR", billing?.stripe?.configured ? `$${billing.stripe.mrrUsd}` : `$${analytics.estimatedRevenue}`],
               ].map(([lbl, val]) => (
-                <div key={lbl} className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 shadow-sm">
+                <div key={lbl} className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 sm:p-5 shadow-sm">
                   <div className="text-[10px] text-muted uppercase font-semibold">{lbl}</div>
-                  <div className="text-2xl font-extrabold text-text font-syne mt-1">{val}</div>
+                  <div className="text-xl sm:text-2xl font-extrabold text-text font-syne mt-1 break-words">{val}</div>
                 </div>
               ))}
             </div>
@@ -658,8 +749,8 @@ export default function AdminPage() {
                   {billing.promoSubscribers > 0 ? ` · ${billing.promoSubscribers} promo subscriber(s)` : ""}
                 </p>
                 {billing.stripe.recentPayments?.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
+                  <div className="overflow-x-auto -mx-1 px-1">
+                    <table className="w-full text-xs text-left min-w-[320px]">
                       <thead>
                         <tr className="text-muted border-b border-[rgba(0,0,0,0.09)]">
                           <th className="py-2 pr-3">Date</th>
@@ -801,159 +892,255 @@ export default function AdminPage() {
             </div>
             {loadingResources ? (
               <div className="text-center py-16 text-muted">Loading attorney records…</div>
-            ) : (
-              <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-xs text-left min-w-[900px]">
-                    <thead>
-                      <tr className="border-b-2 border-[rgba(0,0,0,0.09)] bg-bg/50 text-muted font-semibold">
-                        <th className="p-3 pl-4">Name / Contact</th>
-                        <th className="p-3">Location</th>
-                        <th className="p-3">Rate · Exp</th>
-                        <th className="p-3">State bar</th>
-                        <th className="p-3">Plan</th>
-                        <th className="p-3 text-center">Signup</th>
-                        <th className="p-3 text-center">Verified</th>
-                        <th className="p-3 text-right pr-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attorneys.map((a) => (
-                        <tr
-                          key={a.id}
-                          className="border-b border-[rgba(0,0,0,0.07)] hover:bg-bg/40 align-top"
-                        >
-                          <td className="p-3 pl-4">
-                            <div className="font-semibold text-text text-sm">{a.name}</div>
-                            <div className="text-[10px] text-muted mt-0.5">{a.user?.email}</div>
-                            <div className="text-[10px] text-muted-high mt-1 max-w-[200px] truncate">
-                              {a.availability || "—"}
-                            </div>
-                          </td>
-                          <td className="p-3 text-muted">{a.location || "—"}</td>
-                          <td className="p-3 text-muted whitespace-nowrap">
-                            {a.rate || "—"}
-                            <br />
-                            <span className="text-[10px] text-muted-high">
-                              {a.experienceYears != null ? `${a.experienceYears} yrs` : "—"}
-                            </span>
-                          </td>
-                          <td className="p-3 font-mono text-[11px]">
-                            <code>{a.barNumber || "N/A"}</code>
-                            <br />
-                            <span className="text-muted-high">({a.stateBar || "N/A"})</span>
-                          </td>
-                          <td className="p-3">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                a.user?.isPro
-                                  ? "bg-green-light text-green-dark"
-                                  : "bg-bg text-muted border border-[rgba(0,0,0,0.09)]"
-                              }`}
-                            >
-                              {a.user?.isPro ? "🌟 Pro" : "Free"}
-                            </span>
-                            <div className="text-[10px] text-muted-high mt-1">
-                              {a.user?.subscriptionPlan || "Free"}
-                            </div>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                                a.user?.signupStatus === "approved"
-                                  ? "bg-green-light text-green-dark"
-                                  : a.user?.signupStatus === "rejected"
-                                    ? "bg-red-light text-red"
-                                    : "bg-amber-light text-amber"
-                              }`}
-                            >
-                              {a.user?.signupStatus === "approved"
-                                ? "Approved"
-                                : a.user?.signupStatus === "rejected"
-                                  ? "Rejected"
-                                  : "Pending"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                                a.isVerified
-                                  ? "bg-green-light text-green-dark"
-                                  : "bg-amber-light text-amber"
-                              }`}
-                            >
-                              {a.isVerified ? "✓ Verified" : "Pending"}
-                            </span>
-                          </td>
-                          <td className="p-3 pr-4">
-                            <div className="flex flex-col items-end gap-1.5">
-                              {can("attorneys", "edit") && (
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingAttorney(a)}
-                                  className="border-none bg-green text-white cursor-pointer font-semibold text-[11px] py-1.5 px-3 rounded-lg hover:bg-green-dark transition-all"
-                                >
-                                  Edit profile
-                                </button>
-                              )}
-                              {can("attorneys", "edit") && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleAttorneyPro(a)}
-                                  className={`border-none bg-transparent cursor-pointer font-bold text-[11px] ${
-                                    a.user?.isPro
-                                      ? "text-muted hover:text-text"
-                                      : "text-green hover:text-green-dark"
-                                  }`}
-                                >
-                                  {a.user?.isPro ? "Revoke Pro" : "Grant Pro"}
-                                </button>
-                              )}
-                              {can("attorneys", "edit") && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleAttorneyVerification(a.id, a.isVerified)}
-                                  className={`border-none bg-transparent cursor-pointer font-bold text-[11px] ${
-                                    a.isVerified
-                                      ? "text-amber hover:text-[#905000]"
-                                      : "text-green hover:text-green-dark"
-                                  }`}
-                                >
-                                  {a.isVerified ? "Revoke verification" : "Approve & verify"}
-                                </button>
-                              )}
-                              {can("attorneys", "edit") && a.user?.signupStatus === "pending" && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRejectingAttorney(a);
-                                    setRejectReason("");
-                                  }}
-                                  className="border-none bg-transparent cursor-pointer font-bold text-[11px] text-red hover:text-red-dark"
-                                >
-                                  Reject signup
-                                </button>
-                              )}
-                              {can("attorneys", "delete") && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteAttorney(a.id)}
-                                  className="border-none bg-transparent cursor-pointer font-bold text-[11px] text-red hover:text-red-dark"
-                                >
-                                  Delete account
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {attorneys.length === 0 && (
-                  <div className="text-center py-12 text-muted text-sm">No attorney records found.</div>
-                )}
+            ) : attorneys.length === 0 ? (
+              <div className="text-center py-12 text-muted text-sm bg-white border border-[rgba(0,0,0,0.09)] rounded-xl">
+                No attorney records found.
               </div>
+            ) : (
+              <>
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-3">
+                  {attorneys.map((a) => (
+                    <div
+                      key={a.id}
+                      className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-text text-sm">{a.name}</div>
+                          <div className="text-[11px] text-muted truncate">{a.user?.email}</div>
+                          <div className="text-[11px] text-muted mt-0.5">{a.location || "—"}</div>
+                        </div>
+                        <span
+                          className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            a.isVerified
+                              ? "bg-green-light text-green-dark"
+                              : "bg-amber-light text-amber"
+                          }`}
+                        >
+                          {a.isVerified ? "Verified" : "Pending"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mb-3 text-[10px]">
+                        <span
+                          className={`px-2 py-0.5 rounded font-semibold ${
+                            a.user?.isPro
+                              ? "bg-green-light text-green-dark"
+                              : "bg-bg text-muted border border-[rgba(0,0,0,0.09)]"
+                          }`}
+                        >
+                          {a.user?.isPro ? "Pro" : "Free"}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-semibold ${
+                            a.user?.signupStatus === "approved"
+                              ? "bg-green-light text-green-dark"
+                              : a.user?.signupStatus === "rejected"
+                                ? "bg-red-light text-red"
+                                : "bg-amber-light text-amber"
+                          }`}
+                        >
+                          {a.user?.signupStatus || "pending"}
+                        </span>
+                        {a.rate && (
+                          <span className="px-2 py-0.5 rounded bg-bg text-muted border border-[rgba(0,0,0,0.08)]">
+                            {a.rate}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {can("attorneys", "edit") && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingAttorney(a)}
+                            className="flex-1 min-w-[100px] border-none bg-green text-white cursor-pointer font-semibold text-[11px] py-2 px-3 rounded-lg hover:bg-green-dark"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {can("attorneys", "edit") && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAttorneyPro(a)}
+                            className="text-[11px] font-semibold text-green bg-transparent border border-green/30 py-2 px-3 rounded-lg cursor-pointer"
+                          >
+                            {a.user?.isPro ? "Revoke Pro" : "Grant Pro"}
+                          </button>
+                        )}
+                        {can("attorneys", "edit") && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAttorneyVerification(a.id, a.isVerified)}
+                            className="text-[11px] font-semibold text-muted bg-transparent border border-[rgba(0,0,0,0.12)] py-2 px-3 rounded-lg cursor-pointer"
+                          >
+                            {a.isVerified ? "Unverify" : "Verify"}
+                          </button>
+                        )}
+                        {can("attorneys", "delete") && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAttorney(a.id)}
+                            className="text-[11px] font-semibold text-red bg-transparent border border-red/40 py-2 px-3 rounded-lg cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block bg-white border border-[rgba(0,0,0,0.09)] rounded-xl shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs text-left min-w-[900px]">
+                      <thead>
+                        <tr className="border-b-2 border-[rgba(0,0,0,0.09)] bg-bg/50 text-muted font-semibold">
+                          <th className="p-3 pl-4">Name / Contact</th>
+                          <th className="p-3">Location</th>
+                          <th className="p-3">Rate · Exp</th>
+                          <th className="p-3">State bar</th>
+                          <th className="p-3">Plan</th>
+                          <th className="p-3 text-center">Signup</th>
+                          <th className="p-3 text-center">Verified</th>
+                          <th className="p-3 text-right pr-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attorneys.map((a) => (
+                          <tr
+                            key={a.id}
+                            className="border-b border-[rgba(0,0,0,0.07)] hover:bg-bg/40 align-top"
+                          >
+                            <td className="p-3 pl-4">
+                              <div className="font-semibold text-text text-sm">{a.name}</div>
+                              <div className="text-[10px] text-muted mt-0.5">{a.user?.email}</div>
+                              <div className="text-[10px] text-muted-high mt-1 max-w-[200px] truncate">
+                                {a.availability || "—"}
+                              </div>
+                            </td>
+                            <td className="p-3 text-muted">{a.location || "—"}</td>
+                            <td className="p-3 text-muted whitespace-nowrap">
+                              {a.rate || "—"}
+                              <br />
+                              <span className="text-[10px] text-muted-high">
+                                {a.experienceYears != null ? `${a.experienceYears} yrs` : "—"}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono text-[11px]">
+                              <code>{a.barNumber || "N/A"}</code>
+                              <br />
+                              <span className="text-muted-high">({a.stateBar || "N/A"})</span>
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                  a.user?.isPro
+                                    ? "bg-green-light text-green-dark"
+                                    : "bg-bg text-muted border border-[rgba(0,0,0,0.09)]"
+                                }`}
+                              >
+                                {a.user?.isPro ? "🌟 Pro" : "Free"}
+                              </span>
+                              <div className="text-[10px] text-muted-high mt-1">
+                                {a.user?.subscriptionPlan || "Free"}
+                              </div>
+                            </td>
+                            <td className="p-3 text-center">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  a.user?.signupStatus === "approved"
+                                    ? "bg-green-light text-green-dark"
+                                    : a.user?.signupStatus === "rejected"
+                                      ? "bg-red-light text-red"
+                                      : "bg-amber-light text-amber"
+                                }`}
+                              >
+                                {a.user?.signupStatus === "approved"
+                                  ? "Approved"
+                                  : a.user?.signupStatus === "rejected"
+                                    ? "Rejected"
+                                    : "Pending"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  a.isVerified
+                                    ? "bg-green-light text-green-dark"
+                                    : "bg-amber-light text-amber"
+                                }`}
+                              >
+                                {a.isVerified ? "✓ Verified" : "Pending"}
+                              </span>
+                            </td>
+                            <td className="p-3 pr-4">
+                              <div className="flex flex-col items-end gap-1.5">
+                                {can("attorneys", "edit") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingAttorney(a)}
+                                    className="border-none bg-green text-white cursor-pointer font-semibold text-[11px] py-1.5 px-3 rounded-lg hover:bg-green-dark transition-all"
+                                  >
+                                    Edit profile
+                                  </button>
+                                )}
+                                {can("attorneys", "edit") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleAttorneyPro(a)}
+                                    className={`border-none bg-transparent cursor-pointer font-bold text-[11px] ${
+                                      a.user?.isPro
+                                        ? "text-muted hover:text-text"
+                                        : "text-green hover:text-green-dark"
+                                    }`}
+                                  >
+                                    {a.user?.isPro ? "Revoke Pro" : "Grant Pro"}
+                                  </button>
+                                )}
+                                {can("attorneys", "edit") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleAttorneyVerification(a.id, a.isVerified)}
+                                    className={`border-none bg-transparent cursor-pointer font-bold text-[11px] ${
+                                      a.isVerified
+                                        ? "text-amber hover:text-[#905000]"
+                                        : "text-green hover:text-green-dark"
+                                    }`}
+                                  >
+                                    {a.isVerified ? "Revoke verification" : "Approve & verify"}
+                                  </button>
+                                )}
+                                {can("attorneys", "edit") && a.user?.signupStatus === "pending" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRejectingAttorney(a);
+                                      setRejectReason("");
+                                    }}
+                                    className="border-none bg-transparent cursor-pointer font-bold text-[11px] text-red hover:text-red-dark"
+                                  >
+                                    Reject signup
+                                  </button>
+                                )}
+                                {can("attorneys", "delete") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteAttorney(a.id)}
+                                    className="border-none bg-transparent cursor-pointer font-bold text-[11px] text-red hover:text-red-dark"
+                                  >
+                                    Delete account
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -982,26 +1169,14 @@ export default function AdminPage() {
         )}
 
         {activeTab === "listings" && (
-          <div>
-            <h1 className="font-syne text-2xl font-extrabold text-text mb-6">Listings</h1>
-            {loadingResources ? <div className="text-center py-16 text-muted">Loading…</div> : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {listings.map((l) => (
-                  <div key={l.id}>
-                    <JobCard j={l} />
-                    <div className="flex gap-2 mt-2">
-                      {can("listings", "edit") && (
-                        <button type="button" onClick={() => setEditingListing(l)} className="flex-1 bg-green text-white text-[11px] py-2 rounded-lg border-none cursor-pointer">Edit</button>
-                      )}
-                      {can("listings", "delete") && (
-                        <button type="button" onClick={() => handleDeleteListing(l.id)} className="text-[11px] text-red border border-red py-2 px-3 rounded-lg cursor-pointer">Delete</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <AdminListingsPanel
+            listings={listings}
+            loading={loadingResources}
+            canEdit={can("listings", "edit")}
+            canDelete={can("listings", "delete")}
+            onEdit={(l) => setEditingListing(l)}
+            onDelete={(id) => handleDeleteListing(id)}
+          />
         )}
 
         {activeTab === "broadcast" && (
@@ -1018,7 +1193,8 @@ export default function AdminPage() {
         {activeTab === "users" && (
           <UsersRolesPanel can={can} currentUserId={adminUser?.id} />
         )}
-      </main>
+        </main>
+      </div>
 
       {editingAttorney && <AttorneyEditorModal attorney={editingAttorney} onClose={() => setEditingAttorney(null)} onSave={handleSaveAttorney} saving={savingAttorney} />}
       {editingListing && <ListingEditorModal listing={editingListing} onClose={() => setEditingListing(null)} onSave={handleSaveListing} saving={savingListing} />}

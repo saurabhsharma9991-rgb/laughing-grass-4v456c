@@ -1,11 +1,24 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import { HOME_BLOCK_TYPES } from "@/lib/constants/homepage-blocks";
+import {
+  parseHomepageDocument,
+  resolveHomepageDocument,
+} from "@/lib/utils/homepage-document";
 
 /** Full-page homepage preview for the CMS editor (scrollable, section anchors). */
 export default function CmsFullPreview({ values, activeSection }) {
   const scrollRef = useRef(null);
   const get = (key, fallback = "") => values[key] ?? fallback;
+
+  const homeLayout = useMemo(
+    () => resolveHomepageDocument(values["home.layout"], get),
+    [values]
+  );
+
+  const layoutParsed = parseHomepageDocument(values["home.layout"]);
+  const waysBlock = homeLayout.blocks.find((b) => b.type === "home_ways");
 
   useEffect(() => {
     if (!activeSection || !scrollRef.current) return;
@@ -38,129 +51,55 @@ export default function CmsFullPreview({ values, activeSection }) {
           </div>
         </div>
 
-        {/* Hero */}
+        {/* Homepage block layout */}
         <div
-          data-cms-section="home.hero"
-          className={`bg-hero-light rounded-xl p-5 border border-[rgba(20,30,48,0.08)] ${activeSection === "home.hero" ? "ring-2 ring-green ring-offset-2" : ""}`}
+          data-cms-section="home.layout"
+          className={`rounded-xl p-4 border border-[rgba(20,30,48,0.10)] bg-surface ${activeSection === "home.layout" ? "ring-2 ring-green ring-offset-2" : ""}`}
         >
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-green mb-2">
-            {get("home.hero.badge", "Immigration only · Verified attorneys")}
-          </div>
-          <h2 className="font-syne text-xl font-extrabold text-text whitespace-pre-line leading-tight mb-2">
-            {get("home.hero.title", "The network built for\nimmigration attorneys")}
-          </h2>
-          <p className="text-xs text-muted leading-relaxed mb-3">
-            {get("home.hero.subtitle", "Find hearing coverage…")}
+          <p className="text-[10px] text-muted mb-3 leading-relaxed">
+            Homepage uses block layout — preview the full page on the live site after publishing.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <span className="bg-green text-white text-[10px] py-1.5 px-3 rounded-lg">
-              {get("home.hero.cta_primary", "Find an attorney")}
-            </span>
-            <span className="border text-[10px] py-1.5 px-3 rounded-lg text-text">
-              {get("home.hero.cta_secondary", "Browse job board")}
-            </span>
-            <span className="text-[10px] text-green py-1.5 px-2">
-              {get("home.hero.cta_tertiary", "Join free →")}
-            </span>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div
-          data-cms-section="home.stats"
-          className={`bg-green-dark bg-hero-gradient rounded-lg p-4 grid grid-cols-2 gap-2 ${activeSection === "home.stats" ? "ring-2 ring-green-medium ring-offset-2" : ""}`}
-        >
-          {[
-            ["home.stats.attorneys_count", "home.stats.attorneys_label", "1,800+", "Verified"],
-            ["home.stats.states_count", "home.stats.states_label", "50 states", "Coverage"],
-            ["home.stats.listings_count", "home.stats.listings_label", "340+", "Listings"],
-            ["home.stats.languages_count", "home.stats.languages_label", "28", "Languages"],
-          ].map(([n, l, nf, lf]) => (
-            <div key={n} className="text-center text-white">
-              <div className="font-syne text-lg font-extrabold">{get(n, nf)}</div>
-              <div className="text-[9px] text-white/70">{get(l, lf)}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* How it works + cards */}
-        <div data-cms-section="home.how_it_works" className={activeSection === "home.how_it_works" ? "ring-2 ring-green ring-offset-2 rounded-lg p-1" : ""}>
-          <div className="text-[10px] text-green font-semibold uppercase mb-1">
-            {get("home.how_it_works.badge", "How it works")}
-          </div>
-          <div className="font-syne text-base font-bold text-text mb-3">
-            {get("home.how_it_works.title", "Three ways to use ImmFlow")}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2">
-          {[
-            ["home.card1", "home.card1.icon", "home.card1.title", "home.card1.desc", "⚖️", "Find an attorney"],
-            ["home.card2", "home.card2.icon", "home.card2.title", "home.card2.desc", "📋", "Job board"],
-            ["home.card3", "home.card3.icon", "home.card3.title", "home.card3.desc", "🤝", "Network"],
-          ].map(([section, iconKey, titleKey, descKey, iconFb, titleFb]) => (
-            <div
-              key={section}
-              data-cms-section={section}
-              className={`bg-surface border border-[rgba(20,30,48,0.10)] rounded-lg p-3 ${activeSection === section ? "ring-2 ring-green ring-offset-1" : ""}`}
-            >
-              <div className="text-xl mb-1">{get(iconKey, iconFb)}</div>
-              <div className="text-sm font-semibold text-text">{get(titleKey, titleFb)}</div>
-              <p className="text-[10px] text-muted mt-1">{get(descKey, "…")}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* AI */}
-        <div
-          data-cms-section="home.ai"
-          className={`bg-surface border rounded-lg p-4 ${activeSection === "home.ai" ? "ring-2 ring-green ring-offset-2" : ""}`}
-        >
-          <div className="text-[10px] text-green uppercase mb-1">{get("home.ai.badge", "AI-powered")}</div>
-          <div className="font-syne font-bold text-text">{get("home.ai.title", "Smart matching")}</div>
-          <span className="inline-block mt-2 bg-green text-white text-[10px] px-3 py-1.5 rounded-lg">
-            {get("home.ai.cta", "Try the AI matcher ✦")}
-          </span>
-        </div>
-
-        {/* Featured */}
-        <div
-          data-cms-section="home.featured"
-          className={`p-2 ${activeSection === "home.featured" ? "ring-2 ring-green ring-offset-2 rounded-lg" : ""}`}
-        >
-          <div className="text-[10px] text-green uppercase">{get("home.featured.badge", "Featured")}</div>
-          <div className="font-syne font-bold text-text">{get("home.featured.title", "Top-rated attorneys")}</div>
-        </div>
-
-        {/* Pricing */}
-        <div
-          data-cms-section="home.pricing"
-          className={`bg-green-light border border-green-medium rounded-lg p-4 ${activeSection === "home.pricing" ? "ring-2 ring-green ring-offset-2" : ""}`}
-        >
-          <div className="text-[10px] text-green-dark font-semibold uppercase mb-1">
-            {get("home.pricing.badge", "Pricing")}
-          </div>
-          <div className="font-syne text-base font-bold text-text">
-            {get("home.pricing.title", "Simple, transparent pricing")}
-          </div>
-          <p className="text-[10px] text-muted mt-1">{get("home.pricing.subtitle", "Free to start…")}</p>
-        </div>
-
-        {/* Join CTA */}
-        <div
-          data-cms-section="home.join"
-          className={`bg-hero-gradient rounded-lg p-5 text-center text-white ${activeSection === "home.join" ? "ring-2 ring-green-medium ring-offset-2" : ""}`}
-        >
-          <div className="font-syne text-lg font-bold mb-2">{get("home.join.title", "Ready to join?")}</div>
-          <p className="text-[10px] text-white/70 mb-3">{get("home.join.subtitle", "Free to join…")}</p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            <span className="bg-white text-green-dark text-[10px] px-3 py-1.5 rounded-lg font-semibold">
-              {get("home.join.cta", "Create account")}
-            </span>
-            <span className="border border-white/40 text-[10px] px-3 py-1.5 rounded-lg">
-              {get("home.join.cta_secondary", "Browse listings")}
-            </span>
-          </div>
+          <div className="text-[10px] font-semibold uppercase text-green mb-2">Section order</div>
+          <ol className="text-xs text-text space-y-1 mb-4 list-decimal list-inside">
+            {homeLayout.blocks.map((b) => {
+              const meta = HOME_BLOCK_TYPES.find((t) => t.type === b.type);
+              return (
+                <li key={b.id}>
+                  {meta?.icon} {meta?.label || b.type}
+                </li>
+              );
+            })}
+          </ol>
+          {waysBlock && (
+            <>
+              <div className="text-[10px] font-semibold uppercase text-green mb-2">
+                {waysBlock.data?.badge || "Ways to use ImmFlow"}
+              </div>
+              <div className="font-syne text-sm font-bold text-text mb-2">
+                {waysBlock.data?.title}
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {(waysBlock.data?.cards || []).map((card, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-bg border border-[rgba(20,30,48,0.08)] rounded-lg p-2"
+                  >
+                    <div className="text-lg">{card.icon}</div>
+                    <div className="text-xs font-semibold text-text">{card.title}</div>
+                    <p className="text-[10px] text-muted">{card.desc}</p>
+                    <div className="text-[9px] text-green mt-1">
+                      {card.cta} → {card.href}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {!layoutParsed && (
+            <p className="text-[10px] text-muted-high mt-2">
+              Layout not saved yet — defaults from legacy CMS keys until you publish.
+            </p>
+          )}
         </div>
 
         {/* Footer */}

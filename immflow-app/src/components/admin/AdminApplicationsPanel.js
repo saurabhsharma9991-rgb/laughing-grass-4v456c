@@ -115,7 +115,80 @@ export default function AdminApplicationsPanel({ canEdit, canDelete }) {
       ) : applications.length === 0 ? (
         <div className="text-center py-12 text-muted text-sm">No applications found.</div>
       ) : (
-        <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl shadow-sm overflow-hidden">
+        <>
+          <div className="md:hidden space-y-3">
+            {applications.map((app) => (
+              <article
+                key={app.id}
+                className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-text">
+                      {app.applicant.attorneyId ? (
+                        <Link
+                          href={`/attorneys/${app.applicant.attorneyId}`}
+                          className="text-green hover:underline"
+                        >
+                          {app.applicant.name}
+                        </Link>
+                      ) : (
+                        app.applicant.name
+                      )}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5 truncate">{app.applicant.email}</div>
+                  </div>
+                  <StatusBadge status={app.status} />
+                </div>
+                <div className="text-xs text-text font-medium mb-1">{app.listing?.title}</div>
+                <div className="text-[10px] text-muted mb-3">
+                  Listing status: {app.listing?.status} · Applied {app.appliedLabel}
+                </div>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {canEdit && (app.status === "applied" || app.status === "reviewed") && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={acting === app.id}
+                        onClick={() => setStatus(app.id, "accepted")}
+                        className="text-[11px] font-semibold text-green bg-transparent border border-green/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        disabled={acting === app.id}
+                        onClick={() => setStatus(app.id, "reviewed")}
+                        className="text-[11px] text-muted bg-white border border-[rgba(0,0,0,0.12)] rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Mark reviewed
+                      </button>
+                      <button
+                        type="button"
+                        disabled={acting === app.id}
+                        onClick={() => setStatus(app.id, "rejected")}
+                        className="text-[11px] text-red bg-transparent border border-red/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      disabled={acting === app.id}
+                      onClick={() => remove(app.id)}
+                      className="text-[11px] text-red bg-transparent border-none cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden md:block bg-white border border-[rgba(0,0,0,0.09)] rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-xs text-left min-w-[800px]">
               <thead>
@@ -198,6 +271,7 @@ export default function AdminApplicationsPanel({ canEdit, canDelete }) {
             </table>
           </div>
         </div>
+        </>
       )}
     </div>
   );

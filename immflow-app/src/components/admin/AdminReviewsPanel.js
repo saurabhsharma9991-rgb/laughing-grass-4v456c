@@ -62,7 +62,48 @@ export default function AdminReviewsPanel({ canDelete }) {
   }
 
   return (
-    <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl shadow-sm overflow-hidden">
+    <>
+      <div className="md:hidden space-y-3">
+        {reviews.map((r) => {
+          const actionKey = `${r.reviewType || "attorney"}-${r.id}`;
+          return (
+            <article
+              key={actionKey}
+              className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <Link
+                  href={
+                    r.reviewType === "provider"
+                      ? `/providers/${r.providerId}`
+                      : `/attorneys/${r.attorneyId}`
+                  }
+                  className="font-semibold text-sm text-green hover:underline"
+                >
+                  {r.attorneyName}
+                </Link>
+                <span className="text-sm font-semibold shrink-0">{"★".repeat(r.rating)}</span>
+              </div>
+              <div className="text-[10px] text-muted mb-2">By {r.reviewerName}</div>
+              <p className="text-xs text-muted mb-3">{r.comment || "—"}</p>
+              {canDelete && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={acting === actionKey}
+                    onClick={() => remove(r)}
+                    className="text-[11px] text-red bg-transparent border border-red/30 rounded-lg px-2.5 py-1.5 cursor-pointer font-semibold"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block bg-white border border-[rgba(0,0,0,0.09)] rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-xs text-left min-w-[700px]">
           <thead>
@@ -112,5 +153,6 @@ export default function AdminReviewsPanel({ canDelete }) {
         </table>
       </div>
     </div>
+    </>
   );
 }

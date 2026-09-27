@@ -24,6 +24,7 @@ export default function ProviderProfilePage({
   const [loading, setLoading] = useState(true);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [canMessageTranslator, setCanMessageTranslator] = useState(false);
 
   const load = () => {
     fetch(`/api/providers/${providerId}`)
@@ -38,8 +39,41 @@ export default function ProviderProfilePage({
     load();
   }, [providerId]);
 
+  useEffect(() => {
+    if (!user || !profile || profile.categorySlug !== "translation") {
+      setCanMessageTranslator(false);
+      return;
+    }
+    authFetch("/api/translation-orders")
+      .then((r) => r.json())
+      .then((orders) => {
+        if (!Array.isArray(orders)) return;
+        setCanMessageTranslator(
+          orders.some(
+            (o) =>
+              Number(o.providerId) === Number(profile.id) &&
+              o.paidAt &&
+              !["cancelled", "refunded"].includes(o.status)
+          )
+        );
+      })
+      .catch(() => setCanMessageTranslator(false));
+  }, [user, profile]);
+
   const handleContact = () => {
     if (!profile?.userId) return;
+
+    if (profile.categorySlug === "translation" && !canMessageTranslator) {
+      const el = document.getElementById("translation-order-form");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      toastError(
+        "Create a translation order and complete payment to message this translator."
+      );
+      return;
+    }
+
     startChatWithAttorney(
       {
         userId: profile.userId,
@@ -150,7 +184,9 @@ export default function ProviderProfilePage({
             onClick={handleContact}
             className="bg-green text-white text-sm font-semibold py-2.5 px-5 rounded-lg border-none cursor-pointer hover:bg-green-dark"
           >
-            {t("marketplace.contact", "Contact")}
+            {profile.categorySlug === "translation" && !canMessageTranslator
+              ? t("translation.requestCta", "Request translation")
+              : t("marketplace.contact", "Contact")}
           </button>
         </div>
 
@@ -312,7 +348,7 @@ export default function ProviderProfilePage({
       </div>
 
       {profile.categorySlug === "translation" && (
-        <div className="mt-10">
+        <div id="translation-order-form" className="mt-10 scroll-mt-6">
           <TranslationOrderForm
             user={user}
             setShowAuth={setShowAuth}

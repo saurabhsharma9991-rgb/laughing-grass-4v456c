@@ -92,12 +92,12 @@ export default function AdminClientsPanel({ canEdit }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search name or email…"
-          className="text-sm py-2 px-3 border rounded-lg min-w-[220px]"
+          className="text-sm py-2 px-3 border rounded-lg w-full sm:w-auto sm:min-w-[220px] flex-1"
         />
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="text-sm py-2 px-3 border rounded-lg"
+          className="text-sm py-2 px-3 border rounded-lg flex-1 sm:flex-none"
         >
           <option value="all">All statuses</option>
           <option value="verified">Email verified</option>
@@ -108,7 +108,7 @@ export default function AdminClientsPanel({ canEdit }) {
         <select
           value={plan}
           onChange={(e) => setPlan(e.target.value)}
-          className="text-sm py-2 px-3 border rounded-lg"
+          className="text-sm py-2 px-3 border rounded-lg flex-1 sm:flex-none"
         >
           <option value="all">All plans</option>
           <option value="pro">Pro</option>
@@ -121,126 +121,209 @@ export default function AdminClientsPanel({ canEdit }) {
       ) : clients.length === 0 ? (
         <div className="text-sm text-muted py-10">No clients match these filters.</div>
       ) : (
-        <div className="overflow-x-auto bg-white border border-[rgba(0,0,0,0.09)] rounded-xl">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-bg text-xs uppercase tracking-wider text-muted">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Client</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Plan</th>
-                <th className="px-4 py-3 font-semibold">Activity</th>
-                <th className="px-4 py-3 font-semibold">Joined</th>
-                <th className="px-4 py-3 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <tr key={c.id} className="border-t border-[rgba(0,0,0,0.06)]">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-text">{c.displayName}</div>
-                    <div className="text-xs text-muted">{c.email}</div>
-                    <div className="text-[10px] text-muted mt-0.5">
-                      Locale: {c.preferredLocale || "en"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <span
-                        className={`inline-flex w-fit text-[10px] font-semibold px-2 py-0.5 rounded ${
-                          c.emailVerified
-                            ? "bg-green-light text-green-dark"
-                            : "bg-amber-light text-amber"
-                        }`}
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {clients.map((c) => (
+              <div
+                key={c.id}
+                className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm"
+              >
+                <div className="font-semibold text-text text-sm">{c.displayName}</div>
+                <div className="text-xs text-muted truncate">{c.email}</div>
+                <div className="flex flex-wrap gap-1.5 mt-2 mb-3">
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                      c.emailVerified
+                        ? "bg-green-light text-green-dark"
+                        : "bg-amber-light text-amber"
+                    }`}
+                  >
+                    {c.emailVerified ? "Verified" : "Unverified"}
+                  </span>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                      c.isPro ? "bg-green-light text-green-dark" : "bg-bg text-muted"
+                    }`}
+                  >
+                    {c.isPro ? "Pro" : "Free"}
+                  </span>
+                  {c.signupStatus === "rejected" && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-light text-red">
+                      Restricted
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-muted mb-3">
+                  {c.ordersCount} orders · {c.bookingsCount} bookings · {c.applicationsCount} apps
+                </div>
+                {canEdit && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {!c.emailVerified && (
+                      <button
+                        type="button"
+                        disabled={acting === `${c.id}-mark_verified`}
+                        onClick={() => act(c.id, "mark_verified")}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border cursor-pointer bg-white"
                       >
-                        {c.emailVerified ? "Email verified" : "Unverified"}
-                      </span>
+                        Verify
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={acting === `${c.id}-${c.isPro ? "revoke_pro" : "grant_pro"}`}
+                      onClick={() => act(c.id, c.isPro ? "revoke_pro" : "grant_pro")}
+                      className="text-[11px] px-2.5 py-1.5 rounded-lg border cursor-pointer bg-white"
+                    >
+                      {c.isPro ? "Revoke Pro" : "Grant Pro"}
+                    </button>
+                    {c.signupStatus === "rejected" ? (
+                      <button
+                        type="button"
+                        disabled={acting === `${c.id}-approve`}
+                        onClick={() => act(c.id, "approve")}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border cursor-pointer bg-white"
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={acting === `${c.id}-reject`}
+                        onClick={() => act(c.id, "reject")}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-red text-red cursor-pointer bg-white"
+                      >
+                        Restrict
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto bg-white border border-[rgba(0,0,0,0.09)] rounded-xl">
+            <table className="w-full text-left text-sm min-w-[700px]">
+              <thead className="bg-bg text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Client</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Plan</th>
+                  <th className="px-4 py-3 font-semibold">Activity</th>
+                  <th className="px-4 py-3 font-semibold">Joined</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((c) => (
+                  <tr key={c.id} className="border-t border-[rgba(0,0,0,0.06)]">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-text">{c.displayName}</div>
+                      <div className="text-xs text-muted">{c.email}</div>
+                      <div className="text-[10px] text-muted mt-0.5">
+                        Locale: {c.preferredLocale || "en"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`inline-flex w-fit text-[10px] font-semibold px-2 py-0.5 rounded ${
+                            c.emailVerified
+                              ? "bg-green-light text-green-dark"
+                              : "bg-amber-light text-amber"
+                          }`}
+                        >
+                          {c.emailVerified ? "Email verified" : "Unverified"}
+                        </span>
+                        <span
+                          className={`inline-flex w-fit text-[10px] font-semibold px-2 py-0.5 rounded ${
+                            c.signupStatus === "rejected"
+                              ? "bg-red-light text-red"
+                              : "bg-bg text-muted"
+                          }`}
+                        >
+                          {c.signupStatus === "rejected" ? "Restricted" : "Active"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
                       <span
-                        className={`inline-flex w-fit text-[10px] font-semibold px-2 py-0.5 rounded ${
-                          c.signupStatus === "rejected"
-                            ? "bg-red-light text-red"
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                          c.isPro
+                            ? "bg-green-light text-green-dark"
                             : "bg-bg text-muted"
                         }`}
                       >
-                        {c.signupStatus === "rejected" ? "Restricted" : "Active"}
+                        {c.isPro ? "Pro" : "Free"}
                       </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                        c.isPro
-                          ? "bg-green-light text-green-dark"
-                          : "bg-bg text-muted"
-                      }`}
-                    >
-                      {c.isPro ? "Pro" : "Free"}
-                    </span>
-                    {c.subscriptionPlan && (
-                      <div className="text-[10px] text-muted mt-1">{c.subscriptionPlan}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted">
-                    <div>{c.ordersCount} orders</div>
-                    <div>{c.bookingsCount} bookings</div>
-                    <div>{c.applicationsCount} applications</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted">
-                    {c.createdAt
-                      ? new Date(c.createdAt).toLocaleDateString()
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {canEdit ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {!c.emailVerified && (
+                      {c.subscriptionPlan && (
+                        <div className="text-[10px] text-muted mt-1">{c.subscriptionPlan}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted">
+                      <div>{c.ordersCount} orders</div>
+                      <div>{c.bookingsCount} bookings</div>
+                      <div>{c.applicationsCount} applications</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted">
+                      {c.createdAt
+                        ? new Date(c.createdAt).toLocaleDateString()
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {canEdit ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {!c.emailVerified && (
+                            <button
+                              type="button"
+                              disabled={acting === `${c.id}-mark_verified`}
+                              onClick={() => act(c.id, "mark_verified")}
+                              className="text-[11px] px-2 py-1 rounded border cursor-pointer"
+                            >
+                              Verify email
+                            </button>
+                          )}
                           <button
                             type="button"
-                            disabled={acting === `${c.id}-mark_verified`}
-                            onClick={() => act(c.id, "mark_verified")}
+                            disabled={acting === `${c.id}-${c.isPro ? "revoke_pro" : "grant_pro"}`}
+                            onClick={() =>
+                              act(c.id, c.isPro ? "revoke_pro" : "grant_pro")
+                            }
                             className="text-[11px] px-2 py-1 rounded border cursor-pointer"
                           >
-                            Verify email
+                            {c.isPro ? "Revoke Pro" : "Grant Pro"}
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={acting === `${c.id}-${c.isPro ? "revoke_pro" : "grant_pro"}`}
-                          onClick={() =>
-                            act(c.id, c.isPro ? "revoke_pro" : "grant_pro")
-                          }
-                          className="text-[11px] px-2 py-1 rounded border cursor-pointer"
-                        >
-                          {c.isPro ? "Revoke Pro" : "Grant Pro"}
-                        </button>
-                        {c.signupStatus === "rejected" ? (
-                          <button
-                            type="button"
-                            disabled={acting === `${c.id}-approve`}
-                            onClick={() => act(c.id, "approve")}
-                            className="text-[11px] px-2 py-1 rounded border cursor-pointer"
-                          >
-                            Restore
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={acting === `${c.id}-reject`}
-                            onClick={() => act(c.id, "reject")}
-                            className="text-[11px] px-2 py-1 rounded border border-red text-red cursor-pointer"
-                          >
-                            Restrict
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted">View only</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                          {c.signupStatus === "rejected" ? (
+                            <button
+                              type="button"
+                              disabled={acting === `${c.id}-approve`}
+                              onClick={() => act(c.id, "approve")}
+                              className="text-[11px] px-2 py-1 rounded border cursor-pointer"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={acting === `${c.id}-reject`}
+                              onClick={() => act(c.id, "reject")}
+                              className="text-[11px] px-2 py-1 rounded border border-red text-red cursor-pointer"
+                            >
+                              Restrict
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted">View only</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

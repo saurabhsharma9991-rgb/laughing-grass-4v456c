@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CMS_SECTION_GROUPS } from "@/lib/constants/cms-sections";
+import { buildDefaultHomepageDocument } from "@/lib/constants/homepage-blocks";
+import { serializeHomepageDocument } from "@/lib/utils/homepage-document";
+import HomepageBlockEditor from "./HomepageBlockEditor";
 import CmsFullPreview from "./CmsFullPreview";
 
 export default function CmsEditor({
@@ -14,7 +17,8 @@ export default function CmsEditor({
   saving,
   loading,
 }) {
-  const [activeSection, setActiveSection] = useState("home.hero");
+  const [activeSection, setActiveSection] = useState("home.layout");
+  const homeLayoutSeeded = useRef(false);
   const [newKey, setNewKey] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newType, setNewType] = useState("text");
@@ -34,6 +38,43 @@ export default function CmsEditor({
   );
 
   const activeItems = grouped[activeSection] || [];
+  const isHomeLayout = activeSection === "home.layout";
+
+  useEffect(() => {
+    if (loading || homeLayoutSeeded.current) return;
+    const raw = cmsFormValues["home.layout"];
+    const hasValue = raw != null && String(raw).trim() !== "";
+    const hasDbField = cmsItems.some((i) => i.key === "home.layout");
+
+    if (hasValue && hasDbField) {
+      homeLayoutSeeded.current = true;
+      return;
+    }
+
+    const get = (key, fallback) => cmsFormValues[key] ?? fallback;
+    const serialized = hasValue
+      ? String(raw)
+      : serializeHomepageDocument(buildDefaultHomepageDocument(get));
+
+    if (!hasValue) {
+      setCmsFormValues((prev) => ({
+        ...prev,
+        "home.layout": serialized,
+      }));
+    }
+
+    if (!hasDbField && onCreateField) {
+      onCreateField({
+        key: "home.layout",
+        label: "Homepage layout (JSON blocks)",
+        type: "textarea",
+        section: "home.layout",
+        value: serialized,
+      });
+    }
+
+    homeLayoutSeeded.current = true;
+  }, [loading, cmsFormValues, cmsItems, onCreateField, setCmsFormValues]);
 
   if (loading) {
     return <div className="text-center py-16 text-muted">Loading content…</div>;
@@ -58,7 +99,8 @@ export default function CmsEditor({
                 {group.sections.map((section) => {
                   const isActive = activeSection === section.id;
                   const fieldCount = grouped[section.id]?.length || 0;
-                  if (!fieldCount && section.id !== "navigation") return null;
+                  if (!fieldCount && section.id !== "navigation" && section.id !== "home.layout")
+                    return null;
                   return (
                     <button
                       key={section.id}
@@ -118,7 +160,17 @@ export default function CmsEditor({
               </button>
             ))}
           </div>
-          {activeItems.length === 0 ? (
+          {isHomeLayout ? (
+            <HomepageBlockEditor
+              value={cmsFormValues["home.layout"] || ""}
+              onChange={(json) =>
+                setCmsFormValues({
+                  ...cmsFormValues,
+                  "home.layout": json,
+                })
+              }
+            />
+          ) : activeItems.length === 0 ? (
             <p className="text-sm text-muted">No editable fields in this section.</p>
           ) : (
             activeItems.map((item) => (
@@ -179,7 +231,7 @@ export default function CmsEditor({
               </div>
             ))
           )}
-          {onCreateField && (
+          {onCreateField && !isHomeLayout && (
             <div className="border border-dashed border-[rgba(20,30,48,0.2)] rounded-lg p-4 space-y-2">
               <div className="text-xs font-semibold text-text">Add field to this section</div>
               <input

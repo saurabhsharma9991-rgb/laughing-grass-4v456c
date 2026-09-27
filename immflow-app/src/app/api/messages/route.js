@@ -5,6 +5,7 @@ import { AuthError } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings";
 import { userCanAccess } from "@/lib/utils/feature-access";
+import { hasPaidTranslationRelationship } from "@/lib/services/translation-orders";
 
 export async function GET(req) {
   try {
@@ -146,6 +147,22 @@ export async function POST(req) {
     const priorityAccess = await assertFeatureAccess(session.userId, "priority_contact");
     const priorityClient =
       sender?.role === "public" && Boolean(priorityAccess.allowed);
+
+    // Translation providers: chat only after a paid order (payment-first flow).
+    if (isClientIntake && sender?.role !== "admin") {
+      const clientId =
+        sender?.role === "public" ? session.userId : parsedReceiverId;
+      const providerUserId =
+        sender?.role === "public" ? parsedReceiverId : session.userId;
+      const rel = await hasPaidTranslationRelationship(clientId, providerUserId);
+      if (rel.isTranslationProvider && !rel.hasPaid) {
+        throw new AuthError(
+          "Message this translator after you create a translation order and complete payment.",
+          403,
+          "PAYMENT_REQUIRED"
+        );
+      }
+    }
 
     if (!isClientIntake) {
       const messaging = await assertFeatureAccess(session.userId, "direct_messaging");

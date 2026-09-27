@@ -25,6 +25,8 @@ import {
   normalizePermissions,
   SUPER_ADMIN_SLUG,
 } from "../src/lib/constants/admin-permissions.js";
+import { buildDefaultHomepageDocument } from "../src/lib/constants/homepage-blocks.js";
+import { serializeHomepageDocument } from "../src/lib/utils/homepage-document.js";
 
 const PASSWORD = "password";
 const SEED_MODE = (process.env.SEED_MODE || "reset").toLowerCase();
@@ -538,6 +540,8 @@ async function seedProviders(passwordHash, categories) {
           rushAvailable: i % 3 !== 0,
           turnaround: i % 3 === 0 ? "rush" : "regular",
           documentTypes: ["Birth certificate", "Marriage certificate", "Court document"],
+          // Flat document starting price used for quotes (rate above is display-only per-word).
+          basePriceCents: 4900,
           certificationNote:
             "ATA-style certification statement available for immigration filings.",
         },
@@ -1294,7 +1298,7 @@ async function seedSiteContent() {
     { key: "home.stats.listings_label", value: "Active listings", type: "text", section: "home.stats", label: "Active Listings Sublabel" },
     { key: "home.stats.languages_count", value: "28", type: "text", section: "home.stats", label: "Languages Count Stat" },
     { key: "home.stats.languages_label", value: "Languages", type: "text", section: "home.stats", label: "Languages Count Sublabel" },
-    { key: "home.how_it_works.badge", value: "How it works", type: "text", section: "home.how_it_works", label: "Section Badge Tag" },
+    { key: "home.how_it_works.badge", value: "Ways to use ImmFlow", type: "text", section: "home.how_it_works", label: "Section Badge Tag" },
     { key: "home.how_it_works.title", value: "Ways to use ImmFlow", type: "text", section: "home.how_it_works", label: "Section Heading Title" },
     { key: "home.card1.icon", value: "⚖️", type: "text", section: "home.card1", label: "Card 1 Icon Emoji" },
     { key: "home.card1.title", value: "Find an attorney", type: "text", section: "home.card1", label: "Card 1 Header Title" },
@@ -1342,6 +1346,16 @@ async function seedSiteContent() {
       label: "FAQ (one question|answer per line)",
     },
   ];
+
+  const contentByKey = Object.fromEntries(contentData.map((row) => [row.key, row.value]));
+  const getSeedContent = (key, fallback) => contentByKey[key] ?? fallback;
+  contentData.push({
+    key: "home.layout",
+    value: serializeHomepageDocument(buildDefaultHomepageDocument(getSeedContent)),
+    type: "textarea",
+    section: "home.layout",
+    label: "Homepage layout (JSON blocks)",
+  });
 
   let created = 0;
   for (const c of contentData) {
