@@ -15,6 +15,7 @@
  *   SEED_MODE=reset npx prisma db seed
  *   # or just: npx prisma db seed
  */
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import bcrypt from "bcryptjs";
@@ -28,6 +29,16 @@ import {
 const PASSWORD = "password";
 const SEED_MODE = (process.env.SEED_MODE || "reset").toLowerCase();
 const ADDITIVE = SEED_MODE === "additive" || SEED_MODE === "keep" || SEED_MODE === "safe";
+
+if (!process.env.DATABASE_URL) {
+  console.error(
+    "DATABASE_URL is not set.\n" +
+      "Make sure /var/www/immflow/immflow-app/.env exists and contains DATABASE_URL,\n" +
+      "or export it before seeding:\n" +
+      "  export $(grep -v '^#' .env | xargs) && npm run seed:additive"
+  );
+  process.exit(1);
+}
 
 if (process.env.NODE_ENV === "production" && !ADDITIVE && process.env.SEED_FORCE_RESET !== "1") {
   console.error(
