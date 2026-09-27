@@ -15,6 +15,7 @@ import AdminProvidersPanel from "@/components/admin/AdminProvidersPanel";
 import AdminTranslationOrdersPanel from "@/components/admin/AdminTranslationOrdersPanel";
 import AdminBookingsPanel from "@/components/admin/AdminBookingsPanel";
 import AdminClientsPanel from "@/components/admin/AdminClientsPanel";
+import AdminPagesPanel from "@/components/admin/AdminPagesPanel";
 import { authFetch, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
@@ -583,6 +584,7 @@ export default function AdminPage() {
   const navItems = [
     ["overview", "📊 Overview"],
     ["cms", "✏️ Site content"],
+    ["pages", "📄 Pages"],
     ["settings", "⚙️ Features & test mode"],
     ["categories", "🗂️ Categories"],
     ["providers", "🪪 Providers"],
@@ -704,6 +706,24 @@ export default function AdminPage() {
               onDeleteField={can("cms", "delete") ? handleDeleteCmsField : undefined}
               saving={savingCms}
               loading={loadingCms}
+            />
+          </div>
+        )}
+
+        {activeTab === "pages" && (
+          <div>
+            <div className="mb-6">
+              <h1 className="font-syne text-2xl font-extrabold text-text">Pages</h1>
+              <p className="text-sm text-muted mt-1">
+                Build About, Terms, Pricing, Contact, or any custom page with a section
+                builder (hero, FAQ, cards, CTA, HTML…) or free-hand HTML. Publish and place
+                links in the footer or top menu — no code changes required.
+              </p>
+            </div>
+            <AdminPagesPanel
+              canCreate={can("cms", "create")}
+              canEdit={can("cms", "edit")}
+              canDelete={can("cms", "delete")}
             />
           </div>
         )}

@@ -362,6 +362,31 @@ model SiteContent {
   @@map("site_content")
 }
 
+/// Admin-managed free-form site pages (About, Terms, Pricing, custom pages, …)
+model CmsPage {
+  id           Int      @id @default(autoincrement())
+  slug         String   @unique @db.VarChar(120)
+  title        String   @db.VarChar(255)
+  excerpt      String?  @db.Text
+  /// Plain text or simple HTML. Newlines become paragraphs when not HTML.
+  body         String   @db.LongText
+  /// Locale overlays: { es: { title, excerpt, body }, … }
+  translations Json?
+  /// Footer column: platform | attorneys | company
+  footerColumn String?  @map("footer_column") @db.VarChar(40)
+  showInFooter Boolean  @default(false) @map("show_in_footer")
+  showInNav    Boolean  @default(false) @map("show_in_nav")
+  footerSort   Int      @default(0) @map("footer_sort")
+  navSort      Int      @default(0) @map("nav_sort")
+  isPublished  Boolean  @default(false) @map("is_published")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([isPublished, showInFooter])
+  @@index([isPublished, showInNav])
+  @@map("cms_pages")
+}
+
 model AdminRole {
   id          Int      @id @default(autoincrement())
   name        String

@@ -11,7 +11,11 @@ import { AuthError } from "@/lib/auth/guards.js";
 function parseRolePermissions(role) {
   if (!role?.permissions) return normalizePermissions({});
   try {
-    return normalizePermissions(JSON.parse(role.permissions));
+    const raw =
+      typeof role.permissions === "string"
+        ? JSON.parse(role.permissions)
+        : role.permissions;
+    return normalizePermissions(raw);
   } catch {
     return normalizePermissions({});
   }
@@ -94,13 +98,26 @@ export function formatAdminUserResponse(user) {
 }
 
 export function formatRoleResponse(role) {
+  const permissions =
+    role.isSystem && role.slug === SUPER_ADMIN_SLUG
+      ? buildFullPermissions()
+      : parseRolePermissions(role);
+
+  let grantedCount = 0;
+  for (const meta of Object.values(permissions)) {
+    for (const allowed of Object.values(meta || {})) {
+      if (allowed) grantedCount += 1;
+    }
+  }
+
   return {
     id: role.id,
     name: role.name,
     slug: role.slug,
     description: role.description,
     isSystem: role.isSystem,
-    permissions: parseRolePermissions(role),
+    permissions,
+    grantedCount,
     userCount: role._count?.users ?? role.userCount,
     createdAt: role.createdAt,
   };

@@ -155,6 +155,13 @@ export default function ServiceCategoryPage({
         {category?.description && (
           <p className="text-sm text-muted mt-2 max-w-2xl">{category.description}</p>
         )}
+        {categorySlug === "interpreter" && (
+          <div className="mt-4 inline-flex flex-wrap gap-3 text-xs bg-green-light text-green-dark px-4 py-2.5 rounded-xl font-medium">
+            <span>Remote / video / phone: <strong>$150/hr</strong></span>
+            <span className="text-green-dark/40">·</span>
+            <span>In-person: <strong>$200/hr</strong></span>
+          </div>
+        )}
       </div>
 
       <form

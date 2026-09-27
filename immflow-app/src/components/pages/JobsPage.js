@@ -4,8 +4,12 @@ import React, { useState, useEffect } from "react";
 import JobCard from "../JobCard";
 import { authFetch } from "@/lib/client/auth-storage";
 import { toastError } from "@/lib/client/alerts";
-import { listingMatchesTab } from "@/lib/constants/listing-types";
+import {
+  listingMatchesTab,
+  PRO_ONLY_JOB_TABS,
+} from "@/lib/constants/listing-types";
 import { savePendingAction } from "@/lib/client/pending-action";
+import { usePlatform } from "@/components/PlatformContext";
 
 function ApplyModal({ listing, onClose, onSubmit, applying }) {
   const [message, setMessage] = useState("");
@@ -41,6 +45,11 @@ function ApplyModal({ listing, onClose, onSubmit, applying }) {
 }
 
 export default function JobsPage({ setPage, user, setShowAuth }) {
+  const { canAccess } = usePlatform();
+  const isPro = Boolean(user?.isPro);
+  // Reuse unlimited_listings as the Pro gate for specialty listing visibility
+  const canViewProListings = canAccess("unlimited_listings", isPro) || isPro;
+
   const [listings, setListings] = useState([]);
   const [tab, setTab] = useState("all");
   const [statusFilter, setStatusFilter] = useState("open");
@@ -71,7 +80,13 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
   useEffect(() => {
     const t = setTimeout(loadListings, 200);
     return () => clearTimeout(t);
-  }, [statusFilter, search, location, language, user?.id]);
+  }, [statusFilter, search, location, language, user?.id, user?.isPro]);
+
+  useEffect(() => {
+    if (!canViewProListings && PRO_ONLY_JOB_TABS.includes(tab)) {
+      setTab("all");
+    }
+  }, [canViewProListings, tab]);
 
   const handleApplyClick = (listing) => {
     if (listing.myApplication) return;
@@ -122,9 +137,9 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
   const typeTabs = [
     ["all", "All types"],
     ["job", "Jobs"],
-    ["hearing", "Hearings"],
-    ["outsource", "Outsource"],
-    ["contract", "Contract"],
+    ["hearing", "Hearings", true],
+    ["outsource", "Outsource", true],
+    ["contract", "Contract", true],
   ];
 
   const statusTabs = [
@@ -147,6 +162,18 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
           <h1 className="font-syne text-3xl md:text-4xl font-extrabold mb-5 text-text">
             Immigration listings
           </h1>
+          {!canViewProListings && (
+            <div className="mb-4 bg-amber-light border border-amber/40 rounded-lg px-4 py-3 text-xs text-[#633806]">
+              Hearing, outsource, and contract listings are ImmFlow Pro. Free members can browse full-time jobs.{" "}
+              <button
+                type="button"
+                onClick={() => (user ? setPage("dashboard") : setShowAuth(true))}
+                className="font-bold underline bg-transparent border-none cursor-pointer text-[#633806] p-0"
+              >
+                {user ? "Upgrade in Dashboard" : "Sign up / upgrade"}
+              </button>
+            </div>
+          )}
           {user && myApplicationCount > 0 && (
             <button
               type="button"
@@ -199,20 +226,32 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
             })}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {typeTabs.map(([key, label]) => {
+            {typeTabs.map(([key, label, proOnly]) => {
+              const locked = proOnly && !canViewProListings;
               const isSel = tab === key;
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setTab(key)}
+                  onClick={() => {
+                    if (locked) {
+                      if (user) setPage("dashboard");
+                      else setShowAuth(true);
+                      return;
+                    }
+                    setTab(key);
+                  }}
+                  title={locked ? "Pro members only" : undefined}
                   className={`py-2 px-[18px] rounded-lg border text-xs font-medium cursor-pointer transition-all duration-200 ${
                     isSel
                       ? "border-green bg-green text-white"
-                      : "border-[rgba(0,0,0,0.09)] bg-transparent text-muted hover:text-text"
+                      : locked
+                        ? "border-[rgba(0,0,0,0.09)] bg-bg text-muted-high"
+                        : "border-[rgba(0,0,0,0.09)] bg-transparent text-muted hover:text-text"
                   }`}
                 >
                   {label}
+                  {locked ? " 🔒" : ""}
                 </button>
               );
             })}

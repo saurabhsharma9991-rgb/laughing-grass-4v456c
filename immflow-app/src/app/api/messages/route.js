@@ -3,11 +3,13 @@ import { notifyReceiverOfMessage } from "@/lib/email/notify";
 import { requireAuth } from "@/lib/auth/guards";
 import { AuthError } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
-import { assertFeatureAccess } from "@/lib/services/platform-settings";
+import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings";
+import { userCanAccess } from "@/lib/utils/feature-access";
 
 export async function GET(req) {
   try {
     const session = requireAuth(req);
+    const settings = await getPlatformSettings();
     const contactIdStr = new URL(req.url).searchParams.get("userId");
 
     if (contactIdStr) {
@@ -92,7 +94,9 @@ export async function GET(req) {
               contactUser.displayName ||
               contactUser.email.split("@")[0],
             initials: contactUser.attorney?.initials || "??",
-            priorityClient: contactUser.role === "public" && contactUser.isPro,
+            priorityClient:
+              contactUser.role === "public" &&
+              userCanAccess(settings.features, "priority_contact", contactUser.isPro),
           },
           lastMessage: msg.content,
           sentAt: msg.sentAt,
@@ -139,7 +143,9 @@ export async function POST(req) {
     const isClientIntake =
       (sender?.role === "public" && professionalRoles.has(receiver.role)) ||
       (receiver.role === "public" && professionalRoles.has(sender?.role));
-    const priorityClient = sender?.role === "public" && Boolean(sender.isPro);
+    const priorityAccess = await assertFeatureAccess(session.userId, "priority_contact");
+    const priorityClient =
+      sender?.role === "public" && Boolean(priorityAccess.allowed);
 
     if (!isClientIntake) {
       const messaging = await assertFeatureAccess(session.userId, "direct_messaging");

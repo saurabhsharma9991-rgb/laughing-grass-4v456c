@@ -539,8 +539,30 @@ export default function UsersRolesPanel({ can, currentUserId }) {
                     <p className="text-xs text-muted mt-1">{r.description}</p>
                   )}
                   <p className="text-[10px] text-muted-high mt-2">
-                    {r.userCount ?? 0} user{(r.userCount ?? 0) !== 1 ? "s" : ""} assigned
+                    {r.userCount ?? 0} user{(r.userCount ?? 0) !== 1 ? "s" : ""} ·{" "}
+                    {r.grantedCount ?? 0} privilege{(r.grantedCount ?? 0) !== 1 ? "s" : ""}
                   </p>
+                  {r.grantedCount > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1 max-w-xl">
+                      {Object.entries(r.permissions || {})
+                        .filter(([, actions]) =>
+                          Object.values(actions || {}).some(Boolean)
+                        )
+                        .slice(0, 8)
+                        .map(([key, actions]) => (
+                          <span
+                            key={key}
+                            className="text-[10px] bg-bg text-muted px-1.5 py-0.5 rounded"
+                            title={Object.entries(actions)
+                              .filter(([, on]) => on)
+                              .map(([a]) => a)
+                              .join(", ")}
+                          >
+                            {ADMIN_RESOURCES[key]?.label || key}
+                          </span>
+                        ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   {(canRoles.edit || canRoles.view) && (

@@ -6,7 +6,7 @@ import { pathForPage } from "@/lib/constants/routes";
 
 export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
   const go = navigate || setPage;
-  const { get } = useContent();
+  const { get, menu } = useContent();
   const { t, locale, setLocale, locales } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -25,11 +25,12 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
   const signupLabel = get("nav.btn_signup", t("nav.signup", "Sign up"));
 
   const navLinks = [
-    [t("nav.services", "Services"), "services"],
-    [t("nav.findAttorneys", "Find attorneys"), "attorneys"],
-    [t("nav.jobBoard", "Job board"), "jobs"],
-    [t("nav.network", "Network"), "network"],
-    [t("nav.aiMatcher", "AI matcher"), "matcher"],
+    [t("nav.services", "Services"), "services", pathForPage("services")],
+    [t("nav.findAttorneys", "Find attorneys"), "attorneys", pathForPage("attorneys")],
+    [t("nav.jobBoard", "Job board"), "jobs", pathForPage("jobs")],
+    [t("nav.network", "Network"), "network", pathForPage("network")],
+    [t("nav.aiMatcher", "AI matcher"), "matcher", pathForPage("matcher")],
+    ...(menu?.nav || []).map((item) => [item.title, `cms:${item.slug}`, item.href]),
   ];
 
   const languageSelect = (
@@ -46,6 +47,25 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
       ))}
     </select>
   );
+
+  const renderLink = (label, key, href, onNavigate) => {
+    const isCms = String(key).startsWith("cms:");
+    return (
+      <Link
+        key={key}
+        href={href}
+        onClick={() => {
+          if (!isCms && go) go(key);
+          onNavigate?.();
+        }}
+        className={`text-sm cursor-pointer transition-all duration-200 no-underline ${
+          page === key ? "text-green font-medium" : "text-muted hover:text-text"
+        }`}
+      >
+        {label}
+      </Link>
+    );
+  };
 
   return (
     <nav className="bg-nav border-b border-[rgba(20,30,48,0.12)] sticky top-0 z-50 backdrop-blur-sm">
@@ -65,18 +85,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
         </Link>
 
         <div className="hidden md:flex gap-5 items-center">
-          {navLinks.map(([label, key]) => (
-            <Link
-              key={key}
-              href={pathForPage(key)}
-              onClick={() => go(key)}
-              className={`text-sm cursor-pointer transition-all duration-200 no-underline ${
-                page === key ? "text-green font-medium" : "text-muted hover:text-text"
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
+          {navLinks.map(([label, key, href]) => renderLink(label, key, href))}
           {languageSelect}
           {user ? (
             <Link
@@ -126,21 +135,9 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
 
       {mobileOpen && (
         <div className="md:hidden border-t border-[rgba(20,30,48,0.12)] bg-surface px-6 py-4 flex flex-col gap-4 shadow-inner">
-          {navLinks.map(([label, key]) => (
-            <Link
-              key={key}
-              href={pathForPage(key)}
-              onClick={() => {
-                go(key);
-                setMobileOpen(false);
-              }}
-              className={`text-sm cursor-pointer py-1 transition-all duration-200 no-underline ${
-                page === key ? "text-green font-medium" : "text-muted hover:text-text"
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
+          {navLinks.map(([label, key, href]) =>
+            renderLink(label, key, href, () => setMobileOpen(false))
+          )}
           <div className="border-t border-[rgba(0,0,0,0.09)] pt-3 flex flex-col gap-3">
             {user ? (
               <Link
