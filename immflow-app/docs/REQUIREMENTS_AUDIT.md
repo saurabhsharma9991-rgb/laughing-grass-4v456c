@@ -32,7 +32,7 @@ This document is the completion source of truth. Rows are updated to **Complete*
 | 3 | Secure direct messaging | Complete | Authenticated, authorized in-platform messaging; transport/database security relies on deployment controls. |
 | 3 | Stripe Free/Pro and launch promotion | Complete / External | Code supports subscription Checkout, portal, webhook, and promo; live Stripe configuration is external. |
 | 3 | Admin dashboard | Complete | Attorneys, listings, users, roles, content, analytics, marketplace providers/orders/bookings. |
-| 3 | AI matcher on real data | Complete / External | Rule fallback always works; OpenAI-backed ranking requires an external key. |
+| 3 | AI matcher on real data | Complete / External | Real attorney ranking uses the shared GPT-6 Luna client with MySQL/memory cache; rules still run without a key. See `docs/AI_IMPLEMENTATION.md`. |
 | 3 | Transactional email | Complete / External | Legacy and marketplace events select localized subjects/bodies; SMTP/API credentials are external. |
 
 ## new_requirement.md
@@ -46,7 +46,7 @@ This document is the completion source of truth. Rows are updated to **Complete*
 | 5 | Five complete interface languages | Complete | en/es/hi/ru/zh catalogs have tested key parity; core marketplace UI, CMS, support, and transactional email are localized. |
 | 6 | Provider service languages | Complete | Languages and exact language-pair editing are available in onboarding and provider self-service. |
 | 7 | AI only for discovery | Complete | Service finder is explicitly discovery-only and includes a safety disclaimer. |
-| 8 | AI provider matching | Complete | Active Admin categories drive intent; ranking covers pairs, location, modality, availability, credentials, experience, price, rating, and turnaround. |
+| 8 | AI provider matching | Complete | Rule scores plus cached LLM rerank cover pairs, location, modality, availability, credentials, experience, price, rating, and turnaround. |
 | 9 | Universal verification | Complete | Universal statuses, credential controls, expiry warnings, update requests, notifications, and login synchronization are implemented. |
 | 10 | Complete marketplace filters | Complete | General and category-specific filters are supported by the provider API and category directory. |
 | 11 | Category-aware provider profiles | Complete | Photo/logo, dynamic fields, languages, credentials, availability, rates, reviews, and contextual actions are exposed. |
