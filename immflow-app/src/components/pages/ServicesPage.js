@@ -3,13 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/I18nProvider";
-
-const ICONS = {
-  attorney: "⚖️",
-  translation: "📄",
-  interpreter: "🎙️",
-  psychological: "🧠",
-};
+import { Icon } from "@/components/icons/Icon";
 
 export default function ServicesPage({ setPage, initialQuery }) {
   const { t } = useI18n();
@@ -78,16 +72,16 @@ export default function ServicesPage({ setPage, initialQuery }) {
         </div>
       </form>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
         {categories.map((c) => (
           <Link
             key={c.id}
             href={`/services/${c.slug}`}
-            className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-6 shadow-sm hover:border-green/50 transition-all no-underline text-inherit"
+            className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-6 shadow-sm hover:border-green/50 transition-all no-underline text-inherit h-full flex flex-col"
           >
-            <div className="text-2xl mb-3">{ICONS[c.slug] || "✦"}</div>
+            <Icon name={c.slug || "spark"} className="w-6 h-6 text-green mb-3" />
             <h2 className="font-syne text-lg font-bold text-text">{c.name}</h2>
-            <p className="text-xs text-muted mt-2 leading-relaxed">{c.description}</p>
+            <p className="text-xs text-muted mt-2 leading-relaxed flex-1">{c.description}</p>
           </Link>
         ))}
       </div>

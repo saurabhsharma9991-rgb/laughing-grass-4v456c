@@ -15,6 +15,10 @@ export async function GET() {
       testMode: settings.testMode,
       features: settings.features,
       freeListingLimit: settings.freeListingLimit,
+      commissionPercent: settings.commissionPercentFree,
+      commissionPercentFree: settings.commissionPercentFree,
+      commissionPercentPro: settings.commissionPercentPro,
+      enabledLocales: settings.enabledLocales,
       subscriptionPrice,
     });
   } catch (error) {

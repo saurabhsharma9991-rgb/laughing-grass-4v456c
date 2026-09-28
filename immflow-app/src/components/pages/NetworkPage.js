@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import AttorneyCard from "../AttorneyCard";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
 import { usePlatform } from "@/components/PlatformContext";
+import { Icon } from "@/components/icons/Icon";
 
 export default function NetworkPage({ user, setPage, setShowAuth }) {
   const { canAccess } = usePlatform();
@@ -34,7 +35,7 @@ export default function NetworkPage({ user, setPage, setShowAuth }) {
   if (!hasNetwork) {
     return (
       <div className="max-w-[680px] mx-auto my-16 px-6 text-center">
-        <div className="text-4xl mb-4">🤝</div>
+        <Icon name="users" className="w-10 h-10 text-green mb-4" />
         <h2 className="font-syne text-2xl font-extrabold mb-3 text-text">
           Attorney network
         </h2>
@@ -68,38 +69,38 @@ export default function NetworkPage({ user, setPage, setShowAuth }) {
         </div>
       </div>
       <div className="max-w-[1100px] mx-auto my-8 px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 mb-8 items-stretch">
           {[
             [
-              "⚖️",
+              "scale",
               "Hearing coverage",
               "Find attorneys for master calendar, merits, and bond hearings.",
             ],
             [
-              "📁",
+              "folder",
               "Case outsourcing",
               "Offload filings and full cases to vetted immigration attorneys.",
             ],
             [
-              "🤝",
+              "users",
               "Co-counsel",
               "Find co-counsel for complex removal, asylum, or circuit court cases.",
             ],
             [
-              "📄",
+              "document",
               "Of counsel",
               "Formalize referral relationships with immigration specialists.",
             ],
           ].map(([icon, title, desc]) => (
             <div
               key={title}
-              className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6 shadow-sm"
+              className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6 shadow-sm h-full flex flex-col"
             >
-              <div className="text-3xl mb-3">{icon}</div>
+              <Icon name={icon} className="w-7 h-7 text-green mb-3" />
               <div className="text-base font-semibold text-text mb-2">
                 {title}
               </div>
-              <p className="text-[13px] text-muted leading-relaxed">{desc}</p>
+              <p className="text-[13px] text-muted leading-relaxed flex-1">{desc}</p>
             </div>
           ))}
         </div>

@@ -3,35 +3,52 @@ import Link from "next/link";
 import { useContent } from "./SiteContentContext";
 import { useI18n } from "./I18nProvider";
 import { pathForPage } from "@/lib/constants/routes";
+import { accountCapabilities } from "@/lib/constants/account-capabilities";
 
-export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
+export default function Nav({ page, navigate, setPage, user, setShowAuth, sessionReady = true, onLogout }) {
   const go = navigate || setPage;
   const { get, menu } = useContent();
   const { t, locale, setLocale, locales } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const getInitials = (u) => {
-    const name = u?.user_metadata?.full_name || u?.email || "?";
-    return name
-      .split(" ")
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const logoText = get("nav.logo_text", "ImmFlow");
   const loginLabel = get("nav.btn_login", t("nav.login", "Log in"));
   const signupLabel = get("nav.btn_signup", t("nav.signup", "Sign up"));
 
-  const navLinks = [
-    [t("nav.services", "Services"), "services", pathForPage("services")],
-    [t("nav.findAttorneys", "Find attorneys"), "attorneys", pathForPage("attorneys")],
-    [t("nav.jobBoard", "Job board"), "jobs", pathForPage("jobs")],
-    [t("nav.network", "Network"), "network", pathForPage("network")],
-    [t("nav.aiMatcher", "AI matcher"), "matcher", pathForPage("matcher")],
-    ...(menu?.nav || []).map((item) => [item.title, `cms:${item.slug}`, item.href]),
-  ];
+  const role = user?.role;
+  const caps = accountCapabilities(user);
+  const navLinks = (
+    caps.isClient
+      ? [
+          [t("nav.services", "Services"), "services", pathForPage("services")],
+          [t("nav.findAttorneys", "Find attorneys"), "attorneys", pathForPage("attorneys")],
+          [t("nav.aiMatcher", "AI matcher"), "matcher", pathForPage("matcher")],
+        ]
+      : caps.isAttorney || caps.isServiceProvider
+        ? [
+            ...(caps.isServiceProvider
+              ? [[t("nav.services", "Services"), "services", pathForPage("services")]]
+              : []),
+            ...(caps.isAttorney
+              ? [
+                  [t("nav.jobBoard", "Job board"), "jobs", pathForPage("jobs")],
+                  [t("nav.network", "Network"), "network", pathForPage("network")],
+                ]
+              : []),
+            [t("nav.findAttorneys", "Find attorneys"), "attorneys", pathForPage("attorneys")],
+            [t("nav.aiMatcher", "AI matcher"), "matcher", pathForPage("matcher")],
+          ]
+        : [
+            [t("nav.services", "Services"), "services", pathForPage("services")],
+            [t("nav.findAttorneys", "Find attorneys"), "attorneys", pathForPage("attorneys")],
+            [t("nav.jobBoard", "Job board"), "jobs", pathForPage("jobs")],
+            [t("nav.network", "Network"), "network", pathForPage("network")],
+            [t("nav.aiMatcher", "AI matcher"), "matcher", pathForPage("matcher")],
+          ]
+  ).concat((menu?.nav || []).map((item) => [item.title, `cms:${item.slug}`, item.href]));
+
+  const accountHref = role === "admin" ? "/admin" : pathForPage("dashboard");
+  const accountLabel = role === "admin" ? "Admin" : "Dashboard";
 
   const languageSelect = (
     <select
@@ -86,26 +103,39 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
 
         <div className="hidden md:flex gap-5 items-center">
           {navLinks.map(([label, key, href]) => renderLink(label, key, href))}
-          {languageSelect}
-          {user ? (
-            <Link
-              href={user.role === "admin" ? "/admin" : pathForPage("dashboard")}
-              className="w-9 h-9 rounded-full bg-green-light text-green-dark flex items-center justify-center text-[13px] font-semibold cursor-pointer border-2 border-green transition-all hover:scale-105 no-underline"
-            >
-              {getInitials(user)}
-            </Link>
+          {locales.length > 1 && languageSelect}
+          {!sessionReady ? (
+            <span className="text-xs text-muted">…</span>
+          ) : user ? (
+            <div className="flex items-center gap-2">
+              <Link
+                href={accountHref}
+                className="text-sm font-semibold text-green no-underline hover:underline"
+              >
+                {accountLabel}
+              </Link>
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="text-xs text-muted bg-transparent border-none cursor-pointer hover:text-text"
+                >
+                  Log out
+                </button>
+              )}
+            </div>
           ) : (
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowAuth(true)}
+                onClick={() => setShowAuth({ mode: "login" })}
                 className="bg-transparent text-text py-2 px-4 rounded-lg text-sm border border-[rgba(0,0,0,0.15)] cursor-pointer transition-all duration-200 hover:bg-bg"
               >
                 {loginLabel}
               </button>
               <button
                 type="button"
-                onClick={() => setShowAuth(true)}
+                onClick={() => setShowAuth({ mode: "signup" })}
                 className="bg-green text-white py-2 px-[18px] rounded-lg text-sm border-none cursor-pointer transition-all duration-200 hover:bg-green-dark"
               >
                 {signupLabel}
@@ -115,7 +145,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
         </div>
 
         <div className="md:hidden flex items-center gap-2">
-          {languageSelect}
+          {locales.length > 1 && languageSelect}
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -139,25 +169,36 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
             renderLink(label, key, href, () => setMobileOpen(false))
           )}
           <div className="border-t border-[rgba(0,0,0,0.09)] pt-3 flex flex-col gap-3">
-            {user ? (
-              <Link
-                href={user.role === "admin" ? "/admin" : pathForPage("dashboard")}
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 cursor-pointer py-1 no-underline"
-              >
-                <div className="w-9 h-9 rounded-full bg-green-light text-green-dark flex items-center justify-center text-[13px] font-semibold border-2 border-green">
-                  {getInitials(user)}
-                </div>
-                <span className="text-sm font-medium text-text">
-                  {user.role === "admin" ? "Admin panel" : "Dashboard"}
-                </span>
-              </Link>
+            {!sessionReady ? (
+              <span className="text-xs text-muted">Checking session…</span>
+            ) : user ? (
+              <div className="flex flex-col gap-2">
+                <Link
+                  href={accountHref}
+                  onClick={() => setMobileOpen(false)}
+                  className="text-sm font-semibold text-green no-underline"
+                >
+                  {accountLabel}
+                </Link>
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      onLogout();
+                    }}
+                    className="text-left text-sm text-muted bg-transparent border-none cursor-pointer"
+                  >
+                    Log out
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAuth(true);
+                    setShowAuth({ mode: "login" });
                     setMobileOpen(false);
                   }}
                   className="flex-1 bg-transparent text-text py-2 px-4 rounded-lg text-sm border border-[rgba(0,0,0,0.15)] hover:bg-bg cursor-pointer"
@@ -167,7 +208,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth }) {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAuth(true);
+                    setShowAuth({ mode: "signup" });
                     setMobileOpen(false);
                   }}
                   className="flex-1 bg-green text-white py-2 px-4 rounded-lg text-sm border-none hover:bg-green-dark cursor-pointer"

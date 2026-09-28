@@ -69,7 +69,13 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
       const data = await res.json();
       if (data.error) toastError(data.error.message);
       else {
-        toastSuccess(`Provider ${action}d.`);
+        const rateMsg =
+          action === "approve_rate_change"
+            ? "Rate change approved."
+            : action === "reject_rate_change"
+              ? "Rate change rejected."
+              : null;
+        toastSuccess(rateMsg || `Provider ${action}d.`);
         setRejectId(null);
         setRejectReason("");
         load();
@@ -161,7 +167,16 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
                   </span>
                 </div>
                 <div className="text-xs text-muted mb-1">{p.categoryName}</div>
-                <div className="text-[10px] text-muted-high mb-3">{p.location || "—"}</div>
+                <div className="text-[10px] text-muted-high">{p.location || "—"}</div>
+                {p.rate && (
+                  <div className="text-[10px] text-muted mb-1">Live rate: {p.rate}</div>
+                )}
+                {p.pendingRate?.rate && (
+                  <div className="text-[10px] text-amber font-medium mb-2">
+                    Pending rate: {p.pendingRate.rate}
+                  </div>
+                )}
+                {!p.pendingRate?.rate && <div className="mb-3" />}
                 {(p.credentials || []).length > 0 && (
                   <div className="mb-3 space-y-2 border-t border-[rgba(0,0,0,0.06)] pt-2">
                     {(p.credentials || []).map((c) => (
@@ -217,6 +232,26 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
                   <div className="text-[10px] text-muted mb-3">No credentials</div>
                 )}
                 <div className="flex flex-wrap gap-2 justify-end">
+                  {canEdit && p.pendingRate?.rate && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={acting === p.id}
+                        onClick={() => act(p.id, "approve_rate_change")}
+                        className="text-[11px] text-green font-semibold bg-transparent border border-green/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Approve rate
+                      </button>
+                      <button
+                        type="button"
+                        disabled={acting === p.id}
+                        onClick={() => act(p.id, "reject_rate_change")}
+                        className="text-[11px] text-red font-semibold bg-transparent border border-red/30 rounded-lg px-2.5 py-1.5 cursor-pointer"
+                      >
+                        Reject rate
+                      </button>
+                    </>
+                  )}
                   {canEdit && p.verificationStatus !== "verified" && (
                     <button
                       type="button"
@@ -299,6 +334,14 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
                       <div className="font-semibold text-sm">{p.displayName}</div>
                       <div className="text-[10px] text-muted">{p.email}</div>
                       <div className="text-[10px] text-muted-high">{p.location || "—"}</div>
+                      {p.rate && (
+                        <div className="text-[10px] text-muted mt-0.5">Rate: {p.rate}</div>
+                      )}
+                      {p.pendingRate?.rate && (
+                        <div className="text-[10px] text-amber font-medium mt-0.5">
+                          Pending: {p.pendingRate.rate}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">{p.categoryName}</td>
                     <td className="p-3">
@@ -361,6 +404,26 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
                     </td>
                     <td className="p-3 pr-4">
                       <div className="flex flex-col items-end gap-1">
+                        {canEdit && p.pendingRate?.rate && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={acting === p.id}
+                              onClick={() => act(p.id, "approve_rate_change")}
+                              className="text-[11px] text-green font-semibold bg-transparent border-none cursor-pointer"
+                            >
+                              Approve rate
+                            </button>
+                            <button
+                              type="button"
+                              disabled={acting === p.id}
+                              onClick={() => act(p.id, "reject_rate_change")}
+                              className="text-[11px] text-red font-semibold bg-transparent border-none cursor-pointer"
+                            >
+                              Reject rate
+                            </button>
+                          </>
+                        )}
                         {canEdit && p.verificationStatus !== "verified" && (
                           <button
                             type="button"

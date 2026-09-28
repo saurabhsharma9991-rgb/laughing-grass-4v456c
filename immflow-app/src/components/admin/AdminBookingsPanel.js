@@ -113,9 +113,19 @@ export default function AdminBookingsPanel({ canEdit }) {
                 <div className="text-[10px] text-muted mb-1">
                   {b.serviceType} · {b.language} · {b.modality}
                 </div>
-                <div className="text-[10px] text-muted mb-3">
+                <div className="text-[10px] text-muted mb-1">
                   {b.scheduledAt ? new Date(b.scheduledAt).toLocaleString() : "—"}
                 </div>
+                {b.priceLabel && (
+                  <div className="text-[10px] text-muted mb-1">Client pays {b.priceLabel}</div>
+                )}
+                {b.platformFeeLabel ? (
+                  <div className="text-[10px] text-muted mb-3">
+                    ImmFlow {b.platformFeeLabel} · Provider {b.providerShareLabel || "—"}
+                  </div>
+                ) : (
+                  <div className="mb-3" />
+                )}
                 <div className="space-y-2">
                   <label className="block text-[10px] font-semibold text-muted uppercase">
                     Provider
@@ -180,6 +190,7 @@ export default function AdminBookingsPanel({ canEdit }) {
                 <th className="px-3 py-2">Type / service</th>
                 <th className="px-3 py-2">Provider</th>
                 <th className="px-3 py-2">When</th>
+                <th className="px-3 py-2">Price / fees</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
@@ -231,6 +242,14 @@ export default function AdminBookingsPanel({ canEdit }) {
                     {b.scheduledAt
                       ? new Date(b.scheduledAt).toLocaleString()
                       : "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div>{b.priceLabel || "—"}</div>
+                    {b.platformFeeLabel && (
+                      <div className="text-muted">
+                        ImmFlow {b.platformFeeLabel} · Prov. {b.providerShareLabel || "—"}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {canEdit ? (

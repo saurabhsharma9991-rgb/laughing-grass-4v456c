@@ -46,7 +46,23 @@ export function validateSignupBody(body) {
     }
   }
 
-  if (!["seeker", "attorney", "provider"].includes(accountType)) {
+  if (accountType === "professional") {
+    const services = Array.isArray(body?.data?.services) ? body.data.services : [];
+    const attorney = body?.data?.attorney;
+    const hasAttorney = Boolean(attorney && typeof attorney === "object");
+    if (!hasAttorney && services.length === 0) {
+      errors.services = "Choose at least one: attorney, translation, interpreting, or evaluations.";
+    }
+    if (hasAttorney) {
+      if (!String(attorney.bar_number || "").trim()) errors.bar_number = "Bar number is required.";
+      if (!String(attorney.bar_state || "").trim()) errors.bar_state = "State bar is required.";
+    }
+    if (services.some((service) => !service?.category_id && !service?.category_slug)) {
+      errors.category = "Each service needs a category.";
+    }
+  }
+
+  if (!["seeker", "attorney", "provider", "professional"].includes(accountType)) {
     errors.accountType = "Invalid account type.";
   }
 

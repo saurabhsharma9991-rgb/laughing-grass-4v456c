@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { authFetch } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
+import { Icon } from "@/components/icons/Icon";
 import {
   APPLICATION_STATUS,
   applicationStatusLabel,
@@ -75,7 +76,7 @@ export default function MyApplications({ setPage }) {
   if (!applications.length) {
     return (
       <div className="text-center py-12">
-        <div className="text-4xl mb-3">📋</div>
+        <Icon name="clipboard" className="w-10 h-10 text-green mb-3" />
         <p className="text-sm text-muted mb-4">You haven&apos;t applied to any listings yet.</p>
         <button
           type="button"
@@ -105,7 +106,7 @@ export default function MyApplications({ setPage }) {
                 {app.listing?.org} · {app.listing?.location} · {app.listing?.type}
               </div>
               <div className="text-[11px] text-muted-high mt-1">
-                Applied {app.appliedLabel} · 💰 {app.listing?.pay}
+                Applied {app.appliedLabel} · {app.listing?.pay}
               </div>
               {app.message && (
                 <p className="text-xs text-muted mt-2 italic border-l-2 border-green/30 pl-2">

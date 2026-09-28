@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useI18n } from "@/components/I18nProvider";
 import DynamicProfileFields from "@/components/DynamicProfileFields";
+import { Icon } from "@/components/icons/Icon";
 
 export default function AuthModal({
   onClose,
@@ -18,13 +19,17 @@ export default function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resetToken, setResetToken] = useState(resetTokenProp);
   const [name, setName] = useState("");
-  const [accountType, setAccountType] = useState(initialAccountType);
-  const [categoryId, setCategoryId] = useState("");
+  const [accountType, setAccountType] = useState(
+    initialAccountType === "seeker" ? "seeker" : "professional"
+  );
+  const [offerAttorney, setOfferAttorney] = useState(initialAccountType === "attorney");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     setMode(initialMode);
-    setAccountType(initialAccountType);
+    setAccountType(initialAccountType === "seeker" ? "seeker" : "professional");
+    setOfferAttorney(initialAccountType === "attorney");
     if (resetTokenProp) setResetToken(resetTokenProp);
     if (initialError) setError(initialError);
   }, [initialMode, initialAccountType, resetTokenProp, initialError]);
@@ -53,9 +58,11 @@ export default function AuthModal({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const selectedCategory = categories.find((c) => String(c.id) === String(categoryId));
-  const isTranslationSignup =
-    accountType === "provider" && selectedCategory?.slug === "translation";
+  const selectedCategories = categories.filter((c) =>
+    selectedCategoryIds.includes(String(c.id))
+  );
+  const translationCategory = selectedCategories.find((c) => c.slug === "translation");
+  const isTranslationSignup = Boolean(translationCategory);
 
   const handleSignupLogin = async () => {
     setError("");
@@ -69,6 +76,25 @@ export default function AuthModal({
           setLoading(false);
           return;
         }
+        if (accountType === "professional") {
+          if (!offerAttorney && selectedCategoryIds.length === 0) {
+            setError("Choose attorney, a service, or both.");
+            setLoading(false);
+            return;
+          }
+          if (offerAttorney) {
+            if (!barNumber.trim()) {
+              setError("Bar number is required.");
+              setLoading(false);
+              return;
+            }
+            if (!state.trim()) {
+              setError("State bar is required.");
+              setLoading(false);
+              return;
+            }
+          }
+        }
         if (accountType === "attorney") {
           if (!barNumber.trim()) {
             setError("Bar number is required.");
@@ -81,29 +107,7 @@ export default function AuthModal({
             return;
           }
         }
-        if (accountType === "provider" && !categoryId) {
-          setError("Please select a service category.");
-          setLoading(false);
-          return;
-        }
-        if (accountType === "provider") {
-          const missingField = selectedCategory?.profileSchema?.fields?.find((field) => {
-            if (!field.required) return false;
-            const value = dynamicProfileData[field.key];
-            return (
-              value === undefined ||
-              value === null ||
-              value === "" ||
-              (Array.isArray(value) && value.length === 0)
-            );
-          });
-          if (missingField) {
-            setError(`${missingField.label || missingField.key} is required.`);
-            setLoading(false);
-            return;
-          }
-        }
-        if (isTranslationSignup) {
+        if ((accountType === "provider" || accountType === "professional") && isTranslationSignup) {
           if (!sourceLang || !targetLang) {
             setError("Add at least one language pair (source and target).");
             setLoading(false);
@@ -126,24 +130,27 @@ export default function AuthModal({
             ...(accountType === "attorney"
               ? { bar_number: barNumber, bar_state: state }
               : {}),
-            ...(accountType === "provider"
+            ...(accountType === "professional"
               ? {
-                  category_id: Number(categoryId),
-                  ...(isTranslationSignup
-                    ? {
-                        translator_type: translatorType,
-                        offers_certified: offersCertified,
-                        turnaround_days: Number(turnaroundDays) || 3,
-                        rush_available: true,
-                        base_price_cents: Math.round((Number(basePrice) || 49) * 100),
-                        rate: `$${Number(basePrice) || 49}`,
-                        language_pairs: [
-                          { source: sourceLang, target: targetLang },
-                        ],
-                        languages: [sourceLang, targetLang].filter(Boolean),
-                        profile_data: dynamicProfileData,
-                      }
-                    : { profile_data: dynamicProfileData }),
+                  attorney: offerAttorney
+                    ? { bar_number: barNumber, bar_state: state }
+                    : undefined,
+                  services: selectedCategories.map((category) => ({
+                    category_id: category.id,
+                    ...(category.slug === "translation"
+                      ? {
+                          translator_type: translatorType,
+                          offers_certified: offersCertified,
+                          turnaround_days: Number(turnaroundDays) || 3,
+                          rush_available: true,
+                          base_price_cents: Math.round((Number(basePrice) || 49) * 100),
+                          rate: `$${Number(basePrice) || 49}`,
+                          language_pairs: [{ source: sourceLang, target: targetLang }],
+                          languages: [sourceLang, targetLang].filter(Boolean),
+                          profile_data: dynamicProfileData,
+                        }
+                      : { profile_data: dynamicProfileData }),
+                  })),
                 }
               : {}),
           },
@@ -304,7 +311,7 @@ export default function AuthModal({
             onClick={onClose}
             className="bg-transparent border-none cursor-pointer text-xl text-muted hover:text-text"
           >
-            ✕
+            <Icon name="close" className="w-4 h-4" />
           </button>
         </div>
 
@@ -345,13 +352,12 @@ export default function AuthModal({
             <div className="mb-4">
               <div className="text-xs font-medium text-muted mb-1">{t("auth.signupAs", "Sign up as")}</div>
               <select
-                value={accountType}
+                value={accountType === "seeker" ? "seeker" : "professional"}
                 onChange={(e) => setAccountType(e.target.value)}
                 className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
               >
                 <option value="seeker">{t("auth.seeker", "Client / looking for services")}</option>
-                <option value="attorney">{t("auth.attorney", "Immigration attorney")}</option>
-                <option value="provider">{t("auth.provider", "Service provider")}</option>
+                <option value="professional">Attorney and / or service provider</option>
               </select>
             </div>
             <div className="mb-4">
@@ -363,7 +369,39 @@ export default function AuthModal({
                 className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
               />
             </div>
-            {accountType === "attorney" && (
+            {accountType === "professional" && (
+              <div className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3 space-y-2">
+                <div className="text-xs font-medium text-muted">What will you offer? Choose any combination.</div>
+                <label className="flex items-center gap-2 text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={offerAttorney}
+                    onChange={(e) => setOfferAttorney(e.target.checked)}
+                  />
+                  Immigration attorney
+                </label>
+                {categories.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm text-text">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategoryIds.includes(String(c.id))}
+                      onChange={(e) => {
+                        const id = String(c.id);
+                        setSelectedCategoryIds((prev) =>
+                          e.target.checked ? [...prev, id] : prev.filter((item) => item !== id)
+                        );
+                      }}
+                    />
+                    {c.name}
+                  </label>
+                ))}
+                <p className="text-[11px] text-muted leading-relaxed">
+                  One account can be an attorney and also offer translation, interpreting, or evaluations.
+                  Paid orders include ImmFlow commission. Pro is a separate subscription that lowers that rate.
+                </p>
+              </div>
+            )}
+            {accountType === "professional" && offerAttorney && (
               <div className="grid grid-cols-2 gap-2.5 mb-4">
                 <div>
                   <div className="text-xs font-medium text-muted mb-1">{t("auth.barNumber", "Bar number")}</div>
@@ -383,23 +421,6 @@ export default function AuthModal({
                     className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
                   />
                 </div>
-              </div>
-            )}
-            {accountType === "provider" && (
-              <div className="mb-4">
-                <div className="text-xs font-medium text-muted mb-1">{t("auth.selectCategory", "Service category")}</div>
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
-                >
-                  <option value="">Select…</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             )}
             {isTranslationSignup && (
@@ -472,17 +493,19 @@ export default function AuthModal({
                 </p>
               </div>
             )}
-            {accountType === "provider" && selectedCategory?.profileSchema && (
-              <div className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+            {selectedCategories
+              .filter((category) => category.profileSchema)
+              .map((category) => (
+              <div key={category.id} className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
                 <div className="text-xs font-semibold text-text mb-3">
-                  {selectedCategory.name} profile
+                  {category.name} profile
                 </div>
                 <DynamicProfileFields
-                  schema={selectedCategory.profileSchema}
+                  schema={category.profileSchema}
                   values={dynamicProfileData}
                   onChange={setDynamicProfileData}
                   excludeKeys={
-                    isTranslationSignup
+                    category.slug === "translation"
                       ? [
                           "translatorType",
                           "languagePairs",
@@ -493,7 +516,7 @@ export default function AuthModal({
                   }
                 />
               </div>
-            )}
+            ))}
           </>
         )}
 
@@ -559,12 +582,12 @@ export default function AuthModal({
 
         {error && (
           <div className="bg-red-light text-red py-2.5 px-3 rounded-lg text-[13px] mb-4">
-            ⚠️ {error}
+            <span className="inline-flex items-center gap-2"><Icon name="alert" className="w-4 h-4" /> {error}</span>
           </div>
         )}
         {success && (
           <div className="bg-green-light text-green-dark py-2.5 px-3 rounded-lg text-[13px] mb-4 break-words">
-            ✓ {success}
+            <span className="inline-flex items-center gap-2"><Icon name="check" className="w-4 h-4" /> {success}</span>
           </div>
         )}
 
@@ -578,9 +601,7 @@ export default function AuthModal({
             : mode === "signup"
             ? accountType === "seeker"
               ? "Create client account"
-              : accountType === "provider"
-                ? "Create provider account"
-                : "Create attorney account"
+              : "Create account"
             : mode === "login"
             ? "Log in"
             : mode === "forgot"
@@ -622,11 +643,9 @@ export default function AuthModal({
           <p className="text-xs text-muted-high text-center mt-4 leading-relaxed">
             {mode === "login"
               ? "Clients, attorneys, providers, and administrators can log in here."
-              : accountType === "attorney"
-                ? "Attorney accounts require bar verification before access."
-                : accountType === "provider"
-                  ? "Provider accounts require credential approval before access."
-                  : "Client accounts are free. Verify your email to continue."}
+              : accountType === "seeker"
+                ? "Client accounts are free. Verify your email to continue."
+                : "One account can include an attorney profile and any services you offer. Each new profile is reviewed before it goes live."}
           </p>
         )}
       </div>

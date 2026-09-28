@@ -1,5 +1,6 @@
 import React from "react";
 import Tag from "./Tag";
+import { Icon } from "@/components/icons/Icon";
 import {
   APPLICATION_STATUS,
   LISTING_STATUS,
@@ -114,7 +115,9 @@ export default function JobCard({ j, onApply, applying, onManageListing }) {
           )}
         </div>
       </div>
-      <div className="text-xs text-muted mb-2.5">🏢 {j.org} · {j.location}</div>
+      <div className="text-xs text-muted mb-2.5 inline-flex items-center gap-1.5">
+        <Icon name="building" className="w-3.5 h-3.5" /> {j.org} · {j.location}
+      </div>
       <div className="flex flex-wrap gap-[5px] mb-2.5">
         <Tag green>{j.type || "One-time"}</Tag>
         {tags.map((t) => (
@@ -122,9 +125,9 @@ export default function JobCard({ j, onApply, applying, onManageListing }) {
         ))}
       </div>
       <div className="flex gap-4 text-xs text-muted-high mb-3">
-        <span>💰 {j.pay}</span>
-        <span>👤 {j.applicants || j.applicantsCount || 0}</span>
-        <span>🕐 {j.posted || "Just now"}</span>
+        <span className="inline-flex items-center gap-1"><Icon name="banknotes" className="w-3.5 h-3.5" /> {j.pay}</span>
+        <span className="inline-flex items-center gap-1"><Icon name="user" className="w-3.5 h-3.5" /> {j.applicants || j.applicantsCount || 0}</span>
+        <span className="inline-flex items-center gap-1"><Icon name="clock" className="w-3.5 h-3.5" /> {j.posted || "Just now"}</span>
       </div>
       <div className="mt-auto">{renderAction()}</div>
     </div>

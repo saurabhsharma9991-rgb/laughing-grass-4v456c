@@ -2,6 +2,7 @@
 
 import React from "react";
 import AttorneyCard from "../AttorneyCard";
+import { Icon } from "@/components/icons/Icon";
 
 /** Live preview of CMS hero + stats while editing in admin. */
 export default function CmsPreview({ values }) {
@@ -55,7 +56,7 @@ export default function CmsPreview({ values }) {
       {/* Card preview */}
       <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4 shadow-sm">
         <div className="text-[10px] text-muted uppercase mb-2">How it works card</div>
-        <div className="text-2xl mb-1">{get("home.card1.icon", "⚖️")}</div>
+        <Icon name={get("home.card1.icon", "scale")} className="w-6 h-6 text-green mb-1" />
         <div className="text-sm font-semibold text-text mb-1">
           {get("home.card1.title", "Find an attorney")}
         </div>
@@ -121,7 +122,7 @@ export function ListingPreviewCard({ listing }) {
           </span>
         </div>
         <div className="text-xs text-muted mb-2">
-          🏢 {listing.org || "—"} · {listing.location || "—"}
+          {listing.org || "—"} · {listing.location || "—"}
         </div>
         <div className="flex flex-wrap gap-1 mb-2">
           <span className="text-[11px] px-2 py-0.5 rounded-full border border-green text-green">
@@ -136,7 +137,7 @@ export function ListingPreviewCard({ listing }) {
             </span>
           ))}
         </div>
-        <div className="text-xs text-muted">💰 {listing.pay || "DOE"}</div>
+        <div className="text-xs text-muted">{listing.pay || "DOE"}</div>
       </div>
     </div>
   );

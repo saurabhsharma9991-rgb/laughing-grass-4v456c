@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   quoteTranslationCents,
+  providerQuoteBaseCents,
   defaultCertificationNote,
   PROVIDER_STATUS_FLOW,
 } from "./translation.js";
@@ -12,6 +13,23 @@ describe("quoteTranslationCents", () => {
     const rush = quoteTranslationCents({ translationType: "standard", turnaround: "rush" });
     expect(certified).toBeGreaterThan(base);
     expect(rush).toBeGreaterThan(base);
+  });
+
+  it("ignores a per-word display rate and keeps the flat starting price", () => {
+    expect(
+      providerQuoteBaseCents({
+        rate: "$0.18/word",
+        profileData: { basePriceCents: 4900 },
+      })
+    ).toBe(4900);
+    expect(providerQuoteBaseCents({ rate: "$0.18/word" })).toBeNull();
+    expect(
+      quoteTranslationCents({
+        translationType: "standard",
+        turnaround: "regular",
+        providerBaseCents: providerQuoteBaseCents({ rate: "$0.18/word" }),
+      })
+    ).toBe(4900);
   });
 
   it("uses provider base when provided", () => {

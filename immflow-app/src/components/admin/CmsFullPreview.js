@@ -3,20 +3,21 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { HOME_BLOCK_TYPES } from "@/lib/constants/homepage-blocks";
 import { resolveHomepageDocument } from "@/lib/utils/homepage-document";
+import { Icon } from "@/components/icons/Icon";
 
 const AI_FEATURE_CARDS = [
   {
-    icon: "✦",
+    icon: "spark",
     title: "AI attorney matcher",
     desc: "Describe your need. AI returns ranked matches with fit scores.",
   },
   {
-    icon: "🔍",
+    icon: "search",
     title: "Natural language search",
     desc: "Type what you need instead of filling out 10 dropdowns.",
   },
   {
-    icon: "💬",
+    icon: "chat",
     title: "Client intake chatbot",
     desc: "Visitors answer a few questions and get routed automatically.",
   },
@@ -129,7 +130,7 @@ function PreviewBlock({ block }) {
                 key={`${card.title}-${idx}`}
                 className="border border-[rgba(0,0,0,0.08)] rounded-lg p-3 bg-bg/40"
               >
-                <div className="text-xl mb-1">{card.icon}</div>
+                <Icon name={card.icon} className="w-5 h-5 text-green mb-1" />
                 <div className="text-xs font-semibold text-text">{card.title}</div>
                 <p className="text-[10px] text-muted mt-1 leading-relaxed">{card.desc}</p>
                 <div className="mt-2 inline-block text-[10px] bg-green text-white px-2 py-1 rounded">
@@ -158,7 +159,7 @@ function PreviewBlock({ block }) {
           <div className="grid grid-cols-1 gap-2 mb-3">
             {AI_FEATURE_CARDS.map((f) => (
               <div key={f.title} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-2.5">
-                <div className="text-sm mb-0.5">{f.icon}</div>
+                <Icon name={f.icon} className="w-4 h-4 text-green mb-0.5" />
                 <div className="text-[11px] font-semibold text-text">{f.title}</div>
                 <p className="text-[10px] text-muted">{f.desc}</p>
               </div>
@@ -252,7 +253,7 @@ function PreviewBlock({ block }) {
         <div className="grid grid-cols-1 gap-2">
           {(d.items || []).map((item, idx) => (
             <div key={idx} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
-              <div className="text-base mb-1">{item.icon}</div>
+              <Icon name={item.icon} className="w-5 h-5 text-green mb-1" />
               <div className="text-xs font-semibold">{item.title}</div>
               <p className="text-[10px] text-muted">{item.body}</p>
               {item.href && (
@@ -293,7 +294,7 @@ function PreviewBlock({ block }) {
       const meta = HOME_BLOCK_TYPES.find((t) => t.type === block.type);
       return (
         <div className="border border-dashed border-[rgba(0,0,0,0.15)] rounded-lg p-3 text-[10px] text-muted">
-          {meta?.icon} {meta?.label || block.type}
+          <Icon name={meta?.icon || "spark"} className="w-3.5 h-3.5" /> {meta?.label || block.type}
         </div>
       );
     }

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import AttorneyCard from "../AttorneyCard";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
 import { usePlatform } from "@/components/PlatformContext";
+import { Icon } from "@/components/icons/Icon";
 
 const SORT_OPTIONS = [
   ["relevance", "Relevance"],
@@ -97,7 +98,7 @@ export default function AttorneysPage({ user, setPage, setShowAuth }) {
             Find your attorney
           </h1>
           <div className="flex gap-2 bg-white border border-[rgba(0,0,0,0.15)] rounded-lg p-1.5 pl-4 items-center mb-4">
-            <span className="text-muted-high">🔍</span>
+            <Icon name="search" className="w-4 h-4 text-muted-high" />
             <input
               className="border-none bg-transparent text-sm outline-none flex-1 text-text placeholder-muted-high"
               placeholder='Try "Spanish speaking asylum attorney in Miami"'

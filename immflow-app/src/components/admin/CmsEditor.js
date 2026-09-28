@@ -14,6 +14,8 @@ import {
 import HomepageBlockEditor from "./HomepageBlockEditor";
 import CmsFullPreview from "./CmsFullPreview";
 
+let homeLayoutCreateStarted = false;
+
 export default function CmsEditor({
   cmsItems,
   cmsFormValues,
@@ -29,8 +31,6 @@ export default function CmsEditor({
   const [newKey, setNewKey] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newType, setNewType] = useState("text");
-  const [editingLocale, setEditingLocale] = useState("en");
-
   const grouped = useMemo(() => {
     const map = {};
     cmsItems.forEach((item) => {
@@ -88,7 +88,8 @@ export default function CmsEditor({
       }));
     }
 
-    if (!hasDbField && onCreateField) {
+    if (!hasDbField && onCreateField && !homeLayoutCreateStarted) {
+      homeLayoutCreateStarted = true;
       onCreateField({
         key: "home.layout",
         label: "Homepage layout (JSON blocks)",
@@ -161,30 +162,11 @@ export default function CmsEditor({
             {activeMeta?.label || activeSection}
           </h2>
           <p className="text-xs text-muted mt-1">{activeMeta?.description}</p>
+          <p className="text-[11px] text-muted mt-2 leading-relaxed">
+            Write in English. Visitors who pick another language see this text translated automatically.
+          </p>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          <div className="flex flex-wrap gap-1">
-            {[
-              ["en", "English"],
-              ["es", "Español"],
-              ["hi", "हिन्दी"],
-              ["ru", "Русский"],
-              ["zh", "中文"],
-            ].map(([code, label]) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setEditingLocale(code)}
-                className={`text-[10px] px-2 py-1 rounded border ${
-                  editingLocale === code
-                    ? "bg-green text-white"
-                    : "bg-white text-muted"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
           {isHomeLayout ? (
             <HomepageBlockEditor
               value={cmsFormValues["home.layout"] || ""}
@@ -206,19 +188,11 @@ export default function CmsEditor({
                 <p className="text-[10px] text-muted-high mb-1.5 font-mono">{item.key}</p>
                 {item.type === "textarea" ? (
                   <textarea
-                    value={
-                      cmsFormValues[
-                        editingLocale === "en"
-                          ? item.key
-                          : `${item.key}::${editingLocale}`
-                      ] || ""
-                    }
+                    value={cmsFormValues[item.key] || ""}
                     onChange={(e) =>
                       setCmsFormValues({
                         ...cmsFormValues,
-                        [editingLocale === "en"
-                          ? item.key
-                          : `${item.key}::${editingLocale}`]: e.target.value,
+                        [item.key]: e.target.value,
                       })
                     }
                     className="w-full p-3 text-sm border border-[rgba(20,30,48,0.15)] rounded-lg min-h-[88px] focus:outline-none focus:border-green bg-bg"
@@ -226,19 +200,11 @@ export default function CmsEditor({
                 ) : (
                   <input
                     type="text"
-                    value={
-                      cmsFormValues[
-                        editingLocale === "en"
-                          ? item.key
-                          : `${item.key}::${editingLocale}`
-                      ] || ""
-                    }
+                    value={cmsFormValues[item.key] || ""}
                     onChange={(e) =>
                       setCmsFormValues({
                         ...cmsFormValues,
-                        [editingLocale === "en"
-                          ? item.key
-                          : `${item.key}::${editingLocale}`]: e.target.value,
+                        [item.key]: e.target.value,
                       })
                     }
                     className="w-full p-3 text-sm border border-[rgba(20,30,48,0.15)] rounded-lg focus:outline-none focus:border-green bg-bg"

@@ -1,5 +1,5 @@
 import { parseServiceIntent } from "@/lib/utils/service-finder";
-import { listProviders } from "@/lib/services/providers";
+import { listProviders, listedRateAmount } from "@/lib/services/providers";
 import { listCategories } from "@/lib/services/categories";
 import { normalizeAiText, requestOpenAiJson } from "@/lib/ai/openai";
 
@@ -240,7 +240,7 @@ function scoreProvider(provider, intent) {
   ) {
     score += 5;
   }
-  const numericRate = Number(String(provider.rate || "").replace(/[^0-9.]/g, ""));
+  const numericRate = listedRateAmount(provider);
   if (f.maxPrice && numericRate && numericRate <= Number(f.maxPrice)) score += 5;
   if (f.minRating && provider.stars >= Number(f.minRating)) score += 4;
   if (f.turnaround) {

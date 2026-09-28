@@ -5,6 +5,8 @@ import { authFetch } from "@/lib/client/auth-storage";
 import { resizeImageFile } from "@/lib/client/resize-image";
 import { toastError, toastSuccess } from "@/lib/client/alerts";
 import DynamicProfileFields from "@/components/DynamicProfileFields";
+import { usePlatform } from "@/components/PlatformContext";
+import { formatCommissionSplitLabel, splitCommission } from "@/lib/constants/commission";
 
 const emptyCredential = {
   label: "",
@@ -13,14 +15,16 @@ const emptyCredential = {
   expiresAt: "",
 };
 
-export default function ProviderProfileEditor() {
+export default function ProviderProfileEditor({ categorySlug }) {
+  const { commissionPercentFree, commissionPercentPro } = usePlatform();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [credentialsDirty, setCredentialsDirty] = useState(false);
 
   useEffect(() => {
-    authFetch("/api/providers/me")
+    const query = categorySlug ? `?category=${encodeURIComponent(categorySlug)}` : "";
+    authFetch(`/api/providers/me${query}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) return toastError(data.error.message);
@@ -60,7 +64,7 @@ export default function ProviderProfileEditor() {
         });
       })
       .catch(() => toastError("Failed to load provider profile."));
-  }, []);
+  }, [categorySlug]);
 
   if (!form || !profile) {
     return <div className="py-8 text-sm text-muted">Loading provider profile…</div>;
@@ -75,6 +79,7 @@ export default function ProviderProfileEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          categorySlug: categorySlug || profile.categorySlug,
           credentials: credentialsDirty ? form.credentials : undefined,
           languages: form.languages
             .split(",")
@@ -92,11 +97,17 @@ export default function ProviderProfileEditor() {
       else {
         setProfile(data);
         setCredentialsDirty(false);
-        toastSuccess(
-          form.credentials.length
-            ? "Profile saved. Credential changes await admin verification."
-            : "Profile saved."
-        );
+        if (data.pendingRate?.rate) {
+          toastSuccess(
+            `New rate ${data.pendingRate.rate} awaiting admin approval. Live rate remains ${data.rate || "unchanged"}.`
+          );
+        } else {
+          toastSuccess(
+            form.credentials.length
+              ? "Profile saved. Credential changes await admin verification."
+              : "Profile saved."
+          );
+        }
       }
     } catch {
       toastError("Failed to save provider profile.");
@@ -111,6 +122,9 @@ export default function ProviderProfileEditor() {
     setForm({ ...form, languagePairs });
   };
 
+  const activePercent = profile?.isPro ? commissionPercentPro : commissionPercentFree;
+  const sampleSplit = splitCommission(10000, activePercent);
+
   return (
     <form onSubmit={save} className="space-y-5">
       <div>
@@ -119,6 +133,20 @@ export default function ProviderProfileEditor() {
           {profile.categoryName} · Verification: {profile.verificationStatus}
         </p>
       </div>
+
+      {profile.pendingRate?.rate && (
+        <div className="text-xs bg-amber-light text-amber border border-amber/30 rounded-lg px-3 py-2">
+          New rate <strong>{profile.pendingRate.rate}</strong> awaiting admin approval. Live rate
+          remains <strong>{profile.rate || "—"}</strong>.
+        </div>
+      )}
+
+      <p className="text-xs text-muted leading-relaxed bg-bg rounded-lg px-3 py-2">
+        ImmFlow takes {activePercent}% of each paid marketplace order on your current plan
+        ({profile?.isPro ? "Pro" : "Free"}). Pro is {commissionPercentPro}% · Free is{" "}
+        {commissionPercentFree}%. Client pays your listed price. Example:{" "}
+        {formatCommissionSplitLabel(sampleSplit)}.
+      </p>
 
       <div className="flex items-center gap-4">
         {form.photoUrl ? (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getAvailabilityDot } from "@/lib/utils/tags";
 import Avatar from "./Avatar";
 import Tag from "./Tag";
+import { Icon } from "@/components/icons/Icon";
 
 export default function AttorneyCard({ a, onContact, href, profileHref }) {
   const linkTarget = profileHref ?? href;
@@ -42,7 +43,7 @@ export default function AttorneyCard({ a, onContact, href, profileHref }) {
           />
           <span className="text-muted">{avail}</span>
         </span>
-        <span className="text-amber shrink-0">★ {Number(a.stars || 5.0).toFixed(1)} ({a.reviews || 0})</span>
+        <span className="text-amber shrink-0 inline-flex items-center gap-1"><Icon name="star" className="w-3.5 h-3.5" /> {Number(a.stars || 5.0).toFixed(1)} ({a.reviews || 0})</span>
         <span className="font-medium text-text shrink-0">{a.rate}</span>
       </div>
     </>

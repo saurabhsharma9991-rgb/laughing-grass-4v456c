@@ -5,8 +5,24 @@ import { AuthError } from "@/lib/auth/guards.js";
 import { generateToken } from "@/lib/auth-tokens";
 import { validateProfileData } from "@/lib/validators/category-profile-schema";
 import { enforceSubscriptionExpiry } from "@/lib/services/subscription";
+import { notifyAdminsNewUser } from "@/lib/email/notify";
 
-export function formatUserResponse(user, attorney) {
+export function formatUserResponse(user, attorney, provider) {
+  const providerList = Array.isArray(provider)
+    ? provider
+    : provider
+      ? [provider]
+      : Array.isArray(user?.providers)
+        ? user.providers
+        : [];
+  const serviceCategories = [
+    ...new Set(
+      providerList
+        .map((row) => row?.category?.slug)
+        .filter((slug) => slug && slug !== "attorney")
+    ),
+  ];
+
   return {
     id: user.id,
     email: user.email,
@@ -16,6 +32,9 @@ export function formatUserResponse(user, attorney) {
     subscriptionExpires: user.subscriptionExpires,
     signupStatus: user.signupStatus || "approved",
     preferredLocale: user.preferredLocale || "en",
+    isAttorney: Boolean(attorney) || user.role === "attorney",
+    providerCategories: serviceCategories,
+    providerCategory: serviceCategories[0] || null,
     user_metadata: {
       full_name: attorney?.name || user.displayName || user.email.split("@")[0],
       bar_number: attorney?.barNumber || null,
@@ -48,10 +67,195 @@ function assertSignupApproved(user) {
   }
 }
 
+const sessionUserInclude = {
+  attorney: true,
+  providers: { include: { category: { select: { slug: true } } } },
+};
+
+function formatSessionUser(user) {
+  return formatUserResponse(user, user.attorney, user.providers);
+}
+
+function initialsFromName(fullName) {
+  return String(fullName || "")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+async function attachAttorneyProfile(tx, { userId, fullName, initials, barNumber, barState }) {
+  await tx.attorney.create({
+    data: {
+      userId,
+      name: fullName,
+      initials,
+      barNumber: barNumber || null,
+      stateBar: barState || null,
+      isVerified: false,
+    },
+  });
+
+  const attorneyCategory = await tx.serviceCategory.findUnique({ where: { slug: "attorney" } });
+  if (!attorneyCategory) return;
+
+  const provider = await tx.provider.create({
+    data: {
+      userId,
+      categoryId: attorneyCategory.id,
+      displayName: fullName,
+      initials,
+      verificationStatus: "pending",
+      profileData: { barNumber: barNumber || null, stateBar: barState || null },
+    },
+  });
+
+  if (barNumber) {
+    await tx.providerCredential.create({
+      data: {
+        providerId: provider.id,
+        label: "State bar",
+        organization: barState || null,
+        credentialNumber: barNumber,
+        status: "pending",
+      },
+    });
+  }
+}
+
+async function attachServiceProfile(tx, { userId, fullName, initials, category, data, partial = false }) {
+  const profileData = validateProfileData(
+    category.profileSchema || { fields: [] },
+    data?.profile_data,
+    { partial }
+  );
+  if (data?.translator_type) profileData.translatorType = data.translator_type;
+  if (data?.offers_certified != null) profileData.offersCertified = Boolean(data.offers_certified);
+  if (data?.turnaround_days != null) profileData.turnaroundDays = Number(data.turnaround_days) || null;
+  if (data?.rush_available != null) profileData.rushAvailable = Boolean(data.rush_available);
+  if (data?.base_price_cents != null) profileData.basePriceCents = Number(data.base_price_cents) || null;
+  if (data?.rate) profileData.listedRate = data.rate;
+
+  const provider = await tx.provider.create({
+    data: {
+      userId,
+      categoryId: category.id,
+      displayName: fullName,
+      initials,
+      verificationStatus: "pending",
+      languages: data?.languages
+        ? JSON.stringify(
+            Array.isArray(data.languages)
+              ? data.languages
+              : String(data.languages)
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+          )
+        : null,
+      location: data?.location || null,
+      rate: data?.rate || null,
+      remoteAvailable: data?.remote_available !== false,
+      inPersonAvailable: Boolean(data?.in_person_available),
+      experienceYears: data?.experience_years ? Number(data.experience_years) : null,
+      profileData,
+    },
+  });
+
+  const pairs = Array.isArray(data?.language_pairs) ? data.language_pairs : [];
+  for (const pair of pairs.slice(0, 20)) {
+    const source = String(pair.source || pair.sourceLanguage || "").trim();
+    const target = String(pair.target || pair.targetLanguage || "").trim();
+    if (!source || !target || source.toLowerCase() === target.toLowerCase()) continue;
+    await tx.providerLanguagePair.create({
+      data: { providerId: provider.id, sourceLanguage: source, targetLanguage: target },
+    });
+  }
+}
+
+async function resolveServiceCategory(tx, service) {
+  if (service?.category_id) {
+    return tx.serviceCategory.findUnique({ where: { id: Number(service.category_id) } });
+  }
+  if (service?.category_slug) {
+    return tx.serviceCategory.findUnique({ where: { slug: String(service.category_slug) } });
+  }
+  return null;
+}
+
+export async function addAccountProfiles(userId, { attorney, services } = {}) {
+  const user = await prisma.user.findUnique({
+    where: { id: Number(userId) },
+    include: sessionUserInclude,
+  });
+  if (!user) throw new AuthError("Account not found.", 404, "NOT_FOUND");
+  if (user.role === "admin") {
+    throw new AuthError("Admin accounts cannot add marketplace profiles.", 400, "INVALID_ROLE");
+  }
+
+  const serviceList = Array.isArray(services) ? services : [];
+  const barNumber = attorney?.bar_number?.trim() || attorney?.barNumber?.trim() || "";
+  const barState = attorney?.bar_state?.trim() || attorney?.barState?.trim() || "";
+  const wantsAttorney = Boolean(attorney);
+  if (!wantsAttorney && serviceList.length === 0) {
+    throw new AuthError("Choose an attorney profile or at least one service.", 400, "VALIDATION_ERROR");
+  }
+  if (wantsAttorney && (!barNumber || !barState)) {
+    throw new AuthError("Bar number and state bar are required.", 400, "VALIDATION_ERROR");
+  }
+  if (wantsAttorney && user.attorney) {
+    throw new AuthError("This account already has an attorney profile.", 409, "ATTORNEY_EXISTS");
+  }
+
+  const fullName = user.attorney?.name || user.displayName || user.email.split("@")[0];
+  const initials = initialsFromName(fullName);
+
+  await prisma.$transaction(async (tx) => {
+    let nextRole = user.role === "public" ? "provider" : user.role;
+
+    if (wantsAttorney) {
+      nextRole = "attorney";
+      await attachAttorneyProfile(tx, { userId: user.id, fullName, initials, barNumber, barState });
+    }
+
+    for (const service of serviceList) {
+      const category = await resolveServiceCategory(tx, service);
+      if (!category || !category.isActive || category.slug === "attorney") {
+        throw new AuthError("Select a valid service category.", 400, "INVALID_CATEGORY");
+      }
+      const existing = await tx.provider.findUnique({
+        where: { userId_categoryId: { userId: user.id, categoryId: category.id } },
+      });
+      if (existing) {
+        throw new AuthError(`You already offer ${category.name}.`, 409, "PROVIDER_EXISTS");
+      }
+      await attachServiceProfile(tx, {
+        userId: user.id,
+        fullName,
+        initials,
+        category,
+        data: service,
+        partial: true,
+      });
+    }
+
+    if (nextRole !== user.role) {
+      await tx.user.update({ where: { id: user.id }, data: { role: nextRole } });
+    }
+  });
+
+  const refreshed = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: sessionUserInclude,
+  });
+  return formatSessionUser(refreshed);
+}
+
 export async function loginUser(email, password) {
   const user = await prisma.user.findUnique({
     where: { email: email.trim().toLowerCase() },
-    include: { attorney: true },
+    include: sessionUserInclude,
   });
 
   if (!user) {
@@ -76,7 +280,7 @@ export async function loginUser(email, password) {
 
   const refreshed = await prisma.user.findUnique({
     where: { id: user.id },
-    include: { attorney: true },
+    include: sessionUserInclude,
   });
 
   const token = signToken({
@@ -87,7 +291,7 @@ export async function loginUser(email, password) {
   });
 
   return {
-    user: formatUserResponse(refreshed, refreshed.attorney),
+    user: formatSessionUser(refreshed),
     access_token: token,
   };
 }
@@ -123,6 +327,7 @@ export async function registerUser({ email, password, data, accountType = "attor
         preferredLocale: data?.locale || "en",
       },
     });
+    void notifyAdminsNewUser(user);
     return { user, verificationToken, fullName, accountType: "seeker" };
   }
 
@@ -247,7 +452,64 @@ export async function registerUser({ email, password, data, accountType = "attor
       return newUser;
     });
 
+    void notifyAdminsNewUser(user);
     return { user, verificationToken, fullName, accountType: "provider" };
+  }
+
+  if (type === "professional") {
+    const services = Array.isArray(data?.services) ? data.services : [];
+    const attorney = data?.attorney && typeof data.attorney === "object" ? data.attorney : null;
+    const barNumber = attorney?.bar_number?.trim() || "";
+    const barState = attorney?.bar_state?.trim() || "";
+    const role = attorney ? "attorney" : "provider";
+
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          role,
+          displayName: fullName,
+          emailVerified: false,
+          verificationToken,
+          signupStatus: "pending",
+          preferredLocale: data?.locale || "en",
+        },
+      });
+
+      if (attorney) {
+        await attachAttorneyProfile(tx, {
+          userId: newUser.id,
+          fullName,
+          initials,
+          barNumber,
+          barState,
+        });
+      }
+
+      for (const service of services) {
+        const category = await resolveServiceCategory(tx, service);
+        if (!category || !category.isActive || category.slug === "attorney") {
+          throw new AuthError(
+            "Select a valid service category.",
+            400,
+            "INVALID_CATEGORY"
+          );
+        }
+        await attachServiceProfile(tx, {
+          userId: newUser.id,
+          fullName,
+          initials,
+          category,
+          data: service,
+        });
+      }
+
+      return newUser;
+    });
+
+    void notifyAdminsNewUser(user);
+    return { user, verificationToken, fullName, accountType: "professional" };
   }
 
   const attorneyCategory = await prisma.serviceCategory.findUnique({
@@ -310,13 +572,14 @@ export async function registerUser({ email, password, data, accountType = "attor
     return newUser;
   });
 
+  void notifyAdminsNewUser(user);
   return { user, verificationToken, fullName, accountType: "attorney" };
 }
 
 export async function verifyUserEmail(token) {
   const user = await prisma.user.findFirst({
     where: { verificationToken: token },
-    include: { attorney: true },
+    include: sessionUserInclude,
   });
 
   if (!user) {
@@ -328,7 +591,7 @@ export async function verifyUserEmail(token) {
     await enforceSubscriptionExpiry(user.id);
     const refreshed = await prisma.user.findUnique({
       where: { id: user.id },
-      include: { attorney: true },
+      include: sessionUserInclude,
     });
     const access_token = signToken({
       userId: refreshed.id,
@@ -337,7 +600,7 @@ export async function verifyUserEmail(token) {
       isPro: refreshed.isPro,
     });
     return {
-      user: formatUserResponse(refreshed, refreshed.attorney),
+      user: formatSessionUser(refreshed),
       access_token,
       alreadyVerified: true,
       pendingApproval: false,
@@ -347,13 +610,13 @@ export async function verifyUserEmail(token) {
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: { emailVerified: true, verificationToken: null },
-    include: { attorney: true },
+    include: sessionUserInclude,
   });
 
   const pendingApproval = updated.signupStatus === "pending";
   if (pendingApproval) {
     return {
-      user: formatUserResponse(updated, updated.attorney),
+      user: formatSessionUser(updated),
       access_token: null,
       alreadyVerified: false,
       pendingApproval: true,
@@ -376,7 +639,7 @@ export async function verifyUserEmail(token) {
   });
 
   return {
-    user: formatUserResponse(updated, updated.attorney),
+    user: formatSessionUser(updated),
     access_token,
     alreadyVerified: false,
     pendingApproval: false,

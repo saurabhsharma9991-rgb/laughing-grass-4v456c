@@ -35,6 +35,20 @@ describe("validateSignupBody", () => {
     expect(result.data.email).toBe("attorney@firm.com");
   });
 
+  it("allows one account to be an attorney and a service provider", () => {
+    const result = validateSignupBody({
+      email: "both@firm.com",
+      password: "securepass",
+      accountType: "professional",
+      data: {
+        full_name: "Jane Doe",
+        attorney: { bar_number: "12345", bar_state: "CA" },
+        services: [{ category_id: 2 }],
+      },
+    });
+    expect(result.valid).toBe(true);
+  });
+
   it("allows seeker without bar fields", () => {
     const result = validateSignupBody({
       email: "client@example.com",

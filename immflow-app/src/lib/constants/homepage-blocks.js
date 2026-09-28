@@ -1,12 +1,12 @@
 import { createBlockId } from "./cms-page-blocks.js";
 
 const GENERIC_HOME_BLOCKS = [
-  { type: "heading", label: "Heading", description: "Section title (H2 / H3)", icon: "🔠" },
-  { type: "paragraph", label: "Paragraph", description: "Body text with line breaks", icon: "¶" },
-  { type: "cards", label: "Feature cards", description: "Cards in a row with links", icon: "▦" },
-  { type: "cta", label: "Call to action", description: "Highlighted box with button", icon: "👉" },
-  { type: "html", label: "Custom HTML", description: "Free-hand HTML block", icon: "</>" },
-  { type: "divider", label: "Divider", description: "Horizontal rule between sections", icon: "—" },
+  { type: "heading", label: "Heading", description: "Section title (H2 / H3)", icon: "text" },
+  { type: "paragraph", label: "Paragraph", description: "Body text with line breaks", icon: "text" },
+  { type: "cards", label: "Feature cards", description: "Cards in a row with links", icon: "layout" },
+  { type: "cta", label: "Call to action", description: "Highlighted box with button", icon: "arrow" },
+  { type: "html", label: "Custom HTML", description: "Free-hand HTML block", icon: "code" },
+  { type: "divider", label: "Divider", description: "Horizontal rule between sections", icon: "minus" },
 ];
 
 export const HOME_BLOCK_TYPES = [
@@ -14,105 +14,105 @@ export const HOME_BLOCK_TYPES = [
     type: "home_hero",
     label: "Marketplace hero",
     description: "Headline, badge, CTAs (+ category tiles & AI finder)",
-    icon: "🏠",
+    icon: "home",
   },
   {
     type: "home_network",
     label: "Attorney network strip",
     description: "Network promo with AI match panel",
-    icon: "🤝",
+    icon: "users",
   },
   {
     type: "home_stats",
     label: "Stats banner",
     description: "Four stats (live counts override where applicable)",
-    icon: "📊",
+    icon: "chart",
   },
   {
     type: "home_ways",
     label: "Ways to Use ImmFlow",
     description: "Dynamic feature cards with links",
-    icon: "✦",
+    icon: "spark",
   },
   {
     type: "home_ai",
     label: "AI matcher promo",
     description: "AI section heading and CTA",
-    icon: "🤖",
+    icon: "cpu",
   },
   {
     type: "home_featured",
     label: "Featured attorneys",
     description: "Featured block heading",
-    icon: "⭐",
+    icon: "star",
   },
   {
     type: "home_pricing",
     label: "Pricing",
     description: "Pricing section intro",
-    icon: "💳",
+    icon: "card",
   },
   {
     type: "home_join",
     label: "Join CTA",
     description: "Bottom call-to-action banner",
-    icon: "🚀",
+    icon: "arrow",
   },
   ...GENERIC_HOME_BLOCKS,
 ];
 
 export const DEFAULT_WAYS_CARDS = [
   {
-    icon: "⚖️",
+    icon: "scale",
     title: "Find an attorney",
     desc: "Browse verified immigration attorneys by case type, language, and availability.",
     cta: "Browse attorneys",
     href: "/attorneys",
   },
   {
-    icon: "📄",
+    icon: "document",
     title: "Certified translation",
     desc: "Request professional or certified document translation. Pay securely, then work with a verified translator.",
     cta: "Request translation",
     href: "/services/translation",
   },
   {
-    icon: "🎙️",
+    icon: "microphone",
     title: "Interpreters",
     desc: "Book remote ($150/hr) or in-person ($200/hr) interpreters for hearings, interviews, and appointments.",
     cta: "Find an interpreter",
     href: "/services/interpreter",
   },
   {
-    icon: "🧠",
+    icon: "brain",
     title: "Psychological evaluations",
     desc: "Connect with professionals who provide immigration-related psychological evaluations.",
     cta: "Browse evaluations",
     href: "/services/psychological",
   },
   {
-    icon: "📋",
+    icon: "clipboard",
     title: "Job board & hearing coverage",
     desc: "Post and find full-time roles, hearing coverage, and outsource projects on the ImmFlow job board.",
     cta: "Browse jobs",
     href: "/jobs",
   },
   {
-    icon: "🤝",
+    icon: "users",
     title: "Attorney network",
     desc: "Attorney-to-attorney connections for coverage, co-counsel, and referrals.",
     cta: "Explore network",
     href: "/network",
   },
   {
-    icon: "✦",
+    icon: "spark",
     title: "AI matcher",
     desc: "Describe what you need in plain language. Get ranked attorney and service matches with fit scores.",
     cta: "Try AI matcher",
     href: "/matcher",
   },
   {
-    icon: "✍️",
+    icon: "pen",
     title: "Post a listing",
     desc: "Attorneys can post roles, coverage needs, and projects for the ImmFlow community.",
     cta: "Post a listing",
@@ -144,8 +144,8 @@ export function defaultHomeBlockData(type) {
         primaryHref: "/attorneys",
         secondaryLabel: "Browse job board",
         secondaryHref: "/jobs",
-        aiPanelTitle: "✦ AI matched for you",
-        aiPanelCta: "Run AI match ✦",
+        aiPanelTitle: "AI matched for you",
+        aiPanelCta: "Run AI match",
         aiPanelHref: "/matcher",
       };
     case "home_stats":
@@ -166,7 +166,7 @@ export function defaultHomeBlockData(type) {
       return {
         badge: "AI-powered",
         title: "Smart matching, not just search",
-        cta: "Try the AI matcher ✦",
+        cta: "Try the AI matcher",
         href: "/matcher",
       };
     case "home_featured":
@@ -198,8 +198,8 @@ export function defaultHomeBlockData(type) {
     case "cards":
       return {
         items: [
-          { icon: "✦", title: "Card one", body: "Short description.", href: "/" },
-          { icon: "✦", title: "Card two", body: "Short description.", href: "/" },
+          { icon: "spark", title: "Card one", body: "Short description.", href: "/" },
+          { icon: "spark", title: "Card two", body: "Short description.", href: "/" },
         ],
       };
     case "cta":
@@ -275,7 +275,7 @@ export function buildDefaultHomepageDocument(getFn) {
     const title = get(`home.card${n}.title`, "");
     if (!title) return null;
     return {
-      icon: get(`home.card${n}.icon`, DEFAULT_WAYS_CARDS[i]?.icon || "✦"),
+      icon: get(`home.card${n}.icon`, DEFAULT_WAYS_CARDS[i]?.icon || "spark"),
       title,
       desc: get(`home.card${n}.desc`, DEFAULT_WAYS_CARDS[i]?.desc || ""),
       cta: get(`home.card${n}.cta`, DEFAULT_WAYS_CARDS[i]?.cta || "Learn more"),

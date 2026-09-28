@@ -6,6 +6,7 @@ import Tag from "@/components/Tag";
 import TranslationOrderForm from "@/components/TranslationOrderForm";
 import BookingRequestForm from "@/components/BookingRequestForm";
 import { authFetch } from "@/lib/client/auth-storage";
+import { Icon, StarRow } from "@/components/icons/Icon";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
 import { toastError, toastSuccess } from "@/lib/client/alerts";
 import { usePlatform } from "@/components/PlatformContext";
@@ -154,7 +155,7 @@ export default function ProviderProfilePage({
               <h1 className="font-syne text-2xl font-extrabold text-text">{profile.displayName}</h1>
               {profile.badge && (
                 <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-green-light text-green-dark">
-                  ✓ {profile.badge}
+                  <span className="inline-flex items-center gap-1"><Icon name="check" className="w-3.5 h-3.5" /> {profile.badge}</span>
                 </span>
               )}
             </div>
@@ -163,7 +164,7 @@ export default function ProviderProfilePage({
               {profile.location ? ` · ${profile.location}` : ""}
             </p>
             <p className="text-xs text-muted-high mt-1">
-              ★ {Number(profile.stars).toFixed(1)} ({profile.reviewsCount || 0} reviews)
+              <span className="inline-flex items-center gap-1"><Icon name="star" className="w-3.5 h-3.5 text-amber" /> {Number(profile.stars).toFixed(1)} ({profile.reviewsCount || 0} reviews)</span>
               {profile.experienceYears != null ? ` · ${profile.experienceYears} yrs` : ""}
               {profile.rate ? ` · ${profile.rate}` : ""}
             </p>
@@ -291,7 +292,7 @@ export default function ProviderProfilePage({
                   <span className="font-semibold text-text">{c.label}</span>
                   {c.organization ? ` · ${c.organization}` : ""}
                   {c.credentialNumber ? ` · ${c.credentialNumber}` : ""}
-                  {c.status === "verified" ? " · ✓" : ""}
+                  {c.status === "verified" ? <Icon name="check" className="w-3.5 h-3.5 inline" /> : null}
                 </li>
               ))}
             </ul>
@@ -309,7 +310,7 @@ export default function ProviderProfilePage({
               <div key={r.id} className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-4">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-semibold">{r.reviewerName}</span>
-                  <span className="text-xs text-amber">{"★".repeat(r.rating)}</span>
+                  <StarRow count={r.rating} />
                 </div>
                 {r.comment && <p className="text-xs text-muted mt-2">{r.comment}</p>}
               </div>
@@ -354,6 +355,7 @@ export default function ProviderProfilePage({
             setShowAuth={setShowAuth}
             providerId={profile.id}
             providerName={profile.displayName}
+            provider={profile}
             onCreated={() => {
               if (typeof window !== "undefined") {
                 window.location.href = "/dashboard?tab=orders";
@@ -376,6 +378,7 @@ export default function ProviderProfilePage({
             setShowAuth={setShowAuth}
             providerId={profile.id}
             providerName={profile.displayName}
+            provider={profile}
             onCreated={() => {
               if (typeof window !== "undefined") {
                 window.location.href = "/dashboard?tab=bookings";

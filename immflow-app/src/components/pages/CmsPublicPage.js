@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { useI18n } from "@/components/I18nProvider";
-import { getStoredUser } from "@/lib/client/auth-storage";
+import { useRestoredSession } from "@/lib/client/use-session";
 
 export default function CmsPublicPage() {
   const params = useParams();
@@ -15,11 +15,7 @@ export default function CmsPublicPage() {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    setUser(getStoredUser());
-  }, []);
+  const { user, sessionReady, logout } = useRestoredSession();
 
   useEffect(() => {
     if (!slug) return;
@@ -64,7 +60,17 @@ export default function CmsPublicPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg font-dm-sans">
-      <Nav page="" navigate={navigate} user={user} setShowAuth={() => (window.location.href = "/")} />
+      <Nav
+        page=""
+        navigate={navigate}
+        user={user}
+        sessionReady={sessionReady}
+        onLogout={logout}
+        setShowAuth={(value) => {
+          const mode = value?.mode === "login" ? "login" : "signup";
+          window.location.href = `/?auth=${mode}`;
+        }}
+      />
       <main className="flex-1 w-full mx-auto px-6 py-12 max-w-4xl">
         <Link href="/" className="text-xs text-green font-semibold no-underline">
           ← Back home

@@ -6,8 +6,15 @@ import {
   BOOKING_MODALITIES,
   PROVIDER_BOOKING_TRANSITIONS,
   formatBookingMoney,
+  quoteBookingCents,
 } from "@/lib/constants/bookings";
-import { notifyBookingUpdate } from "@/lib/email/notify";
+import {
+  notifyBookingUpdate,
+  notifyAdminsNewOrder,
+  notifyAdminsPayment,
+} from "@/lib/email/notify";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
+import { resolveMarketplaceFees } from "@/lib/constants/commission";
 
 const bookingInclude = {
   client: { select: { id: true, email: true, displayName: true } },
@@ -24,6 +31,11 @@ const bookingInclude = {
 };
 
 export function formatBooking(b) {
+  const currency = b.currency || "usd";
+  const platformFeeLabel =
+    b.platformFeeCents != null ? formatBookingMoney(b.platformFeeCents, currency) : null;
+  const providerShareLabel =
+    b.providerShareCents != null ? formatBookingMoney(b.providerShareCents, currency) : null;
   return {
     id: b.id,
     clientId: b.clientId,
@@ -40,6 +52,11 @@ export function formatBooking(b) {
     location: b.location,
     priceCents: b.priceCents,
     priceLabel: formatBookingMoney(b.priceCents, b.currency),
+    platformFeeCents: b.platformFeeCents ?? null,
+    providerShareCents: b.providerShareCents ?? null,
+    commissionPercent: b.commissionPercent ?? null,
+    platformFeeLabel,
+    providerShareLabel,
     currency: b.currency,
     paidAt: b.paidAt,
     paymentRequired: Boolean(b.priceCents && !b.paidAt),
@@ -75,7 +92,7 @@ async function resolveProvider(providerId, bookingType) {
     bookingType === "interpreter" ? "interpreter" : "psychological";
   const p = await prisma.provider.findUnique({
     where: { id: Number(providerId) },
-    include: { category: true },
+    include: { category: true, user: { select: { isPro: true } } },
   });
   if (!p || p.category?.slug !== expectedSlug) {
     throw new AuthError(
@@ -121,11 +138,8 @@ export async function assignProviderToBooking({
   return formatBooking(updated);
 }
 
-function parseRateCents(provider) {
-  if (!provider?.rate) return null;
-  const n = Number(String(provider.rate).replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 100);
+function parseRateCents(provider, modality, bookingType, durationMinutes) {
+  return quoteBookingCents(provider, { bookingType, modality, durationMinutes });
 }
 
 export async function createBooking(clientId, data) {
@@ -207,20 +221,23 @@ export async function createBooking(clientId, data) {
     }
   }
 
-  let priceCents = null;
-  const hourly = parseRateCents(provider);
-  if (hourly && durationMinutes) {
-    priceCents = Math.round((hourly * durationMinutes) / 60);
-  } else if (hourly) {
-    priceCents = hourly;
-  }
+  const priceCents = parseRateCents(provider, modality, bookingType, durationMinutes);
+
+  const settings = await getPlatformSettings();
+  const fees = resolveMarketplaceFees({
+    priceCents,
+    settings,
+    role: "provider",
+    orderType: "service_booking",
+    isPro: Boolean(provider?.user?.isPro),
+  });
 
   const booking = await prisma.serviceBooking.create({
     data: {
       clientId,
       providerId: provider?.id || null,
       bookingType,
-      status: priceCents ? "pending_payment" : "requested",
+      status: fees.priceCents ? "pending_payment" : "requested",
       language: data.language ? String(data.language).slice(0, 80) : null,
       sourceLanguage: data.sourceLanguage
         ? String(data.sourceLanguage).slice(0, 80)
@@ -233,7 +250,10 @@ export async function createBooking(clientId, data) {
       scheduledAt,
       durationMinutes,
       location: data.location ? String(data.location).slice(0, 180) : null,
-      priceCents,
+      priceCents: fees.priceCents,
+      platformFeeCents: fees.platformFeeCents,
+      providerShareCents: fees.providerShareCents,
+      commissionPercent: fees.commissionPercent,
       clientNotes: data.clientNotes ? String(data.clientNotes).slice(0, 4000) : null,
       disclaimerAck: true,
     },
@@ -241,7 +261,20 @@ export async function createBooking(clientId, data) {
   });
 
   void notifyBookingUpdate(booking.id, booking.status);
-  return formatBooking(booking);
+  const formatted = formatBooking(booking);
+  if (fees.priceCents) {
+    void notifyAdminsNewOrder({
+      kind: "service booking",
+      orderId: booking.id,
+      priceLabel: formatted.priceLabel,
+      clientEmail: booking.client?.email,
+      providerName: booking.provider?.displayName,
+      extra: fees.commissionApplied
+        ? `ImmFlow fee: ${formatted.platformFeeLabel} · Provider share: ${formatted.providerShareLabel} (${fees.commissionPercent}%)`
+        : "",
+    });
+  }
+  return formatted;
 }
 
 export async function listBookings({
@@ -410,5 +443,13 @@ export async function markBookingPaid({
     include: bookingInclude,
   });
   void notifyBookingUpdate(updated.id, "paid");
-  return formatBooking(updated);
+  const formatted = formatBooking(updated);
+  void notifyAdminsPayment({
+    kind: "service booking",
+    orderId: updated.id,
+    priceLabel: formatted.priceLabel,
+    platformFeeLabel: formatted.platformFeeLabel,
+    providerShareLabel: formatted.providerShareLabel,
+  });
+  return formatted;
 }

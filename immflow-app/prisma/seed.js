@@ -1300,21 +1300,21 @@ async function seedSiteContent() {
     { key: "home.stats.languages_label", value: "Languages", type: "text", section: "home.stats", label: "Languages Count Sublabel" },
     { key: "home.how_it_works.badge", value: "Ways to use ImmFlow", type: "text", section: "home.how_it_works", label: "Section Badge Tag" },
     { key: "home.how_it_works.title", value: "Ways to use ImmFlow", type: "text", section: "home.how_it_works", label: "Section Heading Title" },
-    { key: "home.card1.icon", value: "⚖️", type: "text", section: "home.card1", label: "Card 1 Icon Emoji" },
+    { key: "home.card1.icon", value: "scale", type: "text", section: "home.card1", label: "Card 1 Icon" },
     { key: "home.card1.title", value: "Find an attorney", type: "text", section: "home.card1", label: "Card 1 Header Title" },
     { key: "home.card1.desc", value: "Browse verified immigration attorneys by case type, language, and availability.", type: "textarea", section: "home.card1", label: "Card 1 Body Paragraph" },
     { key: "home.card1.cta", value: "Browse attorneys", type: "text", section: "home.card1", label: "Card 1 Button Label" },
-    { key: "home.card2.icon", value: "🌐", type: "text", section: "home.card2", label: "Card 2 Icon Emoji" },
+    { key: "home.card2.icon", value: "globe", type: "text", section: "home.card2", label: "Card 2 Icon" },
     { key: "home.card2.title", value: "Translation, interpreters & psych", type: "text", section: "home.card2", label: "Card 2 Header Title" },
     { key: "home.card2.desc", value: "Book certified translation, interpreters ($150/hr remote · $200/hr in-person), and psychological evaluations.", type: "textarea", section: "home.card2", label: "Card 2 Body Paragraph" },
     { key: "home.card2.cta", value: "Browse services", type: "text", section: "home.card2", label: "Card 2 Button Label" },
-    { key: "home.card3.icon", value: "🤝", type: "text", section: "home.card3", label: "Card 3 Icon Emoji" },
+    { key: "home.card3.icon", value: "users", type: "text", section: "home.card3", label: "Card 3 Icon" },
     { key: "home.card3.title", value: "Job board & attorney network", type: "text", section: "home.card3", label: "Card 3 Header Title" },
     { key: "home.card3.desc", value: "Post and find roles, hearing coverage, and peer connections for coverage, co-counsel, and referrals.", type: "textarea", section: "home.card3", label: "Card 3 Body Paragraph" },
     { key: "home.card3.cta", value: "Explore network", type: "text", section: "home.card3", label: "Card 3 Button Label" },
     { key: "home.ai.badge", value: "AI-powered", type: "text", section: "home.ai", label: "AI Section Badge" },
     { key: "home.ai.title", value: "Smart matching, not just search", type: "text", section: "home.ai", label: "AI Section Title" },
-    { key: "home.ai.cta", value: "Try the AI matcher ✦", type: "text", section: "home.ai", label: "AI Section CTA Button" },
+    { key: "home.ai.cta", value: "Try the AI matcher", type: "text", section: "home.ai", label: "AI Section CTA Button" },
     { key: "home.featured.badge", value: "Featured", type: "text", section: "home.featured", label: "Featured Section Badge" },
     { key: "home.featured.title", value: "Top-rated attorneys", type: "text", section: "home.featured", label: "Featured Section Title" },
     { key: "home.featured.cta", value: "See all", type: "text", section: "home.featured", label: "Featured Section See All Link" },
@@ -1440,6 +1440,12 @@ async function main() {
   console.log("Free client: client6@demo.immflow.test");
   console.log("Pro attorney: attorney1@demo.immflow.test");
   console.log("Free attorney: attorney9@demo.immflow.test");
+  console.log("Pro translator:  translator1@demo.immflow.test");
+  console.log("Free translator: translator6@demo.immflow.test");
+  console.log("Pro interpreter: interpreter1@demo.immflow.test");
+  console.log("Free interpreter: interpreter6@demo.immflow.test");
+  console.log("Pro psych:  psych1@demo.immflow.test");
+  console.log("Free psych: psych6@demo.immflow.test");
   console.log("========================================\n");
 }
 

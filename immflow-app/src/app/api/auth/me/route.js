@@ -11,12 +11,17 @@ export async function GET(req) {
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      include: { attorney: true },
+      include: {
+        attorney: true,
+        providers: { include: { category: { select: { slug: true } } } },
+      },
     });
     if (!user) {
       return apiSuccess({ user: null });
     }
-    return apiSuccess({ user: formatUserResponse(user, user.attorney) });
+    return apiSuccess({
+      user: formatUserResponse(user, user.attorney, user.providers),
+    });
   } catch (error) {
     return handleApiError(error, "Failed to load session.");
   }

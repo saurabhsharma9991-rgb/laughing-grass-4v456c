@@ -6,7 +6,7 @@ import { toastError, toastSuccess } from "@/lib/client/alerts";
 import { PROVIDER_BOOKING_TRANSITIONS } from "@/lib/constants/bookings";
 import { useI18n } from "@/components/I18nProvider";
 
-export default function BookingsPanel({ user, mode = "auto" }) {
+export default function BookingsPanel({ user, mode = "auto", refreshKey = 0 }) {
   const { t } = useI18n();
   const isProvider = mode === "provider" || user?.role === "provider";
   const [bookings, setBookings] = useState([]);
@@ -30,7 +30,7 @@ export default function BookingsPanel({ user, mode = "auto" }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

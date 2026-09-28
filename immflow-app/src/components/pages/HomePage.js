@@ -8,6 +8,7 @@ import { useI18n } from "../I18nProvider";
 import { usePlatform } from "../PlatformContext";
 import { resolveHomepageDocument, followHomeHref } from "@/lib/utils/homepage-document";
 import { sanitizeBasicHtml } from "@/lib/utils/cms-page-document";
+import { Icon, plainCopy } from "@/components/icons/Icon";
 
 const AI_PREVIEW_SCORES = [97, 91, 88];
 const AI_PREVIEW_FALLBACK = [
@@ -16,30 +17,32 @@ const AI_PREVIEW_FALLBACK = [
   { id: "p3", initials: "SP", bg: "#EEEDFE", fg: "#3C3489", name: "Sunita Patel, Esq.", location: "Chicago, IL" },
 ];
 
-const CATEGORY_ICONS = {
-  attorney: "⚖️",
-  translation: "📄",
-  interpreter: "🎙️",
-  psychological: "🧠",
-};
-
 const AI_FEATURE_CARDS = [
   {
-    icon: "✦",
+    icon: "spark",
     title: "AI attorney matcher",
     desc: "Describe your need. AI returns ranked matches with fit scores and plain-English reasoning.",
   },
   {
-    icon: "🔍",
+    icon: "search",
     title: "Natural language search",
     desc: "Type what you need instead of filling out 10 dropdowns. The search understands intent.",
   },
   {
-    icon: "💬",
+    icon: "chat",
     title: "Client intake chatbot",
     desc: "Visitors answer 4–5 questions and get routed to the right attorney automatically.",
   },
 ];
+
+function CheckItem({ children }) {
+  return (
+    <li className="flex items-start gap-2">
+      <Icon name="check" className="w-4 h-4 text-green mt-0.5" />
+      <span>{children}</span>
+    </li>
+  );
+}
 
 function formatHeroTitle(text) {
   const parts = String(text || "").split("\n");
@@ -90,7 +93,7 @@ function HomeActionButton({ href, className, children, setPage, setShowAuth }) {
   );
 }
 
-export default function HomePage({ setPage, setShowAuth }) {
+export default function HomePage({ setPage, setShowAuth, user }) {
   const { get } = useContent();
   const { t } = useI18n();
   const {
@@ -113,6 +116,19 @@ export default function HomePage({ setPage, setShowAuth }) {
   );
 
   const nav = { setPage, setShowAuth };
+
+  const goAccount = (tab) => {
+    if (!user) {
+      setShowAuth({ mode: "signup", accountType: tab === "billing" ? "attorney" : "seeker" });
+      return;
+    }
+    if (user.role === "admin") {
+      window.location.href = "/admin";
+      return;
+    }
+    if (tab) sessionStorage.setItem("immflow_dashboard_tab", tab);
+    setPage("dashboard");
+  };
 
   useEffect(() => {
     fetch("/api/attorneys")
@@ -207,7 +223,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                   Imm<span className="text-green">Flow</span>
                 </div>
                 <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
-                  {d.badge}
+                  {plainCopy(d.badge)}
                 </div>
                 <h1 className="font-syne text-[36px] md:text-[46px] font-extrabold leading-[1.12] tracking-tight mb-4 text-text">
                   {formatHeroTitle(d.title)}
@@ -237,7 +253,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                     }}
                     className="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 text-left cursor-pointer hover:border-green/50 shadow-sm transition-all"
                   >
-                    <div className="text-xl mb-2">{CATEGORY_ICONS[c.slug] || "✦"}</div>
+                    <Icon name={c.slug || "spark"} className="w-6 h-6 text-green mb-2" />
                     <div className="font-semibold text-sm text-text">{c.name}</div>
                   </button>
                 ))}
@@ -332,7 +348,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                   className="text-green font-semibold bg-transparent border-none cursor-pointer"
                   {...nav}
                 >
-                  {d.cta_tertiary}
+                  {plainCopy(d.cta_tertiary)}
                 </HomeActionButton>
               </div>
             </div>
@@ -348,10 +364,10 @@ export default function HomePage({ setPage, setShowAuth }) {
             <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-[1fr_360px] gap-10 items-center">
               <div>
                 <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
-                  {d.badge}
+                  {plainCopy(d.badge)}
                 </div>
                 <h2 className="font-syne text-2xl md:text-[28px] font-extrabold text-text mb-3 leading-tight">
-                  {d.title}
+                  {plainCopy(d.title)}
                 </h2>
                 <p className="text-sm text-muted leading-relaxed mb-5 max-w-lg">{d.body}</p>
                 <div className="flex flex-wrap gap-3">
@@ -360,20 +376,20 @@ export default function HomePage({ setPage, setShowAuth }) {
                     className="bg-green text-white py-2.5 px-5 rounded-lg text-sm font-medium border-none cursor-pointer hover:bg-green-dark"
                     {...nav}
                   >
-                    {d.primaryLabel}
+                    {plainCopy(d.primaryLabel)}
                   </HomeActionButton>
                   <HomeActionButton
                     href={d.secondaryHref}
                     className="bg-transparent text-text py-2.5 px-5 rounded-lg text-sm font-medium border border-[rgba(0,0,0,0.15)] cursor-pointer hover:bg-bg"
                     {...nav}
                   >
-                    {d.secondaryLabel}
+                    {plainCopy(d.secondaryLabel)}
                   </HomeActionButton>
                 </div>
               </div>
               <div className="bg-bg rounded-2xl border border-[rgba(0,0,0,0.09)] p-5">
                 <div className="text-[11px] font-medium tracking-wider uppercase text-green mb-3">
-                  {d.aiPanelTitle}
+                  {plainCopy(d.aiPanelTitle)}
                 </div>
                 {previewAttorneys.map((a, i) => (
                   <div
@@ -396,7 +412,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                   className="bg-green text-white w-full mt-4 py-2.5 rounded-lg border-none cursor-pointer text-[13px] font-medium hover:bg-green-dark"
                   {...nav}
                 >
-                  {d.aiPanelCta}
+                  {plainCopy(d.aiPanelCta)}
                 </HomeActionButton>
               </div>
             </div>
@@ -448,26 +464,26 @@ export default function HomePage({ setPage, setShowAuth }) {
           <section key={block.id} className="bg-white py-16 px-6">
             <div className="max-w-[1100px] mx-auto">
               <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
-                {d.badge}
+                {plainCopy(d.badge)}
               </div>
               <h2 className="font-syne text-3xl md:text-4xl font-extrabold mb-8 text-text">
-                {d.title}
+                {plainCopy(d.title)}
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 items-stretch">
                 {cards.map((f, idx) => (
                   <div
                     key={`${f.title}-${idx}`}
-                    className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6"
+                    className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6 flex flex-col h-full"
                   >
-                    <div className="text-[32px] mb-3">{f.icon}</div>
-                    <div className="text-[17px] font-medium text-text mb-2">{f.title}</div>
-                    <p className="text-sm text-muted leading-relaxed mb-5">{f.desc}</p>
+                    <Icon name={f.icon} className="w-7 h-7 text-green mb-3" />
+                    <div className="text-[17px] font-medium text-text mb-2">{plainCopy(f.title)}</div>
+                    <p className="text-sm text-muted leading-relaxed flex-1">{plainCopy(f.desc)}</p>
                     <HomeActionButton
                       href={f.href}
-                      className="bg-green text-white py-2 px-[18px] rounded-lg text-[13px] border-none cursor-pointer hover:bg-green-dark transition-all duration-200"
+                      className="mt-5 self-start bg-green text-white py-2 px-[18px] rounded-lg text-[13px] border-none cursor-pointer hover:bg-green-dark transition-all duration-200"
                       {...nav}
                     >
-                      {f.cta}
+                      {plainCopy(f.cta)}
                     </HomeActionButton>
                   </div>
                 ))}
@@ -485,18 +501,18 @@ export default function HomePage({ setPage, setShowAuth }) {
           >
             <div className="max-w-[1100px] mx-auto">
               <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
-                {d.badge}
+                {plainCopy(d.badge)}
               </div>
               <h2 className="font-syne text-3xl md:text-4xl font-extrabold mb-8 text-text">
-                {d.title}
+                {plainCopy(d.title)}
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-8 items-stretch">
                 {AI_FEATURE_CARDS.map((f) => (
                   <div
                     key={f.title}
-                    className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6"
+                    className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6 h-full"
                   >
-                    <div className="text-[28px] mb-3">{f.icon}</div>
+                    <Icon name={f.icon} className="w-6 h-6 text-green mb-3" />
                     <div className="text-base font-medium text-text mb-2">{f.title}</div>
                     <p className="text-[13px] text-muted leading-relaxed">{f.desc}</p>
                   </div>
@@ -507,7 +523,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                 className="bg-green text-white py-3 px-6 rounded-lg border-none cursor-pointer text-sm font-medium hover:bg-green-dark transition-all duration-200"
                 {...nav}
               >
-                {d.cta}
+                {plainCopy(d.cta)}
               </HomeActionButton>
             </div>
           </section>
@@ -520,10 +536,10 @@ export default function HomePage({ setPage, setShowAuth }) {
               <div className="flex justify-between items-baseline mb-8 gap-4 flex-wrap">
                 <div>
                   <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
-                    {d.badge}
+                    {plainCopy(d.badge)}
                   </div>
                   <h2 className="font-syne text-3xl md:text-4xl font-extrabold text-text">
-                    {d.title}
+                    {plainCopy(d.title)}
                   </h2>
                 </div>
                 <HomeActionButton
@@ -531,7 +547,7 @@ export default function HomePage({ setPage, setShowAuth }) {
                   className="text-sm text-green font-medium cursor-pointer bg-transparent border-none hover:underline"
                   {...nav}
                 >
-                  {d.cta}
+                  {plainCopy(d.cta)}
                 </HomeActionButton>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
@@ -553,31 +569,31 @@ export default function HomePage({ setPage, setShowAuth }) {
           >
             <div className="max-w-[1100px] mx-auto text-center">
               <div className="text-[11px] font-medium tracking-[1.5px] uppercase text-green mb-3">
-                {d.badge}
+                {plainCopy(d.badge)}
               </div>
               <h2 className="font-syne text-3xl md:text-4xl font-extrabold mb-3 text-text">
-                {d.title}
+                {plainCopy(d.title)}
               </h2>
               <p className="text-base text-muted mb-10">{d.subtitle}</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[720px] mx-auto text-left">
-                <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[720px] mx-auto text-left items-stretch">
+                <div className="bg-white border-2 border-[rgba(0,0,0,0.09)] rounded-[14px] p-6 flex flex-col h-full">
                   <div className="text-lg font-semibold text-text mb-1">Free</div>
                   <div className="font-syne text-3xl font-extrabold text-text mb-1">$0</div>
                   <div className="text-xs text-muted mb-5">Forever free</div>
-                  <ul className="text-[13px] text-muted space-y-2 mb-6">
-                    <li>✓ Browse attorneys</li>
-                    <li>✓ Apply to listings</li>
-                    <li>✓ Basic profile</li>
-                    <li>✓ 1 active listing</li>
+                  <ul className="text-[13px] text-muted space-y-2 flex-1">
+                    <CheckItem>Browse attorneys</CheckItem>
+                    <CheckItem>Apply to listings</CheckItem>
+                    <CheckItem>Basic profile</CheckItem>
+                    <CheckItem>1 active listing</CheckItem>
                   </ul>
                   <button
-                    onClick={() => setShowAuth(true)}
-                    className="bg-transparent text-text w-full py-2.5 px-4 rounded-lg border border-[rgba(0,0,0,0.15)] cursor-pointer text-sm font-medium hover:bg-bg transition-all"
+                    onClick={() => goAccount()}
+                    className="mt-6 bg-transparent text-text w-full py-2.5 px-4 rounded-lg border border-[rgba(0,0,0,0.15)] cursor-pointer text-sm font-medium hover:bg-bg transition-all"
                   >
-                    Get started free
+                    {user?.role === "admin" ? "Open admin" : user ? "Go to dashboard" : "Get started free"}
                   </button>
                 </div>
-                <div className="bg-white border-2 border-green rounded-[14px] p-6 relative">
+                <div className="bg-white border-2 border-green rounded-[14px] p-6 relative flex flex-col h-full">
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green text-white text-[11px] font-medium px-3 py-1 rounded-full">
                     Most popular
                   </span>
@@ -594,18 +610,24 @@ export default function HomePage({ setPage, setShowAuth }) {
                     {subscriptionBillingPeriod ||
                       (platformLoading ? "Loading current price…" : "Price unavailable")}
                   </div>
-                  <ul className="text-[13px] text-muted space-y-2 mb-6">
-                    <li>✓ AI attorney matcher</li>
-                    <li>✓ Priority client contact</li>
-                    <li>✓ Unlimited attorney listings</li>
-                    <li>✓ Professional peer messaging</li>
-                    <li>✓ Priority profile &amp; analytics</li>
+                  <ul className="text-[13px] text-muted space-y-2 flex-1">
+                    <CheckItem>AI attorney matcher</CheckItem>
+                    <CheckItem>Priority client contact</CheckItem>
+                    <CheckItem>Unlimited attorney listings</CheckItem>
+                    <CheckItem>Professional peer messaging</CheckItem>
+                    <CheckItem>Priority profile &amp; analytics</CheckItem>
                   </ul>
                   <button
-                    onClick={() => setShowAuth(true)}
-                    className="bg-transparent text-text w-full py-2.5 px-4 rounded-lg border border-[rgba(0,0,0,0.15)] cursor-pointer text-sm font-medium hover:bg-bg transition-all"
+                    onClick={() => goAccount("billing")}
+                    className="mt-6 bg-transparent text-text w-full py-2.5 px-4 rounded-lg border border-[rgba(0,0,0,0.15)] cursor-pointer text-sm font-medium hover:bg-bg transition-all"
                   >
-                    Contact us to upgrade
+                    {user?.role === "admin"
+                      ? "Open admin"
+                      : user?.isPro
+                        ? "Manage Pro"
+                        : user
+                          ? "Upgrade in dashboard"
+                          : "Sign up to upgrade"}
                   </button>
                 </div>
               </div>
@@ -621,7 +643,7 @@ export default function HomePage({ setPage, setShowAuth }) {
           >
             <div className="max-w-[600px] mx-auto">
               <h2 className="font-syne text-3xl md:text-[36px] font-extrabold text-white mb-4">
-                {d.title}
+                {plainCopy(d.title)}
               </h2>
               <p className="text-base text-white/65 mb-8 leading-relaxed">{d.subtitle}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -630,14 +652,14 @@ export default function HomePage({ setPage, setShowAuth }) {
                   className="bg-white text-green-dark py-3.5 px-8 rounded-lg border-none cursor-pointer text-base font-semibold hover:bg-bg transition-all duration-200"
                   {...nav}
                 >
-                  {d.cta}
+                  {plainCopy(d.cta)}
                 </HomeActionButton>
                 <HomeActionButton
                   href={d.secondary_href}
                   className="bg-transparent text-white py-3.5 px-8 rounded-lg border border-white/40 cursor-pointer text-base font-medium hover:bg-white/10 transition-all duration-200"
                   {...nav}
                 >
-                  {d.cta_secondary}
+                  {plainCopy(d.cta_secondary)}
                 </HomeActionButton>
               </div>
             </div>
@@ -672,19 +694,19 @@ export default function HomePage({ setPage, setShowAuth }) {
         const items = Array.isArray(d.items) ? d.items : [];
         return (
           <section key={block.id} className="bg-white py-10 px-6">
-            <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
               {items.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6"
+                  className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-6 flex flex-col h-full"
                 >
-                  <div className="text-[28px] mb-3">{item.icon}</div>
-                  <div className="text-base font-medium text-text mb-2">{item.title}</div>
-                  <p className="text-[13px] text-muted leading-relaxed mb-4">{item.body}</p>
+                  <Icon name={item.icon} className="w-6 h-6 text-green mb-3" />
+                  <div className="text-base font-medium text-text mb-2">{plainCopy(item.title)}</div>
+                  <p className="text-[13px] text-muted leading-relaxed flex-1">{plainCopy(item.body)}</p>
                   {item.href && (
                     <HomeActionButton
                       href={item.href}
-                      className="text-sm text-green font-semibold bg-transparent border-none cursor-pointer hover:underline"
+                      className="mt-4 self-start text-sm text-green font-semibold bg-transparent border-none cursor-pointer hover:underline"
                       {...nav}
                     >
                       Learn more →
@@ -701,7 +723,7 @@ export default function HomePage({ setPage, setShowAuth }) {
         return (
           <section key={block.id} className="py-10 px-6">
             <div className="max-w-[1100px] mx-auto rounded-2xl bg-green-dark text-white px-6 py-8">
-              <h3 className="font-syne text-xl font-bold mb-2">{d.title}</h3>
+              <h3 className="font-syne text-xl font-bold mb-2">{plainCopy(d.title)}</h3>
               {d.text && <p className="text-sm text-white/75 leading-relaxed max-w-xl">{d.text}</p>}
               {d.buttonLabel && (
                 <HomeActionButton

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
+import { StarRow } from "@/components/icons/Icon";
 
 export default function AdminReviewsPanel({ canDelete }) {
   const [reviews, setReviews] = useState([]);
@@ -82,7 +83,7 @@ export default function AdminReviewsPanel({ canDelete }) {
                 >
                   {r.attorneyName}
                 </Link>
-                <span className="text-sm font-semibold shrink-0">{"★".repeat(r.rating)}</span>
+                <StarRow count={r.rating} />
               </div>
               <div className="text-[10px] text-muted mb-2">By {r.reviewerName}</div>
               <p className="text-xs text-muted mb-3">{r.comment || "—"}</p>
@@ -131,7 +132,7 @@ export default function AdminReviewsPanel({ canDelete }) {
                   </Link>
                 </td>
                 <td className="p-3 text-muted">{r.reviewerName}</td>
-                <td className="p-3 font-semibold">{"★".repeat(r.rating)}</td>
+                <td className="p-3 font-semibold"><StarRow count={r.rating} /></td>
                 <td className="p-3 text-muted max-w-[280px]">{r.comment || "—"}</td>
                 <td className="p-3 pr-4 text-right">
                   {canDelete && (

@@ -1,3 +1,4 @@
+import { iconSvg, plainCopy } from "@/components/icons/Icon";
 import {
   createEmptyDocument,
   createBlock,
@@ -138,14 +139,14 @@ export function renderBlockHtml(block) {
       const items = Array.isArray(d.items) ? d.items : [];
       const cards = items
         .map(
-          (item) => `<div class="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5">
-            ${item.icon ? `<div class="text-2xl mb-2">${escapeHtml(item.icon)}</div>` : ""}
+          (item) => `<div class="bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-5 h-full flex flex-col">
+            ${item.icon ? `<div class="text-green mb-3">${iconSvg(item.icon, "w-6 h-6")}</div>` : ""}
             <div class="font-semibold text-text text-sm mb-1">${escapeHtml(item.title || "")}</div>
-            <p class="text-xs text-muted leading-relaxed">${escapeHtml(item.body || "")}</p>
+            <p class="text-xs text-muted leading-relaxed flex-1">${escapeHtml(item.body || "")}</p>
           </div>`
         )
         .join("");
-      return `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 my-6">${cards}</div>`;
+      return `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 my-6 items-stretch">${cards}</div>`;
     }
     case "faq": {
       const items = Array.isArray(d.items) ? d.items : [];

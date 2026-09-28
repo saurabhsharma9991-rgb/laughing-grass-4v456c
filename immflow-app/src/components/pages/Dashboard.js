@@ -11,6 +11,9 @@ import TranslationOrdersPanel from "./TranslationOrdersPanel";
 import TranslationOrderForm from "@/components/TranslationOrderForm";
 import BookingsPanel from "./BookingsPanel";
 import BookingRequestForm from "@/components/BookingRequestForm";
+import AddServicePanel from "./AddServicePanel";
+import { accountCapabilities, capabilityLabel } from "@/lib/constants/account-capabilities";
+import { Icon } from "@/components/icons/Icon";
 import { usePlatform } from "@/components/PlatformContext";
 import { PROMO_CODE_TEST } from "@/lib/constants/platform-features";
 import { useI18n } from "@/components/I18nProvider";
@@ -23,13 +26,17 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     freeListingLimit,
     subscriptionPriceLabel,
     subscriptionPriceCadence,
+    commissionPercentFree,
+    commissionPercentPro,
   } = usePlatform();
   const hasMessaging = canAccess("direct_messaging", user?.isPro);
   const hasMatcher = canAccess("ai_matcher", user?.isPro);
   const hasUnlimitedListings = canAccess("unlimited_listings", user?.isPro);
   const hasPriorityContact = canAccess("priority_contact", user?.isPro);
   const isClient = user?.role === "public";
+  const caps = accountCapabilities(user);
   const [userTab, setUserTab] = useState("overview");
+  const [bookingsRefresh, setBookingsRefresh] = useState(0);
   const [listingCount, setListingCount] = useState(0);
   const [applicationCount, setApplicationCount] = useState(0);
   const [myApplications, setMyApplications] = useState([]);
@@ -390,27 +397,47 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
     <div className="max-w-[900px] mx-auto my-8 px-6 font-dm-sans">
       {/* Navigation tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        {[
-          ["overview", `🏠 ${t("dashboard.overview", "Dashboard")}`],
-          ["orders", `📄 ${t("dashboard.translations", "Translations")}`],
-          ["bookings", `📅 ${t("dashboard.bookings", "Bookings")}`],
-          ["listings", `📋 ${t("dashboard.listings", "My listings")}`],
-          ["applications", `📨 ${t("dashboard.applications", "My applications")}`],
-          ["profile", `👤 ${t("dashboard.profile", "My profile")}`],
-          ["messages", `💬 ${t("dashboard.messages", "Chat & Messages")}`],
-          ["billing", `💳 ${t("dashboard.billing", "Billing & Subscriptions")}`],
-        ].map(([tabKey, label]) => {
+        {(isClient
+          ? [
+              ["overview", t("dashboard.overview", "Dashboard"), "home"],
+              ["orders", t("dashboard.translations", "Translations"), "document"],
+              ["bookings", t("dashboard.bookings", "Bookings"), "calendar"],
+              ["applications", t("dashboard.applications", "My applications"), "inbox"],
+              ["messages", t("dashboard.messages", "Messages"), "chat"],
+              ["profile", t("dashboard.profile", "My profile"), "user"],
+              ["billing", t("dashboard.billing", "Billing"), "card"],
+            ]
+          : [
+              ["overview", t("dashboard.overview", "Dashboard"), "home"],
+              ...(caps.isAttorney
+                ? [
+                    ["listings", t("dashboard.listings", "My listings"), "clipboard"],
+                    ["applications", t("dashboard.applications", "Applications"), "inbox"],
+                  ]
+                : []),
+              ...(caps.offersTranslation || (user?.role === "provider" && caps.categories.length === 0)
+                ? [["orders", t("dashboard.translations", "Translations"), "document"]]
+                : []),
+              ...(caps.offersBookings || (user?.role === "provider" && caps.categories.length === 0)
+                ? [["bookings", t("dashboard.bookings", "Bookings"), "calendar"]]
+                : []),
+              ["messages", t("dashboard.messages", "Messages"), "chat"],
+              ["profile", t("dashboard.profile", "My profile"), "user"],
+              ["billing", t("dashboard.billing", "Billing"), "card"],
+            ]
+        ).map(([tabKey, label, icon]) => {
           const isSel = userTab === tabKey;
           return (
             <button
               key={tabKey}
               onClick={() => setUserTab(tabKey)}
-              className={`py-2.5 px-4 rounded-xl border text-[13px] font-semibold cursor-pointer shadow-sm transition-all duration-200 whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 py-2.5 px-4 rounded-xl border text-[13px] font-semibold cursor-pointer shadow-sm transition-all duration-200 whitespace-nowrap ${
                 isSel
                   ? "border-green bg-green text-white"
                   : "border-[rgba(0,0,0,0.09)] bg-white text-muted hover:text-text"
               }`}
             >
+              <Icon name={icon} className="w-4 h-4" />
               {label}
             </button>
           );
@@ -427,74 +454,71 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
               </div>
               <div>
                 <div className="text-lg font-medium text-text">
-                  {user?.user_metadata?.full_name || "Attorney"}
+                  {user?.user_metadata?.full_name || user?.email || "Your account"}
                 </div>
                 <div className="text-[13px] text-muted">{user?.email}</div>
                 <div className="text-xs text-green mt-0.5">
-                  ✓ ImmFlow member · Bar: {user?.user_metadata?.bar_state || "—"}{" "}
-                  {user?.user_metadata?.bar_number || ""}
+                  {capabilityLabel(user)}
+                  {caps.isAttorney && user?.user_metadata?.bar_state
+                    ? ` · Bar: ${user.user_metadata.bar_state} ${user.user_metadata.bar_number || ""}`
+                    : ""}
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {[
-                [String(listingCount), "My listings"],
-                [String(applicationCount), "Applications sent"],
-                [String(myApplications.filter((a) => a.status === "accepted").length), "Accepted"],
-              ].map(([n, l]) => (
-                <div key={l} className="bg-bg rounded-lg p-4 text-center">
-                  <div className="font-syne text-2xl font-extrabold text-text">
-                    {n}
+            {caps.isAttorney && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {[
+                  [String(listingCount), "My listings"],
+                  [String(applicationCount), "Applications sent"],
+                  [String(myApplications.filter((a) => a.status === "accepted").length), "Accepted"],
+                ].map(([n, l]) => (
+                  <div key={l} className="bg-bg rounded-lg p-4 text-center">
+                    <div className="font-syne text-2xl font-extrabold text-text">{n}</div>
+                    <div className="text-xs text-muted mt-0.5">{l}</div>
                   </div>
-                  <div className="text-xs text-muted mt-0.5">{l}</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-6">
-            {[
-              {
-                icon: "📋",
-                title: "My listings",
-                desc: "Manage postings and review applicants",
-                action: () => setUserTab("listings"),
-              },
-              {
-                icon: "📨",
-                title: "My applications",
-                desc: "Track jobs you've applied to",
-                action: () => setUserTab("applications"),
-              },
-              {
-                icon: "🔍",
-                title: "Find attorneys",
-                desc: "Browse the attorney network",
-                action: () => setPage("attorneys"),
-              },
-              {
-                icon: "✦",
-                title: "AI matcher",
-                desc: "Find the perfect match with AI",
-                action: () => setPage("matcher"),
-              },
-              {
-                icon: "💼",
-                title: "Job board",
-                desc: "Browse all immigration listings",
-                action: () => setPage("jobs"),
-              },
-            ].map((f) => (
+            {(isClient
+              ? [
+                  { icon: "document", title: "Translations", desc: "Request a translation or track an order", action: () => setUserTab("orders") },
+                  { icon: "calendar", title: "Bookings", desc: "Interpreter and evaluation requests", action: () => setUserTab("bookings") },
+                  { icon: "inbox", title: "My applications", desc: "Jobs you applied to", action: () => setUserTab("applications") },
+                  { icon: "search", title: "Find services", desc: "Translators, interpreters, and evaluators", action: () => setPage("services") },
+                  { icon: "scale", title: "Find attorneys", desc: "Browse verified attorneys", action: () => setPage("attorneys") },
+                  { icon: "chat", title: "Messages", desc: "Conversations with professionals", action: () => setUserTab("messages") },
+                ]
+              : [
+                  ...(caps.isAttorney
+                    ? [
+                        { icon: "clipboard", title: "My listings", desc: "Manage postings and review people who applied", action: () => setUserTab("listings") },
+                        { icon: "inbox", title: "Applications I sent", desc: "Jobs you applied to on the board", action: () => setUserTab("applications") },
+                        { icon: "briefcase", title: "Job board", desc: "Browse immigration listings", action: () => setPage("jobs") },
+                        { icon: "users", title: "Network", desc: "Connect with other attorneys", action: () => setPage("network") },
+                      ]
+                    : []),
+                  ...(caps.offersTranslation
+                    ? [{ icon: "document", title: "Translation jobs", desc: "Orders assigned to you", action: () => setUserTab("orders") }]
+                    : []),
+                  ...(caps.offersBookings
+                    ? [{ icon: "calendar", title: "Bookings", desc: "Incoming appointment requests", action: () => setUserTab("bookings") }]
+                    : []),
+                  { icon: "user", title: "My profile", desc: "Rates, languages, credentials, and extra services", action: () => setUserTab("profile") },
+                  { icon: "chat", title: "Messages", desc: "Client conversations after payment", action: () => setUserTab("messages") },
+                  { icon: "card", title: "Plan & commission", desc: user?.isPro ? `Pro · ${commissionPercentPro}% commission` : `Free · ${commissionPercentFree}% commission`, action: () => setUserTab("billing") },
+                ]
+            ).map((f) => (
               <div
                 key={f.title}
                 onClick={f.action}
                 className="bg-white border border-[rgba(0,0,0,0.09)] rounded-[14px] p-5 cursor-pointer flex gap-3 items-center shadow-sm hover:border-green-medium hover:shadow-md transition-all duration-300"
               >
-                <div className="text-2xl shrink-0">{f.icon}</div>
+                <Icon name={f.icon} className="w-6 h-6 text-green shrink-0" />
                 <div>
-                  <div className="text-[15px] font-medium text-text mb-0.5">
-                    {f.title}
-                  </div>
+                  <div className="text-[15px] font-medium text-text mb-0.5">{f.title}</div>
                   <div className="text-xs text-muted">{f.desc}</div>
                 </div>
               </div>
@@ -525,7 +549,7 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
       {userTab === "orders" && (
         <div className="space-y-6">
-          {user?.role !== "provider" && (
+          {!caps.offersTranslation && user?.role !== "provider" && (
             <TranslationOrderForm
               user={user}
               onCreated={() => {
@@ -535,12 +559,12 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
           )}
           <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
             <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
-              {user?.role === "provider" ? "Translation jobs" : "My translation orders"}
+              {caps.offersTranslation ? "Translation jobs" : "My translation orders"}
             </h2>
             <TranslationOrdersPanel
               key={`orders-${user?.id}`}
               user={user}
-              mode={user?.role === "provider" ? "provider" : "client"}
+              mode={caps.offersTranslation || user?.role === "provider" ? "provider" : "client"}
             />
           </div>
         </div>
@@ -548,19 +572,28 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
 
       {userTab === "bookings" && (
         <div className="space-y-6">
-          {user?.role !== "provider" && (
+          {!caps.offersBookings && user?.role !== "provider" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <BookingRequestForm user={user} bookingType="interpreter" />
-              <BookingRequestForm user={user} bookingType="psychological" />
+              <BookingRequestForm
+                user={user}
+                bookingType="interpreter"
+                onCreated={() => setBookingsRefresh((n) => n + 1)}
+              />
+              <BookingRequestForm
+                user={user}
+                bookingType="psychological"
+                onCreated={() => setBookingsRefresh((n) => n + 1)}
+              />
             </div>
           )}
           <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
             <h2 className="font-syne text-lg font-bold text-text border-b border-[rgba(0,0,0,0.09)] pb-2.5 mb-6">
-              {user?.role === "provider" ? "Incoming bookings" : "My bookings"}
+              {caps.offersBookings ? "Incoming bookings" : "My bookings"}
             </h2>
             <BookingsPanel
               user={user}
-              mode={user?.role === "provider" ? "provider" : "client"}
+              refreshKey={bookingsRefresh}
+              mode={caps.offersBookings || user?.role === "provider" ? "provider" : "client"}
             />
           </div>
         </div>
@@ -578,19 +611,24 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
       {/* Tab: Profile editor */}
       {userTab === "profile" && (
         <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-6 md:p-8 shadow-md">
-          {user?.role === "provider" ? (
-            <ProviderProfileEditor />
-          ) : user?.role === "attorney" ? (
-            <ProfileEditor user={user} setUser={setUser} />
-          ) : (
+          {caps.categories.map((slug) => (
+            <div key={slug} className="mb-8">
+              <h2 className="font-syne text-lg font-bold text-text mb-4 capitalize">
+                {slug === "psychological" ? "Psychological evaluation" : slug} profile
+              </h2>
+              <ProviderProfileEditor categorySlug={slug} />
+            </div>
+          ))}
+          {caps.isAttorney && <ProfileEditor user={user} setUser={setUser} />}
+          {!caps.isAttorney && caps.categories.length === 0 && (
             <div>
               <h2 className="font-syne text-lg font-bold">Account profile</h2>
               <p className="text-sm text-muted mt-2">
-                Your service preferences and bookings are available in this
-                dashboard.
+                Your service preferences and bookings are available in this dashboard.
               </p>
             </div>
           )}
+          <AddServicePanel user={user} setUser={setUser} />
         </div>
       )}
 
@@ -727,8 +765,8 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                           </button>
                         </>
                       ) : (
-                        <div className="w-full bg-amber-light border border-amber/40 p-2.5 rounded-lg text-[11px] text-[#633806] text-center">
-                          🔒 Professional peer messaging is Pro-only. Client contact still works on Free.{" "}
+                        <div className="w-full bg-amber-light border border-amber/40 p-2.5 rounded-lg text-[11px] text-[#633806] text-center inline-flex items-center justify-center gap-1.5 flex-wrap">
+                          <Icon name="lock" className="w-3.5 h-3.5" /> Professional peer messaging is Pro-only. Client contact still works on Free.{" "}
                           <button
                             type="button"
                             onClick={() => setUserTab("billing")}
@@ -785,19 +823,57 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                             <li>Priority contact with professionals locked</li>
                           )}
                         </>
+                      ) : caps.isServiceProvider ? (
+                        <>
+                          {caps.isAttorney && (
+                            <li>
+                              Maximum of {freeListingLimit} active job board listing
+                              {freeListingLimit !== 1 ? "s" : ""}
+                            </li>
+                          )}
+                          <li>You can still accept paid orders on Free</li>
+                          <li>ImmFlow keeps {commissionPercentFree}% of each paid order</li>
+                          {!hasMessaging && <li>Peer messaging stays locked until Pro</li>}
+                        </>
                       ) : (
                         <>
-                          <li>
-                            Maximum of {freeListingLimit} active job board listing
-                            {freeListingLimit !== 1 ? "s" : ""}
-                            {!hasUnlimitedListings &&
-                              " (unless unlimited listings is enabled for your plan)"}
-                          </li>
-                          {!hasMatcher && <li>No access to the AI Matcher</li>}
-                          {!hasMessaging && <li>Direct messaging locked</li>}
+                          <li>You can still accept paid orders on Free</li>
+                          <li>ImmFlow keeps {commissionPercentFree}% of each paid order</li>
+                          {!hasMessaging && <li>Peer messaging stays locked until Pro</li>}
                         </>
                       )}
                     </ul>
+
+                    {!isClient && (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="border border-[rgba(0,0,0,0.1)] rounded-xl p-3 bg-bg">
+                          <div className="text-[11px] font-semibold uppercase text-muted">Stay on Free</div>
+                          <div className="font-syne text-lg font-bold text-text mt-1">
+                            {commissionPercentFree}% commission
+                          </div>
+                          <p className="text-[11px] text-muted mt-1 leading-relaxed">
+                            No subscription. You can still take paid orders. ImmFlow keeps{" "}
+                            {commissionPercentFree}% of each paid marketplace order.
+                          </p>
+                        </div>
+                        <div className="border border-green/40 rounded-xl p-3 bg-green-light/30">
+                          <div className="text-[11px] font-semibold uppercase text-green-dark">
+                            Pro + commission
+                          </div>
+                          <div className="font-syne text-lg font-bold text-text mt-1">
+                            {commissionPercentPro}% commission
+                          </div>
+                          <p className="text-[11px] text-muted mt-1 leading-relaxed">
+                            Pay ImmFlow Pro
+                            {subscriptionPriceLabel
+                              ? ` (${subscriptionPriceLabel}${subscriptionPriceCadence})`
+                              : ""}{" "}
+                            and ImmFlow keeps only {commissionPercentPro}% of each paid order, plus
+                            Pro features.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     {testMode ? (
                       <div className="border border-amber/40 bg-amber-light rounded-lg p-4 space-y-3">
                         <p className="text-xs text-[#633806] font-semibold">
@@ -901,6 +977,20 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         </>
                       )}
                     </ul>
+                    {!isClient && (
+                      <div className="text-xs text-muted leading-relaxed bg-green-light/40 border border-green/20 rounded-lg px-3 py-2.5">
+                        You are on Pro. Marketplace commission is {commissionPercentPro}% of each
+                        paid service order (Free plan is {commissionPercentFree}%). Set rates under{" "}
+                        <button
+                          type="button"
+                          onClick={() => setUserTab("profile")}
+                          className="text-green font-semibold bg-transparent border-none cursor-pointer underline p-0"
+                        >
+                          My profile
+                        </button>
+                        .
+                      </div>
+                    )}
                     {user.subscriptionExpires && (
                       <p className="text-[11px] text-green font-medium">
                         Access expires: {new Date(user.subscriptionExpires).toLocaleDateString()}

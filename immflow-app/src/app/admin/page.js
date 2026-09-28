@@ -19,6 +19,7 @@ import AdminListingsPanel from "@/components/admin/AdminListingsPanel";
 import { authFetch, setStoredUser, logoutSession } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
 import { TAB_PERMISSIONS, canPerform } from "@/lib/constants/admin-permissions";
+import { Icon } from "@/components/icons/Icon";
 
 export default function AdminPage() {
   const [adminUser, setAdminUser] = useState(null);
@@ -27,6 +28,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   // Tab controls: 'cms', 'attorneys', 'listings', 'analytics'
   const [activeTab, setActiveTab] = useState("overview");
@@ -93,14 +95,15 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    loadAdminAccess().then((access) => {
-      if (access) {
-        // Lightweight boot: analytics only. Heavy lists load when their tab opens.
-        const check = (resource, action) =>
-          canPerform(access.permissions, resource, action, { isSuperAdmin: access.isSuperAdmin });
-        if (check("analytics", "view")) loadResourcesAndAnalytics(access, { listings: false, attorneys: false });
-      }
-    });
+    loadAdminAccess()
+      .then((access) => {
+        if (access) {
+          const check = (resource, action) =>
+            canPerform(access.permissions, resource, action, { isSuperAdmin: access.isSuperAdmin });
+          if (check("analytics", "view")) loadResourcesAndAnalytics(access, { listings: false, attorneys: false });
+        }
+      })
+      .finally(() => setSessionChecked(true));
   }, []);
 
   useEffect(() => {
@@ -282,7 +285,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toastSuccess("Content field created.");
+        if (!data.existed) toastSuccess("Content field created.");
         loadCmsContent();
       } else {
         toastError(data.error?.message || "Failed to create field.");
@@ -543,12 +546,20 @@ export default function AdminPage() {
   // ────────────────────────────────────────────────────────────────────────────
   // LOGIN SCREEN
   // ────────────────────────────────────────────────────────────────────────────
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center font-dm-sans text-sm text-muted">
+        Restoring your admin session…
+      </div>
+    );
+  }
+
   if (!adminUser) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center p-6 font-dm-sans">
         <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-8 max-w-[400px] w-full shadow-lg">
           <div className="text-center mb-6">
-            <span className="text-3xl">🛡️</span>
+            <Icon name="shield" className="w-8 h-8 text-green" />
             <h1 className="font-syne text-2xl font-extrabold text-text mt-3">
               ImmFlow Admin CMS
             </h1>
@@ -588,7 +599,7 @@ export default function AdminPage() {
 
             {loginError && (
               <div className="bg-red-light border border-red text-red text-xs p-2.5 rounded-lg">
-                ⚠️ {loginError}
+                <span className="inline-flex items-center gap-2"><Icon name="alert" className="w-4 h-4" /> {loginError}</span>
               </div>
             )}
 
@@ -614,21 +625,21 @@ export default function AdminPage() {
   // Group CMS items by section — removed; CmsEditor handles grouping
 
   const navItems = [
-    ["overview", "📊 Overview"],
-    ["cms", "✏️ Site content"],
-    ["pages", "📄 Pages"],
-    ["settings", "⚙️ Features & test mode"],
-    ["categories", "🗂️ Categories"],
-    ["providers", "🪪 Providers"],
-    ["clients", "🧑‍💼 Clients"],
-    ["orders", "📄 Translation orders"],
-    ["bookings", "📅 Bookings"],
-    ["attorneys", "⚖️ Attorneys"],
-    ["listings", "📋 Listings"],
-    ["applications", "📨 Applications"],
-    ["reviews", "⭐ Reviews"],
-    ["broadcast", "📢 Broadcast"],
-    ["users", "👥 Users & roles"],
+    ["overview", "Overview", "chart"],
+    ["cms", "Site content", "edit"],
+    ["pages", "Pages", "document"],
+    ["settings", "Features & test mode", "settings"],
+    ["categories", "Categories", "layers"],
+    ["providers", "Providers", "id"],
+    ["clients", "Clients", "user"],
+    ["orders", "Translation orders", "document"],
+    ["bookings", "Bookings", "calendar"],
+    ["attorneys", "Attorneys", "scale"],
+    ["listings", "Listings", "clipboard"],
+    ["applications", "Applications", "inbox"],
+    ["reviews", "Reviews", "star"],
+    ["broadcast", "Broadcast", "megaphone"],
+    ["users", "Users & roles", "users"],
   ].filter(([key]) => canViewTab(key));
 
   return (
@@ -662,11 +673,11 @@ export default function AdminPage() {
             onClick={() => setNavOpen(false)}
             aria-label="Close navigation"
           >
-            ✕
+            <Icon name="close" className="w-4 h-4" />
           </button>
         </div>
         <nav className="p-3 flex-1 overflow-y-auto flex flex-col gap-0.5">
-          {navItems.map(([key, label]) => (
+          {navItems.map(([key, label, icon]) => (
             <button
               key={key}
               type="button"
@@ -674,10 +685,11 @@ export default function AdminPage() {
                 setActiveTab(key);
                 setNavOpen(false);
               }}
-              className={`text-left py-2.5 px-3 rounded-lg text-[13px] font-medium cursor-pointer transition-all ${
+              className={`flex items-center gap-2.5 text-left py-2.5 px-3 rounded-lg text-[13px] font-medium cursor-pointer transition-all ${
                 activeTab === key ? "bg-green text-white" : "text-muted hover:bg-bg hover:text-text"
               }`}
             >
+              <Icon name={icon} className="w-4 h-4" />
               {label}
             </button>
           ))}
@@ -1040,7 +1052,7 @@ export default function AdminPage() {
                                     : "bg-bg text-muted border border-[rgba(0,0,0,0.09)]"
                                 }`}
                               >
-                                {a.user?.isPro ? "🌟 Pro" : "Free"}
+                                {a.user?.isPro ? "Pro" : "Free"}
                               </span>
                               <div className="text-[10px] text-muted-high mt-1">
                                 {a.user?.subscriptionPlan || "Free"}
@@ -1071,7 +1083,7 @@ export default function AdminPage() {
                                     : "bg-amber-light text-amber"
                                 }`}
                               >
-                                {a.isVerified ? "✓ Verified" : "Pending"}
+                                {a.isVerified ? "Verified" : "Pending"}
                               </span>
                             </td>
                             <td className="p-3 pr-4">
