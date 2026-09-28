@@ -4,6 +4,7 @@ import { toastError } from "@/lib/client/alerts";
 import { LISTING_TYPES } from "@/lib/constants/listing-types";
 import TagInput from "../TagInput";
 import { usePlatform } from "@/components/PlatformContext";
+import { Icon } from "@/components/icons/Icon";
 
 export default function PostPage({ user, setShowAuth, setPage }) {
   const { canAccess } = usePlatform();
@@ -74,7 +75,7 @@ export default function PostPage({ user, setShowAuth, setPage }) {
   if (success)
     return (
       <div className="max-w-[680px] mx-auto my-16 px-6 text-center">
-        <div className="text-5xl mb-4">🎉</div>
+        <Icon name="check" className="w-10 h-10 text-green mb-4" />
         <h2 className="font-syne text-2xl md:text-[28px] font-extrabold mb-3 text-text">
           Listing posted!
         </h2>
@@ -145,7 +146,7 @@ export default function PostPage({ user, setShowAuth, setPage }) {
                   }`}
                 >
                   {label}
-                  {locked ? " 🔒" : ""}
+                  {locked ? <Icon name="lock" className="w-3.5 h-3.5 ml-1" /> : null}
                 </button>
               );
             })}
@@ -155,7 +156,7 @@ export default function PostPage({ user, setShowAuth, setPage }) {
       <div className="max-w-[680px] mx-auto my-8 px-6">
         {!user && (
           <div className="bg-amber-light border border-amber rounded-lg py-3 px-4 mb-6 text-[13px] text-[#633806] flex justify-between items-center gap-3 flex-wrap sm:flex-nowrap">
-            <span>⚠️ You need an account to post a listing.</span>
+            <span className="inline-flex items-center gap-2"><Icon name="alert" className="w-4 h-4" /> You need an account to post a listing.</span>
             <button
               onClick={() => setShowAuth(true)}
               className="bg-amber hover:bg-[#a06010] text-white py-1.5 px-3.5 rounded-lg border-none cursor-pointer text-xs font-medium transition-all duration-200 shrink-0"
@@ -167,7 +168,7 @@ export default function PostPage({ user, setShowAuth, setPage }) {
         {isUpgradeRequired && (
           <div className="bg-amber-light border border-amber rounded-xl p-5 mb-6 shadow-sm flex flex-col gap-3">
             <div className="text-sm font-bold text-[#633806] flex items-center gap-2">
-              <span>🔒 ImmFlow Pro Upgrade Required</span>
+              <span className="inline-flex items-center gap-2"><Icon name="lock" className="w-4 h-4" /> ImmFlow Pro Upgrade Required</span>
             </div>
             <p className="text-xs text-[#633806]/85 leading-relaxed">
               {upgradeMessage ||

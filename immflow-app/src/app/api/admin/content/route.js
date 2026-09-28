@@ -61,19 +61,41 @@ export async function POST(req) {
       return apiError("Cannot create platform settings keys via CMS.", 400, "VALIDATION_ERROR");
     }
 
-    const item = await prisma.siteContent.create({
-      data: {
-        key: key.trim(),
-        value: value != null ? String(value) : "",
-        type: type || "text",
-        section: section.trim(),
-        label: label.trim(),
-      },
-    });
-    return apiSuccess({ success: true, item }, 201);
+    const trimmedKey = key.trim();
+    const data = {
+      key: trimmedKey,
+      value: value != null ? String(value) : "",
+      type: type || "text",
+      section: section.trim(),
+      label: label.trim(),
+    };
+
+    try {
+      const item = await prisma.siteContent.create({ data });
+      return apiSuccess({ success: true, item }, 201);
+    } catch (error) {
+      if (!isUniqueKeyError(error)) throw error;
+      if (trimmedKey === "home.layout") {
+        const item = await prisma.siteContent.findUnique({ where: { key: trimmedKey } });
+        return apiSuccess({ success: true, item, existed: true });
+      }
+      return apiError(
+        `A field with key "${trimmedKey}" already exists. Edit that field instead of adding it again.`,
+        409,
+        "DUPLICATE_KEY"
+      );
+    }
   } catch (error) {
     return handleApiError(error, "Failed to create content field.");
   }
+}
+
+function isUniqueKeyError(error) {
+  return (
+    error?.code === "P2002" ||
+    error?.cause?.code === "P2002" ||
+    /Unique constraint/i.test(String(error?.message || ""))
+  );
 }
 
 export async function DELETE(req) {

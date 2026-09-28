@@ -5,17 +5,12 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { useContent } from "@/components/SiteContentContext";
 import { useI18n } from "@/components/I18nProvider";
-import { getStoredUser } from "@/lib/client/auth-storage";
-import { useEffect, useState } from "react";
+import { useRestoredSession } from "@/lib/client/use-session";
 
 export default function HelpPage() {
   const { get } = useContent();
   const { t } = useI18n();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    setUser(getStoredUser());
-  }, []);
+  const { user, sessionReady, logout } = useRestoredSession();
 
   const faq = get("help.faq", "")
     .split("\n")
@@ -41,7 +36,17 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg font-dm-sans">
-      <Nav page="" navigate={navigate} user={user} setShowAuth={() => (window.location.href = "/")} />
+      <Nav
+        page=""
+        navigate={navigate}
+        user={user}
+        sessionReady={sessionReady}
+        onLogout={logout}
+        setShowAuth={(value) => {
+          const mode = value?.mode === "login" ? "login" : "signup";
+          window.location.href = `/?auth=${mode}`;
+        }}
+      />
       <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-12">
         <Link href="/" className="text-xs text-green font-semibold no-underline">
           ← {t("common.backHome", "Back home")}

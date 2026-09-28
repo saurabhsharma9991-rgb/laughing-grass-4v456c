@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import Tag from "@/components/Tag";
+import { Icon } from "@/components/icons/Icon";
 
 const STATUS_COLORS = {
   verified: "bg-green-light text-green-dark",
@@ -37,8 +38,8 @@ export default function ProviderCard({ provider }) {
             {provider.location ? ` · ${provider.location}` : ""}
             {provider.rate ? ` · ${provider.rate}` : ""}
           </p>
-          <p className="text-[11px] text-muted-high mt-1">
-            ★ {stars} ({provider.reviewsCount || 0})
+          <p className="text-[11px] text-muted-high mt-1 inline-flex items-center gap-1 flex-wrap">
+            <Icon name="star" className="w-3.5 h-3.5" /> {stars} ({provider.reviewsCount || 0})
             {provider.remoteAvailable ? " · Remote" : ""}
             {provider.inPersonAvailable ? " · In person" : ""}
           </p>

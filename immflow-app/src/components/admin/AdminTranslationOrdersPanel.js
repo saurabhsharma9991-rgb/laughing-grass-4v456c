@@ -99,6 +99,11 @@ export default function AdminTranslationOrdersPanel({ canEdit }) {
                   <span className="text-[10px] font-semibold text-muted">#{o.id}</span>
                   <span className="text-xs font-medium">{o.priceLabel || "—"}</span>
                 </div>
+                {o.platformFeeLabel && (
+                  <div className="text-[10px] text-muted mb-1">
+                    ImmFlow {o.platformFeeLabel} · Provider {o.providerShareLabel || "—"}
+                  </div>
+                )}
                 <div className="font-semibold text-sm">{o.client?.displayName || "—"}</div>
                 <div className="text-[10px] text-muted truncate mb-2">{o.client?.email}</div>
                 <div className="text-xs">
@@ -173,6 +178,7 @@ export default function AdminTranslationOrdersPanel({ canEdit }) {
                 <th className="px-3 py-2 font-semibold">Languages</th>
                 <th className="px-3 py-2 font-semibold">Type</th>
                 <th className="px-3 py-2 font-semibold">Price</th>
+                <th className="px-3 py-2 font-semibold">Fees</th>
                 <th className="px-3 py-2 font-semibold">Provider</th>
                 <th className="px-3 py-2 font-semibold">Status</th>
                 <th className="px-3 py-2 font-semibold">Actions</th>
@@ -195,6 +201,16 @@ export default function AdminTranslationOrdersPanel({ canEdit }) {
                     <div className="text-muted">{o.turnaround}</div>
                   </td>
                   <td className="px-3 py-2">{o.priceLabel || "—"}</td>
+                  <td className="px-3 py-2">
+                    {o.platformFeeLabel ? (
+                      <>
+                        <div>ImmFlow {o.platformFeeLabel}</div>
+                        <div className="text-muted">Provider {o.providerShareLabel || "—"}</div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     {canEdit ? (
                       <select

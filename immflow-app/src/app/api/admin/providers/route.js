@@ -10,6 +10,8 @@ import {
   updateCredentialStatus,
   requestUpdatedCredential,
   countExpiringCredentials,
+  approveProviderRateChange,
+  rejectProviderRateChange,
 } from "@/lib/services/providers";
 import {
   notifySignupApproved,
@@ -95,6 +97,16 @@ export async function PATCH(req) {
         rest.notes
       );
       void notifyCredentialUpdateRequested(provider.id, rest.notes);
+      return apiSuccess({ success: true, provider });
+    }
+
+    if (action === "approve_rate_change") {
+      const provider = await approveProviderRateChange(id);
+      return apiSuccess({ success: true, provider });
+    }
+
+    if (action === "reject_rate_change") {
+      const provider = await rejectProviderRateChange(id);
       return apiSuccess({ success: true, provider });
     }
 

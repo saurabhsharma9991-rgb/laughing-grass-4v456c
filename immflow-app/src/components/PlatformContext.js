@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { userCanAccess } from "@/lib/utils/feature-access";
+import { PLATFORM_LOCALES } from "@/lib/constants/marketplace";
 
 const PlatformContext = createContext(null);
 
@@ -35,6 +36,9 @@ export function PlatformProvider({ children }) {
   const [testMode, setTestMode] = useState(false);
   const [features, setFeatures] = useState({});
   const [freeListingLimit, setFreeListingLimit] = useState(1);
+  const [commissionPercentFree, setCommissionPercentFree] = useState(25);
+  const [commissionPercentPro, setCommissionPercentPro] = useState(15);
+  const [enabledLocales, setEnabledLocales] = useState(PLATFORM_LOCALES.map((locale) => locale.code));
   const [subscriptionPrice, setSubscriptionPrice] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +50,19 @@ export function PlatformProvider({ children }) {
         setTestMode(Boolean(data.testMode));
         setFeatures(data.features || {});
         setFreeListingLimit(data.freeListingLimit ?? 1);
+        setCommissionPercentFree(
+          Number.isFinite(Number(data.commissionPercentFree ?? data.commissionPercent))
+            ? Number(data.commissionPercentFree ?? data.commissionPercent)
+            : 25
+        );
+        setCommissionPercentPro(
+          Number.isFinite(Number(data.commissionPercentPro)) ? Number(data.commissionPercentPro) : 15
+        );
+        setEnabledLocales(
+          Array.isArray(data.enabledLocales) && data.enabledLocales.length
+            ? data.enabledLocales
+            : PLATFORM_LOCALES.map((locale) => locale.code)
+        );
         setSubscriptionPrice(data.subscriptionPrice || null);
       }
     } catch (e) {
@@ -70,6 +87,10 @@ export function PlatformProvider({ children }) {
         testMode,
         features,
         freeListingLimit,
+        commissionPercent: commissionPercentFree,
+        commissionPercentFree,
+        commissionPercentPro,
+        enabledLocales,
         subscriptionPrice,
         subscriptionPriceLabel: formatPrice(subscriptionPrice),
         subscriptionPriceCadence: formatCadence(subscriptionPrice),

@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import Tag from "@/components/Tag";
 import { authFetch } from "@/lib/client/auth-storage";
 import { startChatWithAttorney } from "@/lib/client/start-chat";
+import { Icon, StarRow } from "@/components/icons/Icon";
 import { toastError, toastSuccess } from "@/lib/client/alerts";
 import { usePlatform } from "@/components/PlatformContext";
 
@@ -103,7 +104,7 @@ export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, set
               <h1 className="font-syne text-2xl md:text-3xl font-extrabold text-text">{profile.name}</h1>
               {profile.isVerified && (
                 <span className="text-[11px] bg-green-light text-green-dark px-2 py-0.5 rounded-full font-semibold">
-                  ✓ Verified
+                  <span className="inline-flex items-center gap-1"><Icon name="check" className="w-3.5 h-3.5" /> Verified</span>
                 </span>
               )}
             </div>
@@ -115,7 +116,7 @@ export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, set
               <code className="text-xs">{profile.barNumber || "—"}</code>
             </p>
             <div className="flex flex-wrap gap-4 mt-4 text-sm">
-              <span className="text-amber font-semibold">★ {profile.stars} ({profile.reviews} reviews)</span>
+              <span className="text-amber font-semibold inline-flex items-center gap-1"><Icon name="star" className="w-3.5 h-3.5" /> {profile.stars} ({profile.reviews} reviews)</span>
               <span className="font-semibold text-text">{profile.rate}</span>
               <span className="text-muted">{profile.availability}</span>
             </div>
@@ -172,7 +173,7 @@ export default function AttorneyProfilePage({ attorneyId, user, setShowAuth, set
             {profile.reviewsList.map((r) => (
               <div key={r.id} className="border-b border-[rgba(0,0,0,0.07)] pb-4 last:border-0">
                 <div className="flex items-center gap-2 text-sm font-semibold text-text">
-                  <span className="text-amber">★ {r.rating}</span>
+                  <span className="inline-flex items-center gap-1 text-amber"><StarRow count={r.rating} /> {r.rating}</span>
                   <span>{r.reviewerName}</span>
                 </div>
                 {r.comment && <p className="text-sm text-muted mt-1">{r.comment}</p>}

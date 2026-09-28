@@ -5,73 +5,73 @@ export const PAGE_BLOCK_TYPES = [
     type: "hero",
     label: "Hero banner",
     description: "Large title, subtitle, and optional button",
-    icon: "🎯",
+    icon: "target",
   },
   {
     type: "heading",
     label: "Heading",
     description: "Section title (H2 / H3)",
-    icon: "🔠",
+    icon: "text",
   },
   {
     type: "paragraph",
     label: "Paragraph",
     description: "Body text with line breaks",
-    icon: "¶",
+    icon: "text",
   },
   {
     type: "richtext",
     label: "Rich text",
     description: "Formatted HTML content area",
-    icon: "✍️",
+    icon: "pen",
   },
   {
     type: "image",
     label: "Image",
     description: "Image with optional caption",
-    icon: "🖼️",
+    icon: "image",
   },
   {
     type: "cards",
     label: "Feature cards",
     description: "2–3 cards in a row",
-    icon: "▦",
+    icon: "layout",
   },
   {
     type: "faq",
     label: "FAQ accordion",
     description: "Questions and answers",
-    icon: "❓",
+    icon: "help",
   },
   {
     type: "cta",
     label: "Call to action",
     description: "Highlighted box with button",
-    icon: "👉",
+    icon: "arrow",
   },
   {
     type: "contact",
     label: "Contact details",
     description: "Email, phone, address block",
-    icon: "✉️",
+    icon: "mail",
   },
   {
     type: "quote",
     label: "Quote",
     description: "Pull quote / testimonial",
-    icon: "❝",
+    icon: "quote",
   },
   {
     type: "divider",
     label: "Divider",
     description: "Horizontal rule between sections",
-    icon: "—",
+    icon: "minus",
   },
   {
     type: "html",
     label: "Custom HTML",
     description: "Free-hand HTML block",
-    icon: "</>",
+    icon: "code",
   },
 ];
 
@@ -108,9 +108,9 @@ export function defaultBlockData(type) {
     case "cards":
       return {
         items: [
-          { icon: "⚖️", title: "Card one", body: "Short description." },
-          { icon: "🌐", title: "Card two", body: "Short description." },
-          { icon: "🤝", title: "Card three", body: "Short description." },
+          { icon: "scale", title: "Card one", body: "Short description." },
+          { icon: "globe", title: "Card two", body: "Short description." },
+          { icon: "users", title: "Card three", body: "Short description." },
         ],
       };
     case "faq":

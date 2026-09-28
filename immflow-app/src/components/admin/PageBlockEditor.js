@@ -6,6 +6,7 @@ import {
   createBlock,
   createEmptyDocument,
 } from "@/lib/constants/cms-page-blocks";
+import { Icon } from "@/components/icons/Icon";
 import {
   parsePageDocument,
   serializePageDocument,
@@ -165,7 +166,7 @@ function BlockFields({ block, onChange }) {
             type="button"
             className="text-xs text-green font-semibold bg-transparent border-none cursor-pointer"
             onClick={() =>
-              set("items", [...(d.items || []), { icon: "✦", title: "New card", body: "" }])
+              set("items", [...(d.items || []), { icon: "spark", title: "New card", body: "" }])
             }
           >
             + Add card
@@ -412,13 +413,13 @@ export default function PageBlockEditor({ value, onChange }) {
                         className="flex-1 text-left text-xs font-semibold text-text bg-transparent border-none cursor-pointer"
                         onClick={() => setExpandedId(open ? null : block.id)}
                       >
-                        <span className="mr-1.5">{meta?.icon || "•"}</span>
+                        <Icon name={meta?.icon || "spark"} className="w-3.5 h-3.5 mr-1.5" />
                         {meta?.label || block.type}
                       </button>
                       <button type="button" title="Move up" className="text-xs px-1.5 py-0.5 border rounded cursor-pointer bg-white" onClick={() => moveBlock(index, -1)}>↑</button>
                       <button type="button" title="Move down" className="text-xs px-1.5 py-0.5 border rounded cursor-pointer bg-white" onClick={() => moveBlock(index, 1)}>↓</button>
                       <button type="button" title="Duplicate" className="text-xs px-1.5 py-0.5 border rounded cursor-pointer bg-white" onClick={() => duplicateBlock(index)}>⧉</button>
-                      <button type="button" title="Delete" className="text-xs px-1.5 py-0.5 border border-red/30 text-red rounded cursor-pointer bg-white" onClick={() => removeBlock(block.id)}>✕</button>
+                      <button type="button" title="Delete" className="text-xs px-1.5 py-0.5 border border-red/30 text-red rounded cursor-pointer bg-white" onClick={() => removeBlock(block.id)}><Icon name="close" className="w-3 h-3" /></button>
                     </div>
                     {open && (
                       <div className="p-3 border-t border-[rgba(0,0,0,0.06)]">
@@ -449,7 +450,7 @@ export default function PageBlockEditor({ value, onChange }) {
                         className="text-left p-2.5 rounded-lg border border-[rgba(0,0,0,0.1)] bg-white hover:border-green cursor-pointer"
                       >
                         <div className="text-sm font-semibold text-text">
-                          <span className="mr-1">{t.icon}</span>
+                          <Icon name={t.icon} className="w-4 h-4 mr-1" />
                           {t.label}
                         </div>
                         <div className="text-[10px] text-muted mt-0.5">{t.description}</div>

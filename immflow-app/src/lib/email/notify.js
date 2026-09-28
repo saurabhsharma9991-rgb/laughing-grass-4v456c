@@ -399,3 +399,141 @@ export async function notifyCredentialUpdateRequested(providerId, note) {
     meta: { providerId },
   });
 }
+
+/** Email every admin user about an ops event (new signup, order, payment, price change). */
+export async function notifyAllAdmins({
+  subject,
+  text,
+  event = "admin_alert",
+  meta = {},
+} = {}) {
+  if (!subject || !text) return 0;
+  const admins = await prisma.user.findMany({
+    where: { role: "admin" },
+    select: { email: true, displayName: true },
+  });
+  const unique = [
+    ...new Map(
+      admins
+        .filter((a) => a.email)
+        .map((a) => [a.email.toLowerCase(), a])
+    ).values(),
+  ];
+  if (!unique.length) return 0;
+
+  let sent = 0;
+  await Promise.all(
+    unique.map(async (admin) => {
+      const ok = await sendTransactionalEmail({
+        to: admin.email,
+        subject: `[ImmFlow Admin] ${subject}`,
+        text,
+        html: textEmailHtml(text),
+        event,
+        meta: { ...meta, adminEmail: admin.email },
+      });
+      if (ok) sent += 1;
+    })
+  );
+  return sent;
+}
+
+export async function notifyAdminsNewUser(user) {
+  if (!user) return;
+  const text = [
+    `New user registered.`,
+    ``,
+    `Name: ${user.displayName || "—"}`,
+    `Email: ${user.email || "—"}`,
+    `Role: ${user.role || "—"}`,
+    `Signup status: ${user.signupStatus || "—"}`,
+    ``,
+    `Review in Admin → Users / Providers.`,
+    `${appBaseUrl()}/admin`,
+  ].join("\n");
+  return notifyAllAdmins({
+    subject: `New ${user.role || "user"}: ${user.email || user.id}`,
+    text,
+    event: "admin_new_user",
+    meta: { userId: user.id },
+  });
+}
+
+export async function notifyAdminsNewOrder({
+  kind,
+  orderId,
+  priceLabel,
+  clientEmail,
+  providerName,
+  extra = "",
+}) {
+  const text = [
+    `New ${kind} #${orderId} created.`,
+    ``,
+    `Client: ${clientEmail || "—"}`,
+    `Provider: ${providerName || "Unassigned"}`,
+    `Amount: ${priceLabel || "—"}`,
+    extra ? `\n${extra}` : "",
+    ``,
+    `Open Admin → Orders / Bookings.`,
+    `${appBaseUrl()}/admin`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return notifyAllAdmins({
+    subject: `New ${kind} #${orderId}`,
+    text,
+    event: "admin_new_order",
+    meta: { kind, orderId },
+  });
+}
+
+export async function notifyAdminsPayment({
+  kind,
+  orderId,
+  priceLabel,
+  platformFeeLabel,
+  providerShareLabel,
+}) {
+  const text = [
+    `Payment completed for ${kind} #${orderId}.`,
+    ``,
+    `Client paid: ${priceLabel || "—"}`,
+    `ImmFlow share: ${platformFeeLabel || "—"}`,
+    `Provider share: ${providerShareLabel || "—"}`,
+    ``,
+    `Track payouts in Admin.`,
+    `${appBaseUrl()}/admin`,
+  ].join("\n");
+  return notifyAllAdmins({
+    subject: `Paid: ${kind} #${orderId}`,
+    text,
+    event: "admin_payment",
+    meta: { kind, orderId },
+  });
+}
+
+export async function notifyAdminsPriceChange({
+  providerId,
+  displayName,
+  email,
+  oldRate,
+  newRate,
+}) {
+  const text = [
+    `Provider pricing change awaiting approval.`,
+    ``,
+    `Provider: ${displayName || "—"} (${email || "—"})`,
+    `Current live rate: ${oldRate || "—"}`,
+    `Requested rate: ${newRate || "—"}`,
+    ``,
+    `Approve or reject in Admin → Providers.`,
+    `${appBaseUrl()}/admin`,
+  ].join("\n");
+  return notifyAllAdmins({
+    subject: `Price change pending: ${displayName || providerId}`,
+    text,
+    event: "admin_price_change",
+    meta: { providerId },
+  });
+}

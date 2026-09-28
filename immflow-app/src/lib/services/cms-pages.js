@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { translateDeep } from "@/lib/services/auto-translate.js";
 import { AuthError } from "@/lib/auth/guards.js";
 import { FOOTER_COLUMNS } from "@/lib/constants/cms-pages.js";
 import {
@@ -26,18 +27,14 @@ export function assertValidSlug(slug) {
   }
 }
 
-function localizePage(page, locale = "en") {
+async function localizePage(page, locale = "en") {
   if (!page) return null;
-  const overlay =
-    locale && locale !== "en" && page.translations?.[locale]
-      ? page.translations[locale]
-      : null;
-  return {
+  const base = {
     id: page.id,
     slug: page.slug,
-    title: overlay?.title || page.title,
-    excerpt: overlay?.excerpt ?? page.excerpt,
-    body: overlay?.body || page.body,
+    title: page.title,
+    excerpt: page.excerpt,
+    body: page.body,
     footerColumn: page.footerColumn,
     showInFooter: page.showInFooter,
     showInNav: page.showInNav,
@@ -47,7 +44,13 @@ function localizePage(page, locale = "en") {
     href: cmsPagePath(page.slug),
     updatedAt: page.updatedAt,
     createdAt: page.createdAt,
-    translations: page.translations || {},
+  };
+  if (!locale || locale === "en") return base;
+  return {
+    ...base,
+    title: await translateDeep(page.title, locale),
+    excerpt: page.excerpt ? await translateDeep(page.excerpt, locale) : page.excerpt,
+    body: page.body ? await translateDeep(page.body, locale) : page.body,
   };
 }
 
@@ -56,7 +59,7 @@ export async function listCmsPages({ publishedOnly = false } = {}) {
     where: publishedOnly ? { isPublished: true } : undefined,
     orderBy: [{ footerSort: "asc" }, { title: "asc" }],
   });
-  return pages.map((p) => localizePage(p));
+  return Promise.all(pages.map((p) => localizePage(p)));
 }
 
 export async function getCmsPageBySlug(slug, { publishedOnly = true, locale = "en" } = {}) {
@@ -77,7 +80,7 @@ export async function getCmsMenu(locale = "en") {
     orderBy: [{ footerSort: "asc" }, { navSort: "asc" }, { title: "asc" }],
   });
 
-  const localized = pages.map((p) => localizePage(p, locale));
+  const localized = await Promise.all(pages.map((p) => localizePage(p, locale)));
   return {
     footer: localized
       .filter((p) => p.showInFooter)

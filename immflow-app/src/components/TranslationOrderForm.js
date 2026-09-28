@@ -8,6 +8,7 @@ import {
   COMMON_LANGUAGES,
   DOCUMENT_TYPES,
   quoteTranslationCents,
+  providerQuoteBaseCents,
   formatMoney,
   defaultCertificationNote,
 } from "@/lib/constants/translation";
@@ -17,6 +18,7 @@ export default function TranslationOrderForm({
   setShowAuth,
   providerId = null,
   providerName = null,
+  provider = null,
   initialSource = "",
   initialTarget = "",
   onCreated,
@@ -53,9 +55,25 @@ export default function TranslationOrderForm({
       .catch(() => setTranslators([]));
   }, [providerId, sourceLanguage, targetLanguage, translationType]);
 
+  const selectedProvider = useMemo(() => {
+    const fromList = translators.find((item) => String(item.id) === String(selectedProviderId));
+    if (fromList) return fromList;
+    if (provider && String(provider.id) === String(selectedProviderId || providerId)) {
+      return provider;
+    }
+    return null;
+  }, [translators, provider, selectedProviderId, providerId]);
+
   const estimate = useMemo(
-    () => formatMoney(quoteTranslationCents({ translationType, turnaround })),
-    [translationType, turnaround]
+    () =>
+      formatMoney(
+        quoteTranslationCents({
+          translationType,
+          turnaround,
+          providerBaseCents: providerQuoteBaseCents(selectedProvider),
+        })
+      ),
+    [translationType, turnaround, selectedProvider]
   );
 
   const submit = async (e) => {
@@ -142,6 +160,10 @@ export default function TranslationOrderForm({
             ? `Requesting from ${providerName}. Starting price ${estimate} (pay to confirm).`
             : `Upload your document and pay securely. Starting price ${estimate}. A translator can be assigned after payment if none is selected.`}
         </p>
+        <p className="text-[11px] text-muted-high mt-1.5">
+          You pay the listed amount. The provider receives that amount minus ImmFlow&apos;s platform
+          commission.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -213,7 +235,7 @@ export default function TranslationOrderForm({
               <option key={provider.id} value={provider.id}>
                 {provider.displayName}
                 {provider.rate ? ` · ${provider.rate}` : ""}
-                {provider.stars ? ` · ${provider.stars}★` : ""}
+                {provider.stars ? ` · ${provider.stars}` : ""}
               </option>
             ))}
           </select>

@@ -32,7 +32,6 @@ export default function AdminPagesPanel({ canCreate, canEdit, canDelete }) {
   const [form, setForm] = useState(emptyForm());
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [localeTab, setLocaleTab] = useState("en");
 
   const load = () => {
     setLoading(true);
@@ -51,23 +50,9 @@ export default function AdminPagesPanel({ canCreate, canEdit, canDelete }) {
   const resetForm = () => {
     setEditingId(null);
     setForm(emptyForm());
-    setLocaleTab("en");
   };
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
-
-  const setTranslation = (locale, key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      translations: {
-        ...prev.translations,
-        [locale]: {
-          ...(prev.translations?.[locale] || {}),
-          [key]: value,
-        },
-      },
-    }));
-  };
 
   const save = async (e) => {
     e.preventDefault();
@@ -77,6 +62,7 @@ export default function AdminPagesPanel({ canCreate, canEdit, canDelete }) {
         ...form,
         slug: form.slug || form.title,
       };
+      delete payload.translations;
       const res = await authFetch("/api/admin/pages", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,7 +84,6 @@ export default function AdminPagesPanel({ canCreate, canEdit, canDelete }) {
 
   const startEdit = (page) => {
     setEditingId(page.id);
-    setLocaleTab("en");
     setForm({
       title: page.title || "",
       slug: page.slug || "",
@@ -168,26 +153,10 @@ export default function AdminPagesPanel({ canCreate, canEdit, canDelete }) {
 
         {(canCreate || canEdit) && (
           <form onSubmit={save} className="space-y-4">
-            <div className="flex gap-2 mb-1">
-              {["en", "es", "hi", "ru", "zh"].map((loc) => (
-                <button
-                  key={loc}
-                  type="button"
-                  onClick={() => setLocaleTab(loc)}
-                  className={`text-[11px] uppercase tracking-wide px-2.5 py-1 rounded-md border cursor-pointer ${
-                    localeTab === loc
-                      ? "bg-green text-white border-green"
-                      : "bg-white text-muted border-[rgba(0,0,0,0.12)]"
-                  }`}
-                >
-                  {loc}
-                </button>
-              ))}
-            </div>
-
-            {localeTab === "en" ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <p className="text-[11px] text-muted leading-relaxed">
+              Write the page in English. Other languages are translated automatically for visitors.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <label className="block text-xs font-semibold text-muted">
                     Title
                     <input
@@ -226,39 +195,6 @@ export default function AdminPagesPanel({ canCreate, canEdit, canDelete }) {
                     onChange={(body) => setField("body", body)}
                   />
                 </div>
-              </>
-            ) : (
-              <>
-                <label className="block text-xs font-semibold text-muted">
-                  Title ({localeTab})
-                  <input
-                    value={form.translations?.[localeTab]?.title || ""}
-                    onChange={(e) => setTranslation(localeTab, "title", e.target.value)}
-                    className="mt-1 w-full text-sm border border-[rgba(0,0,0,0.12)] rounded-lg px-3 py-2"
-                  />
-                </label>
-                <label className="block text-xs font-semibold text-muted">
-                  Excerpt ({localeTab})
-                  <input
-                    value={form.translations?.[localeTab]?.excerpt || ""}
-                    onChange={(e) => setTranslation(localeTab, "excerpt", e.target.value)}
-                    className="mt-1 w-full text-sm border border-[rgba(0,0,0,0.12)] rounded-lg px-3 py-2"
-                  />
-                </label>
-                <div>
-                  <div className="text-xs font-semibold text-muted mb-2">
-                    Content ({localeTab}) — leave empty to fall back to English
-                  </div>
-                  <PageBlockEditor
-                    value={
-                      form.translations?.[localeTab]?.body ||
-                      serializePageDocument(createEmptyDocument())
-                    }
-                    onChange={(body) => setTranslation(localeTab, "body", body)}
-                  />
-                </div>
-              </>
-            )}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
               <label className="block text-xs font-semibold text-muted">

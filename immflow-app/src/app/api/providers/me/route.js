@@ -8,7 +8,8 @@ import {
 export async function GET(req) {
   try {
     const session = requireAuth(req);
-    const provider = await getProviderForUser(session.userId);
+    const category = new URL(req.url).searchParams.get("category");
+    const provider = await getProviderForUser(session.userId, category || undefined);
     if (!provider) return apiError("Provider profile not found.", 404, "NOT_FOUND");
     return apiSuccess(provider);
   } catch (error) {

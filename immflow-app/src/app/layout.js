@@ -36,13 +36,13 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${jakarta.variable} ${playfair.variable}`}>
       <body>
         <AlertProvider>
-          <I18nProvider>
-            <PlatformProvider>
+          <PlatformProvider>
+            <I18nProvider>
               <SiteContentProvider>
                 {children}
               </SiteContentProvider>
-            </PlatformProvider>
-          </I18nProvider>
+            </I18nProvider>
+          </PlatformProvider>
         </AlertProvider>
         <TawkTo />
       </body>

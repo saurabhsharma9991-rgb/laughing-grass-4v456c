@@ -2,21 +2,22 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { registerAlerts } from "@/lib/client/alerts";
+import { Icon } from "@/components/icons/Icon";
 
 const AlertContext = createContext(null);
 
 const TOAST_STYLES = {
   success: {
     box: "bg-green-light border-green-medium/30 text-green-dark",
-    icon: "✓",
+    icon: "check",
   },
   error: {
     box: "bg-red-light border-red/25 text-red",
-    icon: "⚠",
+    icon: "alert",
   },
   info: {
     box: "bg-surface border-green-medium/25 text-text",
-    icon: "ℹ",
+    icon: "info",
   },
 };
 
@@ -29,7 +30,7 @@ function ToastItem({ toast, onDismiss }) {
       className={`flex items-start gap-3 min-w-[280px] max-w-[min(420px,calc(100vw-2rem))] px-4 py-3.5 rounded-lg border shadow-lg backdrop-blur-sm animate-[toast-in_0.28s_ease-out] ${style.box}`}
     >
       <span className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-white/60 text-sm font-semibold">
-        {style.icon}
+        <Icon name={style.icon} className="w-3.5 h-3.5" />
       </span>
       <p className="text-[13px] leading-snug flex-1 pt-0.5">{toast.message}</p>
       <button

@@ -9,6 +9,8 @@ import {
   BOOKING_MODALITIES,
   INTERPRETER_SERVICE_TYPES,
   PSYCH_SERVICE_TYPES,
+  formatBookingMoney,
+  quoteBookingCents,
 } from "@/lib/constants/bookings";
 import { COMMON_LANGUAGES } from "@/lib/constants/translation";
 
@@ -18,6 +20,7 @@ export default function BookingRequestForm({
   setShowAuth,
   providerId = null,
   providerName = null,
+  provider = null,
   onCreated,
 }) {
   const { t } = useI18n();
@@ -42,6 +45,25 @@ export default function BookingRequestForm({
     if (isPsych) return ["telehealth", "in_person", "remote"];
     return BOOKING_MODALITIES.filter((m) => m !== "telehealth");
   }, [isPsych]);
+
+  const selectedProvider = useMemo(() => {
+    const fromList = providers.find((item) => String(item.id) === String(selectedProviderId));
+    if (fromList) return fromList;
+    if (provider && String(provider.id) === String(selectedProviderId || providerId)) {
+      return provider;
+    }
+    return null;
+  }, [providers, provider, selectedProviderId, providerId]);
+
+  const estimateCents = useMemo(() => {
+    if (!selectedProvider) return null;
+    return quoteBookingCents(selectedProvider, {
+      bookingType,
+      modality,
+      durationMinutes,
+    });
+  }, [selectedProvider, bookingType, modality, durationMinutes]);
+  const estimateLabel = formatBookingMoney(estimateCents);
 
   useEffect(() => {
     if (providerId) return;
@@ -223,7 +245,7 @@ export default function BookingRequestForm({
               <option key={provider.id} value={provider.id}>
                 {provider.displayName}
                 {provider.rate ? ` · ${provider.rate}` : ""}
-                {provider.stars ? ` · ${provider.stars}★` : ""}
+                {provider.stars ? ` · ${provider.stars}` : ""}
               </option>
             ))}
           </select>
@@ -244,6 +266,13 @@ export default function BookingRequestForm({
           }
         />
       </label>
+
+      {estimateLabel && (
+        <p className="text-sm font-semibold text-text">
+          {isPsych ? "Evaluation fee" : "Estimated total"} {estimateLabel}
+          {!isPsych ? ` for ${durationMinutes || 60} minutes` : ""}
+        </p>
+      )}
 
       <label className="flex items-start gap-2 text-[11px] text-muted-high leading-relaxed">
         <input

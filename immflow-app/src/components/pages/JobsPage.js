@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import JobCard from "../JobCard";
 import { authFetch } from "@/lib/client/auth-storage";
 import { toastError } from "@/lib/client/alerts";
+import { Icon } from "@/components/icons/Icon";
 import {
   listingMatchesTab,
   PRO_ONLY_JOB_TABS,
@@ -251,7 +252,7 @@ export default function JobsPage({ setPage, user, setShowAuth }) {
                   }`}
                 >
                   {label}
-                  {locked ? " 🔒" : ""}
+                  {locked ? <Icon name="lock" className="w-3.5 h-3.5 ml-1" /> : null}
                 </button>
               );
             })}

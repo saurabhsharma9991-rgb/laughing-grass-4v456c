@@ -187,6 +187,13 @@ export default function AppShell({
     const resetToken = params.get("reset");
     const verifyToken = params.get("verify");
     const billing = params.get("billing");
+    const auth = params.get("auth");
+
+    if (auth === "login" || auth === "signup") {
+      setAuthMode(auth);
+      setShowAuth(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
 
     if (resetToken) {
       setAuthResetToken(resetToken);
@@ -308,7 +315,14 @@ export default function AppShell({
       <div ref={topRef} />
       <TestModeBanner />
 
-      <Nav page={page} navigate={navigate} user={user} setShowAuth={openAuth} />
+      <Nav
+        page={page}
+        navigate={navigate}
+        user={user}
+        setShowAuth={openAuth}
+        sessionReady={sessionReady}
+        onLogout={handleLogout}
+      />
 
       {showAuth && (
         <AuthModal

@@ -7,6 +7,7 @@ import {
   FILE_KINDS,
   PROVIDER_STATUS_FLOW,
   quoteTranslationCents,
+  providerQuoteBaseCents,
   defaultCertificationNote,
   formatMoney,
 } from "@/lib/constants/translation";
@@ -14,7 +15,13 @@ import {
   saveTranslationOrderFile,
   deleteUploadedFile,
 } from "@/lib/uploads/disk";
-import { notifyTranslationOrderUpdate } from "@/lib/email/notify";
+import {
+  notifyTranslationOrderUpdate,
+  notifyAdminsNewOrder,
+  notifyAdminsPayment,
+} from "@/lib/email/notify";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
+import { resolveMarketplaceFees } from "@/lib/constants/commission";
 
 function formatFile(f) {
   return {
@@ -28,7 +35,22 @@ function formatFile(f) {
   };
 }
 
+function feeLabels(order) {
+  const currency = order.currency || "usd";
+  return {
+    platformFeeLabel:
+      order.platformFeeCents != null
+        ? formatMoney(order.platformFeeCents, currency)
+        : null,
+    providerShareLabel:
+      order.providerShareCents != null
+        ? formatMoney(order.providerShareCents, currency)
+        : null,
+  };
+}
+
 export function formatOrder(order) {
+  const labels = feeLabels(order);
   return {
     id: order.id,
     clientId: order.clientId,
@@ -41,6 +63,11 @@ export function formatOrder(order) {
     status: order.status,
     priceCents: order.priceCents,
     priceLabel: order.priceCents != null ? formatMoney(order.priceCents, order.currency) : null,
+    platformFeeCents: order.platformFeeCents ?? null,
+    providerShareCents: order.providerShareCents ?? null,
+    commissionPercent: order.commissionPercent ?? null,
+    platformFeeLabel: labels.platformFeeLabel,
+    providerShareLabel: labels.providerShareLabel,
     currency: order.currency,
     certificationNote: order.certificationNote,
     clientNotes: order.clientNotes,
@@ -88,7 +115,7 @@ async function getTranslatorProvider(providerId) {
   if (!providerId) return null;
   const p = await prisma.provider.findUnique({
     where: { id: Number(providerId) },
-    include: { category: true },
+    include: { category: true, user: { select: { isPro: true } } },
   });
   if (!p || p.category?.slug !== "translation") {
     throw new AuthError("Provider must be a verified translation provider.", 400, "INVALID_PROVIDER");
@@ -100,28 +127,7 @@ async function getTranslatorProvider(providerId) {
 }
 
 function parseProviderBaseCents(provider) {
-  const pd = provider?.profileData || {};
-  if (pd.basePriceCents != null && Number(pd.basePriceCents) > 0) {
-    return Number(pd.basePriceCents);
-  }
-  if (pd.priceCents != null && Number(pd.priceCents) > 0) {
-    return Number(pd.priceCents);
-  }
-
-  const rate = String(provider?.rate || "").trim();
-  if (!rate) return null;
-
-  // Per-word / hourly display rates are not flat document fees — ignore them
-  // so we fall back to the platform default ($49) instead of e.g. "$0.18/word" → $15 floor.
-  if (/\/\s*word|per\s*word|\/\s*hr|\/\s*hour|per\s*hour|hourly/i.test(rate)) {
-    return null;
-  }
-
-  const match = rate.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
-  if (!match) return null;
-  const dollars = Number(match[1]);
-  if (!Number.isFinite(dollars) || dollars < 5) return null;
-  return Math.round(dollars * 100);
+  return providerQuoteBaseCents(provider);
 }
 
 /** True when a client↔translator pair has at least one paid translation order. */
@@ -196,6 +202,15 @@ export async function createTranslationOrder(clientId, data) {
     providerBaseCents: parseProviderBaseCents(provider),
   });
 
+  const settings = await getPlatformSettings();
+  const fees = resolveMarketplaceFees({
+    priceCents,
+    settings,
+    role: "provider",
+    orderType: "translation_order",
+    isPro: Boolean(provider?.user?.isPro),
+  });
+
   const certificationNote =
     translationType === "certified"
       ? String(data.certificationNote || "").trim() ||
@@ -213,7 +228,10 @@ export async function createTranslationOrder(clientId, data) {
       translationType,
       turnaround,
       status: "pending_payment",
-      priceCents,
+      priceCents: fees.priceCents,
+      platformFeeCents: fees.platformFeeCents,
+      providerShareCents: fees.providerShareCents,
+      commissionPercent: fees.commissionPercent,
       currency: "usd",
       certificationNote,
       clientNotes: data.clientNotes ? String(data.clientNotes).slice(0, 4000) : null,
@@ -222,7 +240,18 @@ export async function createTranslationOrder(clientId, data) {
   });
 
   void notifyTranslationOrderUpdate(order.id, order.status);
-  return formatOrder(order);
+  const formatted = formatOrder(order);
+  void notifyAdminsNewOrder({
+    kind: "translation order",
+    orderId: order.id,
+    priceLabel: formatted.priceLabel,
+    clientEmail: order.client?.email,
+    providerName: order.provider?.displayName,
+    extra: fees.commissionApplied
+      ? `ImmFlow fee: ${formatted.platformFeeLabel} · Provider share: ${formatted.providerShareLabel} (${fees.commissionPercent}%)`
+      : "",
+  });
+  return formatted;
 }
 
 export async function listTranslationOrders({
@@ -314,7 +343,15 @@ export async function markOrderPaid({
     include: orderInclude,
   });
   void notifyTranslationOrderUpdate(updated.id, "paid");
-  return formatOrder(updated);
+  const formatted = formatOrder(updated);
+  void notifyAdminsPayment({
+    kind: "translation order",
+    orderId: updated.id,
+    priceLabel: formatted.priceLabel,
+    platformFeeLabel: formatted.platformFeeLabel,
+    providerShareLabel: formatted.providerShareLabel,
+  });
+  return formatted;
 }
 
 export async function updateOrderStatus({
@@ -408,16 +445,29 @@ export async function assignProviderToOrder(orderId, providerId, session, { isAd
     throw new AuthError("Cannot reassign at this stage.", 400, "INVALID_STATE");
   }
   const provider = await getTranslatorProvider(providerId);
+  const data = { providerId: provider.id };
+  if (!order.paidAt) {
+    const priceCents = quoteTranslationCents({
+      translationType: order.translationType,
+      turnaround: order.turnaround,
+      providerBaseCents: parseProviderBaseCents(provider),
+    });
+    const settings = await getPlatformSettings();
+    const fees = resolveMarketplaceFees({
+      priceCents,
+      settings,
+      role: "provider",
+      orderType: "translation_order",
+      isPro: Boolean(provider?.user?.isPro),
+    });
+    data.priceCents = fees.priceCents;
+    data.platformFeeCents = fees.platformFeeCents;
+    data.providerShareCents = fees.providerShareCents;
+    data.commissionPercent = fees.commissionPercent;
+  }
   const updated = await prisma.translationOrder.update({
     where: { id: order.id },
-    data: {
-      providerId: provider.id,
-      priceCents: quoteTranslationCents({
-        translationType: order.translationType,
-        turnaround: order.turnaround,
-        providerBaseCents: parseProviderBaseCents(provider),
-      }),
-    },
+    data,
     include: orderInclude,
   });
   void notifyTranslationOrderUpdate(updated.id, "assigned");

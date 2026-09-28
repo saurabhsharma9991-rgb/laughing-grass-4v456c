@@ -10,6 +10,24 @@ import {
   normalizeProfileSchema,
   validateProfileData,
 } from "@/lib/validators/category-profile-schema";
+import { notifyAdminsPriceChange } from "@/lib/email/notify";
+
+/** First listed dollar amount. Dual rates like "$150/hr · $200/hr" stay 150, not 150200. */
+export function listedRateAmount(provider) {
+  const profile =
+    provider?.profileData && typeof provider.profileData === "object"
+      ? provider.profileData
+      : {};
+  if (profile.basePriceCents != null && Number(profile.basePriceCents) > 0) {
+    return Number(profile.basePriceCents) / 100;
+  }
+  const hourly = Number(profile.hourlyRateRemote ?? profile.hourlyRate);
+  if (Number.isFinite(hourly) && hourly > 0) return hourly;
+  const match = String(provider?.rate || "").match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  return Number.isFinite(amount) ? amount : null;
+}
 
 function initialsFromName(name) {
   return String(name || "P")
@@ -47,6 +65,10 @@ export function formatProvider(p) {
     location: p.location,
     experienceYears: p.experienceYears,
     rate: p.rate,
+    pendingRate:
+      p.profileData?.pendingRate && typeof p.profileData.pendingRate === "object"
+        ? p.profileData.pendingRate
+        : null,
     availability: p.availability,
     remoteAvailable: p.remoteAvailable,
     inPersonAvailable: p.inPersonAvailable,
@@ -79,6 +101,7 @@ export function formatProvider(p) {
     email: p.user?.email || null,
     preferredLocale: p.user?.preferredLocale || "en",
     userRole: p.user?.role || null,
+    isPro: Boolean(p.user?.isPro),
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
@@ -175,7 +198,7 @@ export async function listProviders({
 
   if (minPrice != null || maxPrice != null) {
     providers = providers.filter((p) => {
-      const price = Number(String(p.rate || "").replace(/[^0-9.]/g, ""));
+      const price = listedRateAmount(p);
       if (!Number.isFinite(price)) return false;
       if (minPrice != null && price < Number(minPrice)) return false;
       if (maxPrice != null && price > Number(maxPrice)) return false;
@@ -437,23 +460,53 @@ export async function updateProviderAsAdmin(providerId, input) {
   return getProviderById(provider.id);
 }
 
-export async function getProviderForUser(userId) {
-  const provider = await prisma.provider.findFirst({
-    where: { userId: Number(userId) },
-    include: providerInclude,
+export async function getProviderForUser(userId, categorySlug) {
+  const include = providerInclude;
+  const userFilter = { userId: Number(userId) };
+  if (categorySlug) {
+    const provider = await prisma.provider.findFirst({
+      where: { ...userFilter, category: { slug: String(categorySlug) } },
+      include,
+    });
+    return provider ? formatProvider(provider) : null;
+  }
+
+  const providers = await prisma.provider.findMany({
+    where: userFilter,
+    include,
     orderBy: { createdAt: "asc" },
   });
-  return provider ? formatProvider(provider) : null;
+  const preferred = providers.find((row) => row.category?.slug !== "attorney") || providers[0];
+  return preferred ? formatProvider(preferred) : null;
 }
 
 export async function updateProviderSelf(userId, input) {
-  const provider = await prisma.provider.findFirst({
-    where: { userId: Number(userId) },
-    include: { category: true, credentials: true },
+  const categorySlug = input?.categorySlug || input?.category_slug;
+  const userFilter = { userId: Number(userId) };
+  let provider = await prisma.provider.findFirst({
+    where: categorySlug
+      ? { ...userFilter, category: { slug: String(categorySlug) } }
+      : { ...userFilter, category: { slug: { not: "attorney" } } },
+    include: {
+      category: true,
+      credentials: true,
+      user: { select: { email: true } },
+    },
   });
+  if (!provider && !categorySlug) {
+    provider = await prisma.provider.findFirst({
+      where: userFilter,
+      include: {
+        category: true,
+        credentials: true,
+        user: { select: { email: true } },
+      },
+    });
+  }
   if (!provider) throw new AuthError("Provider profile not found.", 404, "NOT_FOUND");
 
   const data = {};
+  let pendingRateSubmitted = false;
   if (input.displayName !== undefined) {
     const displayName = String(input.displayName).trim().slice(0, 160);
     if (!displayName) {
@@ -472,7 +525,27 @@ export async function updateProviderSelf(userId, input) {
       ? Math.max(0, Math.min(80, years))
       : null;
   }
-  if (input.rate !== undefined) data.rate = String(input.rate || "").slice(0, 100) || null;
+  if (input.rate !== undefined) {
+    const newRate = String(input.rate || "").slice(0, 100) || null;
+    const liveNorm = String(provider.rate || "").trim();
+    const newNorm = String(newRate || "").trim();
+    if (newNorm !== liveNorm) {
+      const baseProfile =
+        data.profileData ||
+        (provider.profileData && typeof provider.profileData === "object"
+          ? { ...provider.profileData }
+          : {});
+      baseProfile.pendingRate = {
+        rate: newRate,
+        submittedAt: new Date().toISOString(),
+        previousRate: provider.rate,
+      };
+      data.profileData = baseProfile;
+      pendingRateSubmitted = true;
+    } else {
+      data.rate = newRate;
+    }
+  }
   if (input.availability !== undefined) {
     data.availability = String(input.availability || "").slice(0, 160) || null;
   }
@@ -508,11 +581,13 @@ export async function updateProviderSelf(userId, input) {
     const validated = validateProfileData(schema, input.profileData, {
       partial: true,
     });
+    const pendingRateKeep = data.profileData?.pendingRate;
     data.profileData = {
       ...(provider.profileData && typeof provider.profileData === "object"
         ? provider.profileData
         : {}),
       ...validated,
+      ...(pendingRateKeep ? { pendingRate: pendingRateKeep } : {}),
     };
   }
 
@@ -591,7 +666,57 @@ export async function updateProviderSelf(userId, input) {
     }
   });
 
+  if (pendingRateSubmitted) {
+    const pending = data.profileData?.pendingRate;
+    void notifyAdminsPriceChange({
+      providerId: provider.id,
+      displayName: data.displayName || provider.displayName,
+      email: provider.user?.email,
+      oldRate: provider.rate,
+      newRate: pending?.rate,
+    });
+  }
+
   return getProviderForUser(userId);
+}
+
+export async function approveProviderRateChange(providerId) {
+  const provider = await prisma.provider.findUnique({
+    where: { id: Number(providerId) },
+  });
+  if (!provider) throw new AuthError("Provider not found.", 404, "NOT_FOUND");
+  const pending = provider.profileData?.pendingRate;
+  if (!pending?.rate) {
+    throw new AuthError("No pending rate change for this provider.", 400, "NO_PENDING_RATE");
+  }
+  const profileData = { ...(provider.profileData || {}) };
+  delete profileData.pendingRate;
+  await prisma.provider.update({
+    where: { id: provider.id },
+    data: {
+      rate: String(pending.rate).slice(0, 100),
+      profileData,
+    },
+  });
+  return getProviderById(provider.id);
+}
+
+export async function rejectProviderRateChange(providerId) {
+  const provider = await prisma.provider.findUnique({
+    where: { id: Number(providerId) },
+  });
+  if (!provider) throw new AuthError("Provider not found.", 404, "NOT_FOUND");
+  const pending = provider.profileData?.pendingRate;
+  if (!pending) {
+    throw new AuthError("No pending rate change for this provider.", 400, "NO_PENDING_RATE");
+  }
+  const profileData = { ...(provider.profileData || {}) };
+  delete profileData.pendingRate;
+  await prisma.provider.update({
+    where: { id: provider.id },
+    data: { profileData },
+  });
+  return getProviderById(provider.id);
 }
 
 export async function deleteProvider(providerId) {

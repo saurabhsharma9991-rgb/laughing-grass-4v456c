@@ -5,6 +5,7 @@ import { startChatWithAttorney } from "@/lib/client/start-chat";
 import { toastError } from "@/lib/client/alerts";
 import { usePlatform } from "@/components/PlatformContext";
 import { authFetch } from "@/lib/client/auth-storage";
+import { Icon } from "@/components/icons/Icon";
 
 export default function MatcherPage({ user, setPage, setShowAuth }) {
   const { canAccess } = usePlatform();
@@ -105,7 +106,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
   if (!hasMatcher) {
     return (
       <div className="max-w-[680px] mx-auto my-16 px-6 text-center">
-        <div className="text-4xl mb-4">✦</div>
+        <Icon name="spark" className="w-10 h-10 text-green mb-4" />
         <h2 className="font-syne text-2xl font-extrabold mb-3 text-text">
           AI Matcher — ImmFlow Pro
         </h2>
@@ -139,7 +140,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
                       : "bg-[#f1efe8] border-[rgba(0,0,0,0.09)] text-muted"
                   }`}
                 >
-                  {step > i ? "✓" : i + 1}
+                  {step > i ? <Icon name="check" className="w-3.5 h-3.5" /> : i + 1}
                 </div>
                 <span
                   className={`text-[13px] ${
@@ -166,7 +167,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
               Describe it in plain language or use the options below.
             </p>
             <div className="flex gap-2 bg-green-light border border-green-medium rounded-lg p-2 pl-3.5 items-center mb-5">
-              <span className="text-green">✦</span>
+              <Icon name="spark" className="w-4 h-4 text-green" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -225,14 +226,14 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
               onClick={runMatch}
               className="bg-green hover:bg-green-dark text-white py-3 px-6 rounded-lg border-none cursor-pointer text-sm font-medium transition-all duration-200"
             >
-              ✦ Find matches with AI
+              <span className="inline-flex items-center gap-2"><Icon name="spark" className="w-4 h-4" /> Find matches with AI</span>
             </button>
           </div>
         )}
         {step === 1 && (
           <div className="text-center py-8">
-            <div className="w-15 h-15 rounded-full bg-green-light flex items-center justify-center text-2xl mx-auto mb-5 text-green animate-pulse">
-              ✦
+            <div className="w-14 h-14 rounded-full bg-green-light flex items-center justify-center mx-auto mb-5 text-green animate-pulse">
+              <Icon name="spark" className="w-6 h-6" />
             </div>
             <h2 className="font-syne text-[22px] font-extrabold mb-2 text-text">
               AI is finding your matches
@@ -255,7 +256,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
                   }`}
                 >
                   <span className={checks[i] ? "text-green" : "text-muted-high"}>
-                    {checks[i] ? "✓" : "○"}
+                    {checks[i] ? <Icon name="check" className="w-3.5 h-3.5" /> : <Icon name="minus" className="w-3.5 h-3.5" />}
                   </span>
                   {label}
                 </div>
@@ -291,7 +292,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
                 >
                   {m.best && (
                     <span className="text-[11px] px-2.5 py-1 rounded-full bg-green-light text-green-dark font-medium inline-block mb-2">
-                      ✦ Best match
+                      <span className="inline-flex items-center gap-1"><Icon name="spark" className="w-3 h-3" /> Best match</span>
                     </span>
                   )}
                   <div className="flex gap-2.5 mb-2">
@@ -317,7 +318,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
                     />
                   </div>
                   <div className="text-xs text-muted bg-green-light rounded-r-lg rounded-bl-lg border-l-2 border-green p-2.5 mb-2 leading-relaxed">
-                    ✦ {m.reason}
+                    <span className="inline-flex items-start gap-1.5"><Icon name="spark" className="w-3.5 h-3.5 mt-0.5 text-green" /> {m.reason}</span>
                   </div>
                   <div className="flex flex-wrap gap-[5px] mb-2.5">
                     {m.tags.map((t) => (
@@ -325,7 +326,7 @@ export default function MatcherPage({ user, setPage, setShowAuth }) {
                         {t}
                       </Tag>
                     ))}
-                    <Tag>★ {m.reviews}</Tag>
+                    <Tag><span className="inline-flex items-center gap-1"><Icon name="star" className="w-3 h-3" /> {m.reviews}</span></Tag>
                   </div>
                   <div className="flex justify-between items-center gap-3">
                     <span className="text-xs text-muted">

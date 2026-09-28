@@ -25,6 +25,12 @@ export async function PATCH(req) {
       testMode: body.testMode,
       features: body.features,
       freeListingLimit: body.freeListingLimit,
+      commissionPercent: body.commissionPercent,
+      commissionPercentFree: body.commissionPercentFree,
+      commissionPercentPro: body.commissionPercentPro,
+      commissionableRoles: body.commissionableRoles,
+      commissionableOrderTypes: body.commissionableOrderTypes,
+      enabledLocales: body.enabledLocales,
     });
 
     return apiSuccess({ success: true, ...settings });

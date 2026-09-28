@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/client/auth-storage";
 import { confirmDialog, toastError, toastSuccess } from "@/lib/client/alerts";
+import { Icon } from "@/components/icons/Icon";
 import {
   APPLICATION_STATUS,
   LISTING_STATUS,
@@ -98,7 +99,7 @@ function ListingApplications({ listingId, onUpdated }) {
                 <div className="font-semibold text-sm">{app.applicant.name}</div>
               )}
               <div className="text-[11px] text-muted mt-0.5">
-                {app.applicant.location} · {app.applicant.rate} · ★ {app.applicant.stars}
+                {app.applicant.location} · {app.applicant.rate} · {app.applicant.stars}
               </div>
               {app.appliedLabel && (
                 <div className="text-[10px] text-muted-high mt-0.5">Applied {app.appliedLabel}</div>
@@ -297,7 +298,7 @@ export default function ListingManager({ user, setPage }) {
 
       {!listings.length ? (
         <div className="text-center py-12 border border-dashed border-[rgba(0,0,0,0.12)] rounded-xl">
-          <div className="text-4xl mb-3">📋</div>
+          <Icon name="clipboard" className="w-10 h-10 text-green mb-3" />
           <p className="text-sm text-muted mb-4">You haven&apos;t posted any listings yet.</p>
           <button
             type="button"
@@ -398,7 +399,7 @@ export default function ListingManager({ user, setPage }) {
                             )}
                           </div>
                           <p className="text-xs text-muted mt-1">
-                            {l.org} · {l.location} · {l.type} · 💰 {l.pay}
+                            {l.org} · {l.location} · {l.type} · {l.pay}
                           </p>
                           {l.description && (
                             <p className="text-xs text-muted-high mt-2 line-clamp-2">{l.description}</p>

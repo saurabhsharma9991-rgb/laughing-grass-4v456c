@@ -131,6 +131,12 @@ model ServiceBooking {
   location         String?
   /// Hourly or flat quote in cents
   priceCents       Int?      @map("price_cents")
+  /// ImmFlow platform fee at time of booking (from commission %)
+  platformFeeCents Int?      @map("platform_fee_cents")
+  /// Provider share after platform fee
+  providerShareCents Int?    @map("provider_share_cents")
+  /// Commission percent applied when created (e.g. 20)
+  commissionPercent Int?     @map("commission_percent")
   currency         String    @default("usd")
   stripeCheckoutSessionId String? @unique @map("stripe_checkout_session_id")
   stripePaymentIntentId String? @map("stripe_payment_intent_id")
@@ -167,6 +173,12 @@ model TranslationOrder {
   /// pending_payment | pending | accepted | in_progress | quality_review | completed | delivered | cancelled | refunded
   status                  String    @default("pending_payment")
   priceCents              Int?      @map("price_cents")
+  /// ImmFlow platform fee at time of order (from commission %)
+  platformFeeCents        Int?      @map("platform_fee_cents")
+  /// Provider share after platform fee
+  providerShareCents      Int?      @map("provider_share_cents")
+  /// Commission percent applied when created (e.g. 20)
+  commissionPercent       Int?      @map("commission_percent")
   currency                String    @default("usd")
   /// What attestation the provider will include (never blanket "USCIS certified")
   certificationNote       String?   @map("certification_note") @db.Text

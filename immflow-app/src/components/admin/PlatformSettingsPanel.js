@@ -2,7 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { DEFAULT_FEATURE_FLAGS, PROMO_CODE_TEST } from "@/lib/constants/platform-features";
+import {
+  DEFAULT_COMMISSION_PERCENT_FREE,
+  DEFAULT_COMMISSION_PERCENT_PRO,
+  COMMISSIONABLE_ROLES,
+  COMMISSIONABLE_ORDER_TYPES,
+} from "@/lib/constants/commission";
 import { usePlatform } from "@/components/PlatformContext";
+import { PLATFORM_LOCALES } from "@/lib/constants/marketplace";
 
 import { authFetch } from "@/lib/client/auth-storage";
 import { toastError, toastSuccess } from "@/lib/client/alerts";
@@ -12,6 +19,13 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
   const [testMode, setTestMode] = useState(false);
   const [features, setFeatures] = useState(DEFAULT_FEATURE_FLAGS);
   const [freeListingLimit, setFreeListingLimit] = useState(1);
+  const [commissionPercentFree, setCommissionPercentFree] = useState(DEFAULT_COMMISSION_PERCENT_FREE);
+  const [commissionPercentPro, setCommissionPercentPro] = useState(DEFAULT_COMMISSION_PERCENT_PRO);
+  const [commissionableRoles, setCommissionableRoles] = useState(COMMISSIONABLE_ROLES);
+  const [commissionableOrderTypes, setCommissionableOrderTypes] = useState(
+    COMMISSIONABLE_ORDER_TYPES
+  );
+  const [enabledLocales, setEnabledLocales] = useState(PLATFORM_LOCALES.map((locale) => locale.code));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -24,6 +38,19 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
         setTestMode(Boolean(data.testMode));
         setFeatures(data.features || DEFAULT_FEATURE_FLAGS);
         setFreeListingLimit(data.freeListingLimit ?? 1);
+        setCommissionPercentFree(
+          data.commissionPercentFree ?? data.commissionPercent ?? DEFAULT_COMMISSION_PERCENT_FREE
+        );
+        setCommissionPercentPro(data.commissionPercentPro ?? DEFAULT_COMMISSION_PERCENT_PRO);
+        setCommissionableRoles(data.commissionableRoles || COMMISSIONABLE_ROLES);
+        setCommissionableOrderTypes(
+          data.commissionableOrderTypes || COMMISSIONABLE_ORDER_TYPES
+        );
+        setEnabledLocales(
+          Array.isArray(data.enabledLocales) && data.enabledLocales.length
+            ? data.enabledLocales
+            : PLATFORM_LOCALES.map((locale) => locale.code)
+        );
       }
     } finally {
       setLoading(false);
@@ -47,7 +74,16 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
       const res = await authFetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testMode, features, freeListingLimit }),
+        body: JSON.stringify({
+          testMode,
+          features,
+          freeListingLimit,
+          commissionPercentFree,
+          commissionPercentPro,
+          commissionableRoles,
+          commissionableOrderTypes,
+          enabledLocales,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -70,6 +106,40 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <div className="bg-surface border border-[rgba(20,30,48,0.10)] rounded-xl p-5">
+        <h3 className="font-syne text-lg font-bold text-text mb-1">Languages</h3>
+        <p className="text-sm text-muted mb-3 leading-relaxed">
+          Edit the site in English. Check the languages visitors can use. Those languages are
+          translated automatically from the English text. A visitor’s browser language is used when
+          it is one of the languages you turn on.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {PLATFORM_LOCALES.map((locale) => {
+            const checked = enabledLocales.includes(locale.code);
+            const locked = locale.code === "en";
+            return (
+              <label key={locale.code} className="flex items-center gap-2 text-sm text-text">
+                <input
+                  type="checkbox"
+                  checked={locked || checked}
+                  disabled={readOnly || locked}
+                  onChange={(e) => {
+                    if (locked) return;
+                    setEnabledLocales((prev) =>
+                      e.target.checked
+                        ? [...new Set([...prev, locale.code])]
+                        : prev.filter((code) => code !== locale.code)
+                    );
+                  }}
+                />
+                {locale.nativeLabel}
+                {locked ? " (default)" : ""}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="bg-surface border border-[rgba(20,30,48,0.10)] rounded-xl p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -102,6 +172,92 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
             Test mode is ON — simulated payments are active for all users.
           </div>
         )}
+      </div>
+
+      <div className="bg-surface border border-[rgba(20,30,48,0.10)] rounded-xl p-5">
+        <h3 className="font-syne text-lg font-bold text-text mb-1">Marketplace commission</h3>
+        <p className="text-sm text-muted mb-3 leading-relaxed">
+          Client pays the listed price. ImmFlow’s share depends on the provider’s plan. Pro is the
+          subscription plus a lower commission. Free has no subscription and a higher commission.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <label className="block text-xs text-muted">
+            Free plan commission %
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={commissionPercentFree}
+              onChange={(e) =>
+                !readOnly &&
+                setCommissionPercentFree(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+              }
+              disabled={readOnly}
+              className="mt-1 block w-24 p-2 text-sm border rounded-lg bg-bg focus:outline-none focus:border-green"
+            />
+          </label>
+          <label className="block text-xs text-muted">
+            Pro plan commission %
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={commissionPercentPro}
+              onChange={(e) =>
+                !readOnly &&
+                setCommissionPercentPro(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+              }
+              disabled={readOnly}
+              className="mt-1 block w-24 p-2 text-sm border rounded-lg bg-bg focus:outline-none focus:border-green"
+            />
+          </label>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4 text-sm">
+          <fieldset>
+            <legend className="text-xs font-semibold text-muted mb-2">Commissionable roles</legend>
+            {[
+              ["provider", "Service providers"],
+              ["attorney", "Attorneys"],
+            ].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 mb-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={Boolean(commissionableRoles[key])}
+                  onChange={() =>
+                    !readOnly &&
+                    setCommissionableRoles((prev) => ({ ...prev, [key]: !prev[key] }))
+                  }
+                  disabled={readOnly}
+                  className="w-4 h-4 accent-[#35577D]"
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+          <fieldset>
+            <legend className="text-xs font-semibold text-muted mb-2">Order types</legend>
+            {[
+              ["translation_order", "Translation orders"],
+              ["service_booking", "Service bookings"],
+              ["attorney_consultation", "Attorney consultations"],
+              ["listing_fee", "Listing fees"],
+            ].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 mb-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={Boolean(commissionableOrderTypes[key])}
+                  onChange={() =>
+                    !readOnly &&
+                    setCommissionableOrderTypes((prev) => ({ ...prev, [key]: !prev[key] }))
+                  }
+                  disabled={readOnly}
+                  className="w-4 h-4 accent-[#35577D]"
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+        </div>
       </div>
 
       <div className="bg-surface border border-[rgba(20,30,48,0.10)] rounded-xl p-5">

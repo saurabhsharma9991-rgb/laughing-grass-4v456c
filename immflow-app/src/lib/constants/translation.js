@@ -137,6 +137,32 @@ export const PROVIDER_STATUS_FLOW = {
 
 export const ADMIN_STATUS_FLOW = TRANSLATION_ORDER_STATUSES;
 
+/**
+ * Flat document fee in cents. Per-word and hourly display strings are ignored
+ * so "$0.12/word" cannot become the checkout amount.
+ */
+export function providerQuoteBaseCents(provider) {
+  const profile = provider?.profileData || {};
+  if (profile.basePriceCents != null && Number(profile.basePriceCents) > 0) {
+    return Number(profile.basePriceCents);
+  }
+  if (profile.priceCents != null && Number(profile.priceCents) > 0) {
+    return Number(profile.priceCents);
+  }
+
+  const rate = String(provider?.rate || "").trim();
+  if (!rate) return null;
+  if (/\/\s*word|per\s*word|\/\s*hr|\/\s*hour|per\s*hour|hourly/i.test(rate)) {
+    return null;
+  }
+
+  const match = rate.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
+  if (!match) return null;
+  const dollars = Number(match[1]);
+  if (!Number.isFinite(dollars) || dollars < 5) return null;
+  return Math.round(dollars * 100);
+}
+
 /** Base quote in cents before provider overrides. */
 export function quoteTranslationCents({
   translationType = "standard",
