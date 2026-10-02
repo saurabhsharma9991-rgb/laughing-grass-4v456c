@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { authFetch } from "@/lib/client/auth-storage";
 import { toastError, toastSuccess } from "@/lib/client/alerts";
 import { useI18n } from "@/components/I18nProvider";
@@ -36,57 +36,21 @@ export default function BookingRequestForm({
   const [clientNotes, setClientNotes] = useState("");
   const [disclaimerAck, setDisclaimerAck] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [providers, setProviders] = useState([]);
-  const [selectedProviderId, setSelectedProviderId] = useState(
-    providerId ? String(providerId) : ""
-  );
 
   const modalityOptions = useMemo(() => {
     if (isPsych) return ["telehealth", "in_person", "remote"];
     return BOOKING_MODALITIES.filter((m) => m !== "telehealth");
   }, [isPsych]);
 
-  const selectedProvider = useMemo(() => {
-    const fromList = providers.find((item) => String(item.id) === String(selectedProviderId));
-    if (fromList) return fromList;
-    if (provider && String(provider.id) === String(selectedProviderId || providerId)) {
-      return provider;
-    }
-    return null;
-  }, [providers, provider, selectedProviderId, providerId]);
-
   const estimateCents = useMemo(() => {
-    if (!selectedProvider) return null;
-    return quoteBookingCents(selectedProvider, {
+    if (!provider) return null;
+    return quoteBookingCents(provider, {
       bookingType,
       modality,
       durationMinutes,
     });
-  }, [selectedProvider, bookingType, modality, durationMinutes]);
+  }, [provider, bookingType, modality, durationMinutes]);
   const estimateLabel = formatBookingMoney(estimateCents);
-
-  useEffect(() => {
-    if (providerId) return;
-    const params = new URLSearchParams({
-      category: isPsych ? "psychological" : "interpreter",
-    });
-    if (language) params.set("language", language);
-    if (serviceType) params.set("serviceType", serviceType);
-    if (scheduledAt) params.set("availability", scheduledAt);
-    if (modality === "in_person") params.set("inPerson", "1");
-    else params.set("remote", "1");
-    fetch(`/api/providers?${params}`)
-      .then((r) => r.json())
-      .then((data) => setProviders(Array.isArray(data) ? data : []))
-      .catch(() => setProviders([]));
-  }, [
-    providerId,
-    isPsych,
-    language,
-    serviceType,
-    scheduledAt,
-    modality,
-  ]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -98,10 +62,6 @@ export default function BookingRequestForm({
       toastError(t("bookings.acknowledge", "Please acknowledge the platform disclaimer."));
       return;
     }
-    if (!selectedProviderId) {
-      toastError(t("bookings.selectProvider", "Select a verified professional."));
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -110,7 +70,7 @@ export default function BookingRequestForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingType,
-          providerId: Number(selectedProviderId),
+          providerId: providerId ? Number(providerId) : undefined,
           language: language || undefined,
           serviceType,
           modality,
@@ -228,29 +188,6 @@ export default function BookingRequestForm({
           </label>
         )}
       </div>
-
-      {!providerId && (
-        <label className="block text-xs">
-          <span className="text-muted font-medium">
-            {t("bookings.selectProvider", "Verified professional")}
-          </span>
-          <select
-            value={selectedProviderId}
-            onChange={(e) => setSelectedProviderId(e.target.value)}
-            className="mt-1 w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white"
-            required
-          >
-            <option value="">Select an available provider…</option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.displayName}
-                {provider.rate ? ` · ${provider.rate}` : ""}
-                {provider.stars ? ` · ${provider.stars}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
 
       <label className="block text-xs">
         <span className="text-muted font-medium">{t("bookings.notes", "Notes")}</span>

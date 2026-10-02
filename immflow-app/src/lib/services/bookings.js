@@ -129,9 +129,33 @@ export async function assignProviderToBooking({
     );
   }
   const provider = await resolveProvider(providerId, booking.bookingType);
+  const data = { providerId: provider.id };
+  if (!booking.paidAt) {
+    const priceCents = parseRateCents(
+      provider,
+      booking.modality,
+      booking.bookingType,
+      booking.durationMinutes
+    );
+    const settings = await getPlatformSettings();
+    const fees = resolveMarketplaceFees({
+      priceCents,
+      settings,
+      role: "provider",
+      orderType: "service_booking",
+      isPro: Boolean(provider?.user?.isPro),
+    });
+    data.priceCents = fees.priceCents;
+    data.platformFeeCents = fees.platformFeeCents;
+    data.providerShareCents = fees.providerShareCents;
+    data.commissionPercent = fees.commissionPercent;
+    if (fees.priceCents && booking.status === "requested") {
+      data.status = "pending_payment";
+    }
+  }
   const updated = await prisma.serviceBooking.update({
     where: { id: booking.id },
-    data: { providerId: provider.id },
+    data,
     include: bookingInclude,
   });
   void notifyBookingUpdate(updated.id, "assigned");
@@ -163,13 +187,6 @@ export async function createBooking(clientId, data) {
   const provider = data.providerId
     ? await resolveProvider(data.providerId, bookingType)
     : null;
-  if (!provider) {
-    throw new AuthError(
-      "Select a verified provider before requesting a booking.",
-      400,
-      "PROVIDER_REQUIRED"
-    );
-  }
 
   let scheduledAt = null;
   if (data.scheduledAt) {
@@ -184,8 +201,9 @@ export async function createBooking(clientId, data) {
     : bookingType === "interpreter"
       ? 60
       : null;
-  const minimumBooking = Number(provider.profileData?.minimumBooking || 0);
+  const minimumBooking = Number(provider?.profileData?.minimumBooking || 0);
   if (
+    provider &&
     bookingType === "interpreter" &&
     Number.isFinite(minimumBooking) &&
     minimumBooking > durationMinutes
@@ -193,21 +211,21 @@ export async function createBooking(clientId, data) {
     durationMinutes = minimumBooking;
   }
 
-  if (modality === "in_person" && !provider.inPersonAvailable) {
+  if (provider && modality === "in_person" && !provider.inPersonAvailable) {
     throw new AuthError(
       "This provider is not available in person.",
       400,
       "MODALITY_UNAVAILABLE"
     );
   }
-  if (modality !== "in_person" && !provider.remoteAvailable) {
+  if (provider && modality !== "in_person" && !provider.remoteAvailable) {
     throw new AuthError(
       "This provider is not available remotely.",
       400,
       "MODALITY_UNAVAILABLE"
     );
   }
-  if (scheduledAt && Array.isArray(provider.availabilitySlots)) {
+  if (provider && scheduledAt && Array.isArray(provider.availabilitySlots)) {
     const requestedDate = scheduledAt.toISOString().slice(0, 10);
     const hasDate = provider.availabilitySlots.some(
       (slot) => String(slot).slice(0, 10) === requestedDate
@@ -221,7 +239,9 @@ export async function createBooking(clientId, data) {
     }
   }
 
-  const priceCents = parseRateCents(provider, modality, bookingType, durationMinutes);
+  const priceCents = provider
+    ? parseRateCents(provider, modality, bookingType, durationMinutes)
+    : null;
 
   const settings = await getPlatformSettings();
   const fees = resolveMarketplaceFees({
