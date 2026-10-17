@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { authFetch, setStoredUser } from "@/lib/client/auth-storage";
 import { toastError, toastSuccess } from "@/lib/client/alerts";
 import { accountCapabilities } from "@/lib/constants/account-capabilities";
+import VerificationUpload, { DOCUMENT_REQUIRED_SLUGS } from "@/components/VerificationUpload";
 
 export default function AddServicePanel({ user, setUser }) {
   const caps = accountCapabilities(user);
@@ -11,6 +12,8 @@ export default function AddServicePanel({ user, setUser }) {
   const [categoryId, setCategoryId] = useState("");
   const [barNumber, setBarNumber] = useState("");
   const [barState, setBarState] = useState("");
+  const [serviceDoc, setServiceDoc] = useState(null);
+  const [attorneyDoc, setAttorneyDoc] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -26,9 +29,16 @@ export default function AddServicePanel({ user, setUser }) {
   if (caps.isAdmin) return null;
   if (available.length === 0 && caps.isAttorney) return null;
 
+  const selectedCategory = available.find((c) => String(c.id) === String(categoryId));
+  const serviceDocRequired = DOCUMENT_REQUIRED_SLUGS.has(selectedCategory?.slug);
+
   const addService = async () => {
     if (!categoryId) {
       toastError("Choose a service to add.");
+      return;
+    }
+    if (serviceDocRequired && !serviceDoc) {
+      toastError(`Upload a verification document for ${selectedCategory.name}.`);
       return;
     }
     setSaving(true);
@@ -36,7 +46,14 @@ export default function AddServicePanel({ user, setUser }) {
       const res = await authFetch("/api/user/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId: Number(categoryId) }),
+        body: JSON.stringify({
+          services: [
+            {
+              category_id: Number(categoryId),
+              verification_document: serviceDoc || undefined,
+            },
+          ],
+        }),
       });
       const data = await res.json();
       if (data.error) {
@@ -48,6 +65,7 @@ export default function AddServicePanel({ user, setUser }) {
         setStoredUser(data.user);
       }
       setCategoryId("");
+      setServiceDoc(null);
       toastSuccess("Service added. Finish the profile below. It stays pending until an admin verifies it.");
     } catch {
       toastError("Could not add that service.");
@@ -61,13 +79,21 @@ export default function AddServicePanel({ user, setUser }) {
       toastError("Bar number and state bar are required.");
       return;
     }
+    if (!attorneyDoc) {
+      toastError("Upload a verification document for your attorney profile.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await authFetch("/api/user/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          attorney: { bar_number: barNumber.trim(), bar_state: barState.trim() },
+          attorney: {
+            bar_number: barNumber.trim(),
+            bar_state: barState.trim(),
+            verification_document: attorneyDoc,
+          },
         }),
       });
       const data = await res.json();
@@ -115,6 +141,28 @@ export default function AddServicePanel({ user, setUser }) {
           >
             Add service
           </button>
+        </div>
+      )}
+      {selectedCategory && (
+        <div className="mb-4 -mt-2">
+          <VerificationUpload
+            label={`${selectedCategory.name} verification document`}
+            required={serviceDocRequired}
+            value={serviceDoc}
+            onChange={setServiceDoc}
+            onError={toastError}
+          />
+        </div>
+      )}
+      {!caps.isAttorney && (
+        <div className="mb-2">
+          <VerificationUpload
+            label="Attorney verification document"
+            required
+            value={attorneyDoc}
+            onChange={setAttorneyDoc}
+            onError={toastError}
+          />
         </div>
       )}
       {!caps.isAttorney && (

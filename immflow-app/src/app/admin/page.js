@@ -13,6 +13,7 @@ import AdminCategoriesPanel from "@/components/admin/AdminCategoriesPanel";
 import AdminProvidersPanel from "@/components/admin/AdminProvidersPanel";
 import AdminTranslationOrdersPanel from "@/components/admin/AdminTranslationOrdersPanel";
 import AdminBookingsPanel from "@/components/admin/AdminBookingsPanel";
+import AdminMessagesPanel from "@/components/admin/AdminMessagesPanel";
 import AdminClientsPanel from "@/components/admin/AdminClientsPanel";
 import AdminPagesPanel from "@/components/admin/AdminPagesPanel";
 import AdminListingsPanel from "@/components/admin/AdminListingsPanel";
@@ -634,6 +635,7 @@ export default function AdminPage() {
     ["clients", "Clients", "user"],
     ["orders", "Translation orders", "document"],
     ["bookings", "Bookings", "calendar"],
+    ["messages", "Messages", "chat"],
     ["attorneys", "Attorneys", "scale"],
     ["listings", "Listings", "clipboard"],
     ["applications", "Applications", "inbox"],
@@ -891,6 +893,17 @@ export default function AdminPage() {
               Interpreter sessions and psychological evaluation requests.
             </p>
             <AdminBookingsPanel canEdit={can("bookings", "edit")} />
+          </div>
+        )}
+
+        {activeTab === "messages" && (
+          <div>
+            <h1 className="font-syne text-2xl font-extrabold text-text mb-2">Messages</h1>
+            <p className="text-sm text-muted mb-6">
+              Read every conversation on ImmFlow, including attorney–client threads. Messages
+              that share a phone number are flagged.
+            </p>
+            <AdminMessagesPanel />
           </div>
         )}
 

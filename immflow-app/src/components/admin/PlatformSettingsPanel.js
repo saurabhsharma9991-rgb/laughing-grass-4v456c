@@ -18,7 +18,7 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
   const { refreshPlatform } = usePlatform();
   const [testMode, setTestMode] = useState(false);
   const [features, setFeatures] = useState(DEFAULT_FEATURE_FLAGS);
-  const [freeListingLimit, setFreeListingLimit] = useState(1);
+  const [freeListingLimit, setFreeListingLimit] = useState(0);
   const [commissionPercentFree, setCommissionPercentFree] = useState(DEFAULT_COMMISSION_PERCENT_FREE);
   const [commissionPercentPro, setCommissionPercentPro] = useState(DEFAULT_COMMISSION_PERCENT_PRO);
   const [commissionableRoles, setCommissionableRoles] = useState(COMMISSIONABLE_ROLES);
@@ -37,7 +37,7 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
       if (!data.error) {
         setTestMode(Boolean(data.testMode));
         setFeatures(data.features || DEFAULT_FEATURE_FLAGS);
-        setFreeListingLimit(data.freeListingLimit ?? 1);
+        setFreeListingLimit(data.freeListingLimit ?? 0);
         setCommissionPercentFree(
           data.commissionPercentFree ?? data.commissionPercent ?? DEFAULT_COMMISSION_PERCENT_FREE
         );
@@ -267,10 +267,12 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
         </p>
         <input
           type="number"
-          min={1}
+          min={0}
           max={99}
           value={freeListingLimit}
-          onChange={(e) => !readOnly && setFreeListingLimit(Number(e.target.value) || 1)}
+          onChange={(e) =>
+            !readOnly && setFreeListingLimit(Math.max(0, Math.floor(Number(e.target.value) || 0)))
+          }
           disabled={readOnly}
           className="w-24 p-2 text-sm border rounded-lg bg-bg focus:outline-none focus:border-green"
         />

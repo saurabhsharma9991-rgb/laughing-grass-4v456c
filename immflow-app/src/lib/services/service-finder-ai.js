@@ -79,9 +79,11 @@ function normalizeIntent(raw, query, categories) {
   };
 }
 
-function shouldSkipIntentLlm(rules) {
+function shouldSkipIntentLlm(rules, query) {
   const f = rules.filters || {};
   if ((rules.confidence || 0) < 0.8 || !rules.categorySlug) return false;
+  // Rules only extract category and languages; longer queries usually carry location, budget, or timing.
+  if (String(query || "").split(/\s+/).filter(Boolean).length > 8) return false;
   if (rules.categorySlug === "translation") {
     return Boolean(f.sourceLanguage && f.targetLanguage);
   }
@@ -161,7 +163,7 @@ export async function resolveServiceIntent(query) {
     return { ...rules, source: "rules" };
   }
 
-  if (shouldSkipIntentLlm(rules)) {
+  if (shouldSkipIntentLlm(rules, trimmed)) {
     return { ...rules, source: "rules" };
   }
 

@@ -11,6 +11,14 @@ import {
   normalizeCommissionPercent,
 } from "@/lib/constants/commission.js";
 import { PLATFORM_LOCALES } from "@/lib/constants/marketplace.js";
+import { userCanAccess } from "@/lib/utils/feature-access.js";
+
+export function normalizeListingLimit(value) {
+  if (value === null || value === undefined || value === "") return DEFAULT_FREE_LISTING_LIMIT;
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return DEFAULT_FREE_LISTING_LIMIT;
+  return Math.min(99, Math.max(0, n));
+}
 
 const KEYS = {
   testMode: "platform.test_mode",
@@ -92,7 +100,7 @@ export async function getPlatformSettings() {
   return {
     testMode: map[KEYS.testMode] === "true",
     features: parseFeatures(map[KEYS.features]),
-    freeListingLimit: Number(map[KEYS.freeListingLimit]) || DEFAULT_FREE_LISTING_LIMIT,
+    freeListingLimit: normalizeListingLimit(map[KEYS.freeListingLimit]),
     commissionPercentFree: normalizeCommissionPercent(
       map[KEYS.commissionPercentFree] ?? map[KEYS.commissionPercent],
       DEFAULT_COMMISSION_PERCENT_FREE
@@ -168,12 +176,12 @@ export async function updatePlatformSettings({
         where: { key: KEYS.freeListingLimit },
         create: {
           key: KEYS.freeListingLimit,
-          value: String(freeListingLimit),
+          value: String(normalizeListingLimit(freeListingLimit)),
           type: "number",
           section: "platform",
           label: "Free tier listing limit",
         },
-        update: { value: String(freeListingLimit) },
+        update: { value: String(normalizeListingLimit(freeListingLimit)) },
       })
     );
   }

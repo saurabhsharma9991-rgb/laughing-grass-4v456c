@@ -87,6 +87,23 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
     }
   };
 
+  const openDocument = async (credentialId) => {
+    try {
+      const res = await authFetch(`/api/admin/credentials/${credentialId}/document`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toastError(data.error?.message || "Could not open document.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      toastError("Could not open document.");
+    }
+  };
+
   const remove = async (id) => {
     const ok = await confirmDialog({
       title: "Delete provider",
@@ -187,6 +204,15 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
                         )}
                         {c.expiringSoon && (
                           <span className="ml-1 text-amber font-semibold">expiring soon</span>
+                        )}
+                        {c.hasDocument && (
+                          <button
+                            type="button"
+                            onClick={() => openDocument(c.id)}
+                            className="ml-1 text-green font-semibold underline bg-transparent border-none cursor-pointer p-0"
+                          >
+                            View document
+                          </button>
                         )}
                         <div className="flex flex-wrap items-center gap-1 mt-1">
                           {canEdit && (
@@ -354,6 +380,15 @@ export default function AdminProvidersPanel({ canEdit, canDelete }) {
                           )}
                             {c.expiringSoon && (
                             <span className="ml-1 text-amber font-semibold">expiring soon</span>
+                          )}
+                          {c.hasDocument && (
+                            <button
+                              type="button"
+                              onClick={() => openDocument(c.id)}
+                              className="ml-1 text-green font-semibold underline bg-transparent border-none cursor-pointer p-0"
+                            >
+                              View document
+                            </button>
                           )}
                           <div className="flex flex-wrap items-center gap-1 mt-1">
                             {canEdit && (

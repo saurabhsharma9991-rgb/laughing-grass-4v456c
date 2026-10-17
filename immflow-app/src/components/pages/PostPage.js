@@ -7,9 +7,10 @@ import { usePlatform } from "@/components/PlatformContext";
 import { Icon } from "@/components/icons/Icon";
 
 export default function PostPage({ user, setShowAuth, setPage }) {
-  const { canAccess } = usePlatform();
+  const { canAccess, freeListingLimit } = usePlatform();
   const isPro = Boolean(user?.isPro);
   const canPostProTypes = canAccess("unlimited_listings", isPro) || isPro;
+  const freeTierBlocked = Boolean(user) && !canPostProTypes && freeListingLimit === 0;
 
   const availableTypes = LISTING_TYPES.filter((t) => !t.proOnly || canPostProTypes);
   const [type, setType] = useState(availableTypes[0]?.value || "Full-time");
@@ -165,13 +166,16 @@ export default function PostPage({ user, setShowAuth, setPage }) {
             </button>
           </div>
         )}
-        {isUpgradeRequired && (
+        {(isUpgradeRequired || freeTierBlocked) && (
           <div className="bg-amber-light border border-amber rounded-xl p-5 mb-6 shadow-sm flex flex-col gap-3">
             <div className="text-sm font-bold text-[#633806] flex items-center gap-2">
               <span className="inline-flex items-center gap-2"><Icon name="lock" className="w-4 h-4" /> ImmFlow Pro Upgrade Required</span>
             </div>
             <p className="text-xs text-[#633806]/85 leading-relaxed">
               {upgradeMessage ||
+                (freeTierBlocked
+                  ? "Posting job board listings requires ImmFlow Pro. Upgrade to post listings, use the AI Matcher, and access specialty job board types."
+                  : null) ||
                 "You have reached the Free listing limit, or this listing type requires ImmFlow Pro. Upgrade for unlimited listings, AI Matcher, and specialty job board types."}
             </p>
             <div className="flex gap-2.5">

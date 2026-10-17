@@ -92,6 +92,7 @@ export function formatProvider(p) {
           expiresAt: c.expiresAt,
           status: c.status,
           notes: c.notes,
+          hasDocument: Boolean(c.documentUrl),
           expiringSoon:
             c.expiresAt &&
             c.expiresAt > new Date() &&

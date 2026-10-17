@@ -5,13 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
-import { useI18n } from "@/components/I18nProvider";
+import ContactForm from "@/components/ContactForm";
 import { useRestoredSession } from "@/lib/client/use-session";
 
 export default function CmsPublicPage() {
   const params = useParams();
   const slug = params?.slug;
-  const { locale } = useI18n();
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -22,7 +21,7 @@ export default function CmsPublicPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    fetch(`/api/pages/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`)
+    fetch(`/api/pages/${encodeURIComponent(slug)}?locale=en`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -42,7 +41,7 @@ export default function CmsPublicPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, locale]);
+  }, [slug]);
 
   const navigate = (next) => {
     const map = {
@@ -94,6 +93,7 @@ export default function CmsPublicPage() {
               className="mt-8 text-sm text-text leading-relaxed [&_a]:text-green [&_a]:underline [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
               dangerouslySetInnerHTML={{ __html: page.bodyHtml || "" }}
             />
+            {slug === "contact" && <ContactForm />}
           </article>
         )}
       </main>
