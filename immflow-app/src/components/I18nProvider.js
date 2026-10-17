@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { DEFAULT_LOCALE, PLATFORM_LOCALES, isValidLocale } from "@/lib/constants/marketplace";
 import { persistLocale, readStoredLocale, translate } from "@/lib/i18n";
 import { usePlatform } from "@/components/PlatformContext";
+import AutoTranslate from "@/components/AutoTranslate";
 
 const I18nContext = createContext({
   locale: DEFAULT_LOCALE,
@@ -64,7 +65,12 @@ export function I18nProvider({ children }) {
     [locale, setLocale, t, locales, ready]
   );
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={value}>
+      {ready && <AutoTranslate locale={locale} />}
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useI18n() {

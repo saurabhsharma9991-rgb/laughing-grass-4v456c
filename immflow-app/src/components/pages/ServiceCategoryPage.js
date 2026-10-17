@@ -13,6 +13,16 @@ import {
   PSYCH_SERVICE_TYPES,
 } from "@/lib/constants/bookings";
 
+function knownOption(value, options) {
+  if (!value) return "";
+  const needle = String(value).toLowerCase();
+  return (
+    options.find((o) => o.toLowerCase() === needle) ||
+    options.find((o) => o.toLowerCase().includes(needle) || needle.includes(o.toLowerCase())) ||
+    ""
+  );
+}
+
 export default function ServiceCategoryPage({
   categorySlug,
   initialQuery = "",
@@ -25,7 +35,8 @@ export default function ServiceCategoryPage({
   const [category, setCategory] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState(initialQuery || initialFilters.q || "");
+  const [q, setQ] = useState(initialQuery ? "" : initialFilters.q || "");
+  const [aiSummary, setAiSummary] = useState("");
   const [language, setLanguage] = useState(initialFilters.language || "");
   const [location, setLocation] = useState("");
   const [source, setSource] = useState(initialFilters.sourceLanguage || "");
@@ -106,30 +117,35 @@ export default function ServiceCategoryPage({
           inPerson: Boolean(f.inPerson),
           certified: Boolean(f.certified),
           rush: Boolean(f.rush),
-          documentType: f.documentType || "",
-          turnaround: f.turnaround || "",
-          serviceType: f.serviceType || "",
-          professionalType: f.professionalType || "",
-          licenseState: f.licenseState || "",
-          availability: f.availability || "",
+          documentType: knownOption(f.documentType, DOCUMENT_TYPES),
+          serviceType: knownOption(f.serviceType, [
+            ...INTERPRETER_SERVICE_TYPES,
+            ...PSYCH_SERVICE_TYPES,
+          ]),
           maxPrice: f.maxPrice || "",
           minRating: f.minRating || "",
         };
+        // The full sentence is not a keyword search; the AI's structured filters replace it.
         const next = {
-          q: initialQuery,
+          q: "",
           language: f.language || "",
-          location: f.location || "",
+          location: "",
           source: f.sourceLanguage || "",
           target: f.targetLanguage || "",
           filters: nextFilters,
         };
-        setQ(next.q);
+        setQ("");
+        setAiSummary(data.summary || "");
         setLanguage(next.language);
-        setLocation(next.location);
         setSource(next.source);
         setTarget(next.target);
         setFilters(nextFilters);
-        load(next);
+        if (data.categorySlug === categorySlug && data.matches?.length) {
+          setProviders(data.matches);
+          setLoading(false);
+        } else {
+          load(next);
+        }
       } catch {
         if (!cancelled) load();
       }
@@ -160,6 +176,12 @@ export default function ServiceCategoryPage({
             <span>Remote / video / phone: <strong>$150/hr</strong></span>
             <span className="text-green-dark/40">·</span>
             <span>In-person: <strong>$200/hr</strong></span>
+          </div>
+        )}
+        {aiSummary && initialQuery && (
+          <div className="mt-4 bg-white border border-[rgba(0,0,0,0.09)] rounded-xl px-4 py-3 text-xs text-muted">
+            <span className="font-semibold text-green">AI search:</span> “{initialQuery}”
+            <span className="block mt-0.5 text-text">{aiSummary}</span>
           </div>
         )}
       </div>

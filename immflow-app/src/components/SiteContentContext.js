@@ -1,12 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useI18n } from "@/components/I18nProvider";
 
 const SiteContentContext = createContext(null);
 
 export function SiteContentProvider({ children }) {
-  const { locale } = useI18n();
   const [content, setContent] = useState({});
   const [menu, setMenu] = useState({ footer: [], nav: [] });
   const [loading, setLoading] = useState(true);
@@ -14,8 +12,8 @@ export function SiteContentProvider({ children }) {
   const refreshContent = async () => {
     try {
       const [contentRes, menuRes] = await Promise.all([
-        fetch(`/api/content?locale=${encodeURIComponent(locale)}`),
-        fetch(`/api/pages?menu=1&locale=${encodeURIComponent(locale)}`),
+        fetch("/api/content?locale=en"),
+        fetch("/api/pages?menu=1&locale=en"),
       ]);
       const contentData = await contentRes.json();
       const menuData = await menuRes.json();
@@ -35,9 +33,10 @@ export function SiteContentProvider({ children }) {
     }
   };
 
+  // Content is always loaded in English; AutoTranslate renders it in the visitor's language.
   useEffect(() => {
     refreshContent();
-  }, [locale]);
+  }, []);
 
   const get = (key, fallback = "") => {
     return content[key] !== undefined ? content[key] : fallback;

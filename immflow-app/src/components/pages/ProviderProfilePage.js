@@ -25,7 +25,7 @@ export default function ProviderProfilePage({
   const [loading, setLoading] = useState(true);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [canMessageTranslator, setCanMessageTranslator] = useState(false);
+  const [canMessageProvider, setCanMessageProvider] = useState(false);
 
   const load = () => {
     fetch(`/api/providers/${providerId}`)
@@ -41,36 +41,30 @@ export default function ProviderProfilePage({
   }, [providerId]);
 
   useEffect(() => {
-    if (!user || !profile || profile.categorySlug !== "translation") {
-      setCanMessageTranslator(false);
+    if (!user || !profile?.userId) {
+      setCanMessageProvider(false);
       return;
     }
-    authFetch("/api/translation-orders")
+    authFetch(`/api/messages/eligibility?userId=${profile.userId}`)
       .then((r) => r.json())
-      .then((orders) => {
-        if (!Array.isArray(orders)) return;
-        setCanMessageTranslator(
-          orders.some(
-            (o) =>
-              Number(o.providerId) === Number(profile.id) &&
-              o.paidAt &&
-              !["cancelled", "refunded"].includes(o.status)
-          )
-        );
-      })
-      .catch(() => setCanMessageTranslator(false));
+      .then((data) => setCanMessageProvider(Boolean(data?.allowed)))
+      .catch(() => setCanMessageProvider(false));
   }, [user, profile]);
+
+  const orderFormId =
+    profile?.categorySlug === "translation" ? "translation-order-form" : "booking-request-form";
 
   const handleContact = () => {
     if (!profile?.userId) return;
 
-    if (profile.categorySlug === "translation" && !canMessageTranslator) {
-      const el = document.getElementById("translation-order-form");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+    if (user && !canMessageProvider) {
+      document
+        .getElementById(orderFormId)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       toastError(
-        "Create a translation order and complete payment to message this translator."
+        profile.categorySlug === "translation"
+          ? "Create a translation order and complete payment to message this translator."
+          : "Book this professional and complete payment to send them a message."
       );
       return;
     }
@@ -185,9 +179,11 @@ export default function ProviderProfilePage({
             onClick={handleContact}
             className="bg-green text-white text-sm font-semibold py-2.5 px-5 rounded-lg border-none cursor-pointer hover:bg-green-dark"
           >
-            {profile.categorySlug === "translation" && !canMessageTranslator
-              ? t("translation.requestCta", "Request translation")
-              : t("marketplace.contact", "Contact")}
+            {canMessageProvider || !user
+              ? t("marketplace.contact", "Contact")
+              : profile.categorySlug === "translation"
+                ? t("translation.requestCta", "Request translation")
+                : t("bookings.bookCta", "Book to message")}
           </button>
         </div>
 
@@ -369,7 +365,7 @@ export default function ProviderProfilePage({
 
       {(profile.categorySlug === "interpreter" ||
         profile.categorySlug === "psychological") && (
-        <div className="mt-10">
+        <div id="booking-request-form" className="mt-10 scroll-mt-6">
           <BookingRequestForm
             bookingType={
               profile.categorySlug === "psychological" ? "psychological" : "interpreter"

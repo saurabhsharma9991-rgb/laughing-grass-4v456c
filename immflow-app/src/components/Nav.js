@@ -26,9 +26,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth, sessio
         ]
       : caps.isAttorney || caps.isServiceProvider
         ? [
-            ...(caps.isServiceProvider
-              ? [[t("nav.services", "Services"), "services", pathForPage("services")]]
-              : []),
+            [t("nav.services", "Services"), "services", pathForPage("services")],
             ...(caps.isAttorney
               ? [
                   [t("nav.jobBoard", "Job board"), "jobs", pathForPage("jobs")],
@@ -55,6 +53,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth, sessio
       value={locale}
       onChange={(e) => setLocale(e.target.value)}
       aria-label={t("nav.language", "Language")}
+      translate="no"
       className="text-xs py-1.5 px-2 rounded-lg border border-[rgba(0,0,0,0.12)] bg-white text-text cursor-pointer max-w-[120px]"
     >
       {locales.map((l) => (
@@ -90,6 +89,7 @@ export default function Nav({ page, navigate, setPage, user, setShowAuth, sessio
         <Link
           href={pathForPage("home")}
           onClick={() => go("home")}
+          translate="no"
           className="font-syne text-[22px] font-extrabold cursor-pointer text-text no-underline"
         >
           {logoText === "ImmFlow" ? (

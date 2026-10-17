@@ -827,8 +827,9 @@ export default function Dashboard({ user, setUser, onLogout, setPage }) {
                         <>
                           {caps.isAttorney && (
                             <li>
-                              Maximum of {freeListingLimit} active job board listing
-                              {freeListingLimit !== 1 ? "s" : ""}
+                              {freeListingLimit === 0
+                                ? "Job board listings require Pro"
+                                : `Maximum of ${freeListingLimit} active job board listing${freeListingLimit !== 1 ? "s" : ""}`}
                             </li>
                           )}
                           <li>You can still accept paid orders on Free</li>

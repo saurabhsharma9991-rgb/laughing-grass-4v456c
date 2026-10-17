@@ -136,7 +136,9 @@ export async function createListing(userId, input) {
     });
     if (listingCount >= settings.freeListingLimit) {
       throw new AuthError(
-        `You have reached the limit for the Free tier (${settings.freeListingLimit} active listing). Please upgrade to Pro for unlimited listings.`,
+        settings.freeListingLimit === 0
+          ? "Posting job board listings requires ImmFlow Pro. Upgrade to post listings."
+          : `You have reached the limit for the Free tier (${settings.freeListingLimit} active listing${settings.freeListingLimit === 1 ? "" : "s"}). Please upgrade to Pro for unlimited listings.`,
         403,
         "PRO_UPGRADE_REQUIRED"
       );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useI18n } from "@/components/I18nProvider";
 import DynamicProfileFields from "@/components/DynamicProfileFields";
 import { Icon } from "@/components/icons/Icon";
+import VerificationUpload, { DOCUMENT_REQUIRED_SLUGS } from "@/components/VerificationUpload";
 
 export default function AuthModal({
   onClose,
@@ -25,6 +26,9 @@ export default function AuthModal({
   const [offerAttorney, setOfferAttorney] = useState(initialAccountType === "attorney");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [verificationFiles, setVerificationFiles] = useState({});
+  const setVerificationFile = (key, file) =>
+    setVerificationFiles((prev) => ({ ...prev, [key]: file }));
 
   useEffect(() => {
     setMode(initialMode);
@@ -107,6 +111,21 @@ export default function AuthModal({
             return;
           }
         }
+        if (accountType === "professional") {
+          if (offerAttorney && !verificationFiles.attorney) {
+            setError("Upload a verification document for your attorney profile.");
+            setLoading(false);
+            return;
+          }
+          const missing = selectedCategories.find(
+            (c) => DOCUMENT_REQUIRED_SLUGS.has(c.slug) && !verificationFiles[c.id]
+          );
+          if (missing) {
+            setError(`Upload a verification document for ${missing.name}.`);
+            setLoading(false);
+            return;
+          }
+        }
         if ((accountType === "provider" || accountType === "professional") && isTranslationSignup) {
           if (!sourceLang || !targetLang) {
             setError("Add at least one language pair (source and target).");
@@ -133,10 +152,15 @@ export default function AuthModal({
             ...(accountType === "professional"
               ? {
                   attorney: offerAttorney
-                    ? { bar_number: barNumber, bar_state: state }
+                    ? {
+                        bar_number: barNumber,
+                        bar_state: state,
+                        verification_document: verificationFiles.attorney || undefined,
+                      }
                     : undefined,
                   services: selectedCategories.map((category) => ({
                     category_id: category.id,
+                    verification_document: verificationFiles[category.id] || undefined,
                     ...(category.slug === "translation"
                       ? {
                           translator_type: translatorType,
@@ -421,6 +445,30 @@ export default function AuthModal({
                     className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
                   />
                 </div>
+                <div className="col-span-2">
+                  <VerificationUpload
+                    label="Attorney verification document"
+                    required
+                    value={verificationFiles.attorney}
+                    onChange={(file) => setVerificationFile("attorney", file)}
+                    onError={setError}
+                  />
+                </div>
+              </div>
+            )}
+            {accountType === "professional" && selectedCategories.length > 0 && (
+              <div className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+                <div className="text-xs font-semibold text-text">Verification documents</div>
+                {selectedCategories.map((category) => (
+                  <VerificationUpload
+                    key={category.id}
+                    label={category.name}
+                    required={DOCUMENT_REQUIRED_SLUGS.has(category.slug)}
+                    value={verificationFiles[category.id]}
+                    onChange={(file) => setVerificationFile(category.id, file)}
+                    onError={setError}
+                  />
+                ))}
               </div>
             )}
             {isTranslationSignup && (

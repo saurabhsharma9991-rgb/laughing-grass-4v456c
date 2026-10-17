@@ -6,6 +6,11 @@ import { generateToken } from "@/lib/auth-tokens";
 import { validateProfileData } from "@/lib/validators/category-profile-schema";
 import { enforceSubscriptionExpiry } from "@/lib/services/subscription";
 import { notifyAdminsNewUser } from "@/lib/email/notify";
+import {
+  assertVerificationDocument,
+  parseVerificationDocument,
+  storeVerificationDocument,
+} from "@/lib/services/verification-documents";
 
 export function formatUserResponse(user, attorney, provider) {
   const providerList = Array.isArray(provider)
@@ -85,7 +90,10 @@ function initialsFromName(fullName) {
     .slice(0, 2);
 }
 
-async function attachAttorneyProfile(tx, { userId, fullName, initials, barNumber, barState }) {
+async function attachAttorneyProfile(
+  tx,
+  { userId, fullName, initials, barNumber, barState, verificationDoc = null }
+) {
   await tx.attorney.create({
     data: {
       userId,
@@ -122,9 +130,17 @@ async function attachAttorneyProfile(tx, { userId, fullName, initials, barNumber
       },
     });
   }
+  await storeVerificationDocument(tx, {
+    providerId: provider.id,
+    label: "Bar verification document",
+    doc: verificationDoc,
+  });
 }
 
-async function attachServiceProfile(tx, { userId, fullName, initials, category, data, partial = false }) {
+async function attachServiceProfile(
+  tx,
+  { userId, fullName, initials, category, data, partial = false, verificationDoc = null }
+) {
   const profileData = validateProfileData(
     category.profileSchema || { fields: [] },
     data?.profile_data,
@@ -172,6 +188,25 @@ async function attachServiceProfile(tx, { userId, fullName, initials, category, 
       data: { providerId: provider.id, sourceLanguage: source, targetLanguage: target },
     });
   }
+
+  await storeVerificationDocument(tx, {
+    providerId: provider.id,
+    label: `${category.name} verification document`,
+    doc: verificationDoc,
+  });
+}
+
+/** Validate every attached verification document before any rows are written. */
+function collectVerificationDocs({ attorney, services, categories }) {
+  const attorneyDoc = attorney ? parseVerificationDocument(attorney.verification_document) : null;
+  if (attorney) assertVerificationDocument("attorney", attorneyDoc, "your attorney profile");
+  const serviceDocs = services.map((service, index) => {
+    const category = categories[index];
+    const doc = parseVerificationDocument(service?.verification_document);
+    if (category) assertVerificationDocument(category.slug, doc, category.name);
+    return doc;
+  });
+  return { attorneyDoc, serviceDocs };
 }
 
 async function resolveServiceCategory(tx, service) {
@@ -211,16 +246,32 @@ export async function addAccountProfiles(userId, { attorney, services } = {}) {
   const fullName = user.attorney?.name || user.displayName || user.email.split("@")[0];
   const initials = initialsFromName(fullName);
 
+  const serviceCategories = await Promise.all(
+    serviceList.map((service) => resolveServiceCategory(prisma, service))
+  );
+  const { attorneyDoc, serviceDocs } = collectVerificationDocs({
+    attorney: wantsAttorney ? attorney : null,
+    services: serviceList,
+    categories: serviceCategories,
+  });
+
   await prisma.$transaction(async (tx) => {
     let nextRole = user.role === "public" ? "provider" : user.role;
 
     if (wantsAttorney) {
       nextRole = "attorney";
-      await attachAttorneyProfile(tx, { userId: user.id, fullName, initials, barNumber, barState });
+      await attachAttorneyProfile(tx, {
+        userId: user.id,
+        fullName,
+        initials,
+        barNumber,
+        barState,
+        verificationDoc: attorneyDoc,
+      });
     }
 
-    for (const service of serviceList) {
-      const category = await resolveServiceCategory(tx, service);
+    for (const [index, service] of serviceList.entries()) {
+      const category = serviceCategories[index];
       if (!category || !category.isActive || category.slug === "attorney") {
         throw new AuthError("Select a valid service category.", 400, "INVALID_CATEGORY");
       }
@@ -237,6 +288,7 @@ export async function addAccountProfiles(userId, { attorney, services } = {}) {
         category,
         data: service,
         partial: true,
+        verificationDoc: serviceDocs[index],
       });
     }
 
@@ -349,6 +401,8 @@ export async function registerUser({ email, password, data, accountType = "attor
         "INVALID_CATEGORY"
       );
     }
+    const providerDoc = parseVerificationDocument(data?.verification_document);
+    assertVerificationDocument(category.slug, providerDoc, category.name);
 
     const user = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -449,6 +503,12 @@ export async function registerUser({ email, password, data, accountType = "attor
         });
       }
 
+      await storeVerificationDocument(tx, {
+        providerId: provider.id,
+        label: `${category.name} verification document`,
+        doc: providerDoc,
+      });
+
       return newUser;
     });
 
@@ -462,6 +522,15 @@ export async function registerUser({ email, password, data, accountType = "attor
     const barNumber = attorney?.bar_number?.trim() || "";
     const barState = attorney?.bar_state?.trim() || "";
     const role = attorney ? "attorney" : "provider";
+
+    const serviceCategories = await Promise.all(
+      services.map((service) => resolveServiceCategory(prisma, service))
+    );
+    const { attorneyDoc, serviceDocs } = collectVerificationDocs({
+      attorney,
+      services,
+      categories: serviceCategories,
+    });
 
     const user = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -484,11 +553,12 @@ export async function registerUser({ email, password, data, accountType = "attor
           initials,
           barNumber,
           barState,
+          verificationDoc: attorneyDoc,
         });
       }
 
-      for (const service of services) {
-        const category = await resolveServiceCategory(tx, service);
+      for (const [index, service] of services.entries()) {
+        const category = serviceCategories[index];
         if (!category || !category.isActive || category.slug === "attorney") {
           throw new AuthError(
             "Select a valid service category.",
@@ -502,6 +572,7 @@ export async function registerUser({ email, password, data, accountType = "attor
           initials,
           category,
           data: service,
+          verificationDoc: serviceDocs[index],
         });
       }
 
@@ -515,6 +586,8 @@ export async function registerUser({ email, password, data, accountType = "attor
   const attorneyCategory = await prisma.serviceCategory.findUnique({
     where: { slug: "attorney" },
   });
+  const attorneyDoc = parseVerificationDocument(data?.verification_document);
+  assertVerificationDocument("attorney", attorneyDoc, "your attorney profile");
 
   const user = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
@@ -567,6 +640,11 @@ export async function registerUser({ email, password, data, accountType = "attor
           },
         });
       }
+      await storeVerificationDocument(tx, {
+        providerId: provider.id,
+        label: "Bar verification document",
+        doc: attorneyDoc,
+      });
     }
 
     return newUser;

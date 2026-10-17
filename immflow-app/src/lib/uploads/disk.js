@@ -8,6 +8,7 @@ export const UPLOAD_ROOT = path.resolve(
 );
 
 export const TRANSLATION_UPLOAD_DIR = "translation-orders";
+export const VERIFICATION_UPLOAD_DIR = "verification";
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
@@ -123,6 +124,20 @@ export async function saveTranslationOrderFile({ orderId, originalName, mimeType
     relativePath: relativePath.replace(/\\/g, "/"),
     sizeBytes: buffer.length,
     mimeType: validatedMime,
+    originalName: originalName.slice(0, 180),
+  };
+}
+
+/** Persist a provider verification document under uploads/verification/{providerId}/ */
+export async function saveVerificationFile({ providerId, originalName, mimeType, buffer }) {
+  const storedName = `${Date.now()}-${randomBytes(8).toString("hex")}${safeExt(originalName)}`;
+  const relativePath = path.join(VERIFICATION_UPLOAD_DIR, String(providerId), storedName);
+  const absolutePath = path.join(UPLOAD_ROOT, relativePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, buffer);
+  return {
+    relativePath: relativePath.replace(/\\/g, "/"),
+    mimeType,
     originalName: originalName.slice(0, 180),
   };
 }

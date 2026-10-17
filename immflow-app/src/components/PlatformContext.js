@@ -35,7 +35,7 @@ function formatBillingPeriod(price) {
 export function PlatformProvider({ children }) {
   const [testMode, setTestMode] = useState(false);
   const [features, setFeatures] = useState({});
-  const [freeListingLimit, setFreeListingLimit] = useState(1);
+  const [freeListingLimit, setFreeListingLimit] = useState(0);
   const [commissionPercentFree, setCommissionPercentFree] = useState(25);
   const [commissionPercentPro, setCommissionPercentPro] = useState(15);
   const [enabledLocales, setEnabledLocales] = useState(PLATFORM_LOCALES.map((locale) => locale.code));
@@ -49,7 +49,7 @@ export function PlatformProvider({ children }) {
       if (!data.error) {
         setTestMode(Boolean(data.testMode));
         setFeatures(data.features || {});
-        setFreeListingLimit(data.freeListingLimit ?? 1);
+        setFreeListingLimit(data.freeListingLimit ?? 0);
         setCommissionPercentFree(
           Number.isFinite(Number(data.commissionPercentFree ?? data.commissionPercent))
             ? Number(data.commissionPercentFree ?? data.commissionPercent)

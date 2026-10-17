@@ -50,6 +50,11 @@ export const ADMIN_RESOURCES = {
     description: "Interpreter and psychological evaluation bookings",
     actions: ["view", "edit"],
   },
+  messages: {
+    label: "Messages",
+    description: "Read all conversations, including attorney–client, and review flagged messages",
+    actions: ["view"],
+  },
   applications: {
     label: "Applications",
     description: "Review and moderate job board applications",
@@ -135,6 +140,7 @@ export const TAB_PERMISSIONS = {
   clients: ["clients", "view"],
   orders: ["orders", "view"],
   bookings: ["bookings", "view"],
+  messages: ["messages", "view"],
   applications: ["applications", "view"],
   reviews: ["reviews", "view"],
   broadcast: ["broadcast", "view"],

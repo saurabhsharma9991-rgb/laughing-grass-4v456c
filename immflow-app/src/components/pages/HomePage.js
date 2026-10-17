@@ -101,6 +101,7 @@ export default function HomePage({ setPage, setShowAuth, user }) {
     subscriptionPriceCadence,
     subscriptionBillingPeriod,
     loading: platformLoading,
+    freeListingLimit,
   } = usePlatform();
   const [attorneys, setAttorneys] = useState([]);
   const [featuredAttorneys, setFeaturedAttorneys] = useState([]);
@@ -584,7 +585,11 @@ export default function HomePage({ setPage, setShowAuth, user }) {
                     <CheckItem>Browse attorneys</CheckItem>
                     <CheckItem>Apply to listings</CheckItem>
                     <CheckItem>Basic profile</CheckItem>
-                    <CheckItem>1 active listing</CheckItem>
+                    {freeListingLimit > 0 && (
+                      <CheckItem>
+                        {freeListingLimit} active listing{freeListingLimit === 1 ? "" : "s"}
+                      </CheckItem>
+                    )}
                   </ul>
                   <button
                     onClick={() => goAccount()}

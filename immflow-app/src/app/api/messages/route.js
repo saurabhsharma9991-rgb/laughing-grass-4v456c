@@ -5,7 +5,11 @@ import { AuthError } from "@/lib/auth/guards";
 import { apiSuccess, handleApiError, apiError } from "@/lib/api/response";
 import { assertFeatureAccess, getPlatformSettings } from "@/lib/services/platform-settings";
 import { userCanAccess } from "@/lib/utils/feature-access";
-import { hasPaidTranslationRelationship } from "@/lib/services/translation-orders";
+import {
+  paidMessagingStatus,
+  PAYMENT_REQUIRED_MESSAGE,
+} from "@/lib/services/messaging-access";
+import { messageFlagFor } from "@/lib/utils/message-safety";
 
 export async function GET(req) {
   try {
@@ -148,19 +152,14 @@ export async function POST(req) {
     const priorityClient =
       sender?.role === "public" && Boolean(priorityAccess.allowed);
 
-    // Translation providers: chat only after a paid order (payment-first flow).
     if (isClientIntake && sender?.role !== "admin") {
       const clientId =
         sender?.role === "public" ? session.userId : parsedReceiverId;
       const providerUserId =
         sender?.role === "public" ? parsedReceiverId : session.userId;
-      const rel = await hasPaidTranslationRelationship(clientId, providerUserId);
-      if (rel.isTranslationProvider && !rel.hasPaid) {
-        throw new AuthError(
-          "Message this translator after you create a translation order and complete payment.",
-          403,
-          "PAYMENT_REQUIRED"
-        );
+      const access = await paidMessagingStatus(clientId, providerUserId);
+      if (access.requiresPayment && !access.hasPaid) {
+        throw new AuthError(PAYMENT_REQUIRED_MESSAGE, 403, "PAYMENT_REQUIRED");
       }
     }
 
@@ -175,11 +174,15 @@ export async function POST(req) {
       }
     }
 
+    const body = content.trim().slice(0, 10000);
+    const flag = messageFlagFor(body);
     const message = await prisma.message.create({
       data: {
         senderId: session.userId,
         receiverId: parsedReceiverId,
-        content: content.trim().slice(0, 10000),
+        content: body,
+        flagged: flag.flagged,
+        flagReason: flag.flagReason,
       },
       include: {
         sender: {

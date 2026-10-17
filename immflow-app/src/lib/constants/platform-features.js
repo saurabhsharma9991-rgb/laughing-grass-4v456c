@@ -52,6 +52,6 @@ export const DEFAULT_FEATURE_FLAGS = {
   },
 };
 
-export const DEFAULT_FREE_LISTING_LIMIT = 1;
+export const DEFAULT_FREE_LISTING_LIMIT = 0;
 
 export const PROMO_CODE_TEST = "IMMFLOW2026";

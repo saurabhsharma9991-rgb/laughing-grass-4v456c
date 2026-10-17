@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/I18nProvider";
 import { Icon } from "@/components/icons/Icon";
+import { toastError } from "@/lib/client/alerts";
 
 export default function ServicesPage({ setPage, initialQuery }) {
   const { t } = useI18n();
@@ -33,7 +34,11 @@ export default function ServicesPage({ setPage, initialQuery }) {
       const data = await res.json();
       if (data.categorySlug) {
         window.location.href = `/services/${data.categorySlug}?q=${encodeURIComponent(query)}`;
+      } else {
+        toastError(data.error?.message || "We couldn't match that. Try choosing a category below.");
       }
+    } catch {
+      toastError("Search is unavailable right now. Try choosing a category below.");
     } finally {
       setFinding(false);
     }
