@@ -1,8 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/components/I18nProvider";
 import DynamicProfileFields from "@/components/DynamicProfileFields";
 import { Icon } from "@/components/icons/Icon";
-import VerificationUpload, { DOCUMENT_REQUIRED_SLUGS } from "@/components/VerificationUpload";
+import VerificationUpload, {
+  DOCUMENT_REQUIRED_SLUGS,
+  VERIFICATION_HINT,
+} from "@/components/VerificationUpload";
+
+const SIGNUP_STEPS = ["Account", "Services", "Verification"];
+const inputClass =
+  "w-full text-sm py-2.5 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-white focus:outline-none focus:border-green";
+
+function Field({ label, children, className = "" }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-xs font-medium text-muted mb-1">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 export default function AuthModal({
   onClose,
@@ -67,6 +83,77 @@ export default function AuthModal({
   );
   const translationCategory = selectedCategories.find((c) => c.slug === "translation");
   const isTranslationSignup = Boolean(translationCategory);
+
+  const [step, setStep] = useState(0);
+  const bodyRef = useRef(null);
+  const isWizard = mode === "signup" && accountType === "professional";
+  const lastStep = SIGNUP_STEPS.length - 1;
+
+  useEffect(() => {
+    setStep(0);
+  }, [mode, accountType]);
+
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [step, mode]);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // The live-chat bubble sits above every z-index and would cover the footer buttons.
+    window.Tawk_API?.hideWidget?.();
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.Tawk_API?.showWidget?.();
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  /** First problem on a wizard step, or "" when the step is complete. */
+  const stepError = (index) => {
+    if (index === 0) {
+      if (!name.trim()) return "Full name is required.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Enter a valid email address.";
+      if (password.length < 8) return "Password must be at least 8 characters.";
+    }
+    if (index === 1) {
+      if (!offerAttorney && selectedCategoryIds.length === 0) return "Choose attorney, a service, or both.";
+      if (offerAttorney && !barNumber.trim()) return "Bar number is required.";
+      if (offerAttorney && !state.trim()) return "State bar is required.";
+      if (isTranslationSignup && (!sourceLang || !targetLang)) {
+        return "Add at least one language pair (source and target).";
+      }
+    }
+    if (index === 2) {
+      if (offerAttorney && !verificationFiles.attorney) {
+        return "Upload a verification document for your attorney profile.";
+      }
+      const missing = selectedCategories.find(
+        (c) => DOCUMENT_REQUIRED_SLUGS.has(c.slug) && !verificationFiles[c.id]
+      );
+      if (missing) return `Upload a verification document for ${missing.name}.`;
+    }
+    return "";
+  };
+
+  const goNext = () => {
+    const problem = stepError(step);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError("");
+    setStep((s) => Math.min(lastStep, s + 1));
+  };
+
+  const goBack = () => {
+    setError("");
+    setStep((s) => Math.max(0, s - 1));
+  };
 
   const handleSignupLogin = async () => {
     setError("");
@@ -312,6 +399,15 @@ export default function AuthModal({
     if (mode === "forgot") return handleForgotPassword();
     if (mode === "reset") return handleResetPassword();
     if (mode === "verify") return handleResendVerification();
+    if (isWizard) {
+      if (step < lastStep) return goNext();
+      const failing = SIGNUP_STEPS.findIndex((_, i) => stepError(i));
+      if (failing !== -1) {
+        setStep(failing);
+        setError(stepError(failing));
+        return;
+      }
+    }
     return handleSignupLogin();
   };
 
@@ -324,378 +420,516 @@ export default function AuthModal({
       ? "Verify your email"
       : null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-xs">
-      <div className="bg-white rounded-lg p-8 w-[420px] max-w-[90vw] shadow-lg">
-        <div className="flex justify-between items-center mb-6">
-          <div className="font-syne text-xl font-extrabold text-text">
-            Imm<span className="text-green">Flow</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="bg-transparent border-none cursor-pointer text-xl text-muted hover:text-text"
+  const emailField = (
+    <Field label="Email" className="mb-4">
+      <input
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@example.com"
+        readOnly={mode === "verify" && Boolean(email)}
+        className={inputClass}
+      />
+    </Field>
+  );
+
+  const passwordField = (
+    <Field label={mode === "reset" ? "New password" : "Password"} className="mb-4">
+      <input
+        type="password"
+        autoComplete={mode === "login" ? "current-password" : "new-password"}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Min. 8 characters"
+        className={inputClass}
+      />
+    </Field>
+  );
+
+  const accountStep = (
+    <>
+      <Field label={t("auth.signupAs", "Sign up as")} className="mb-4">
+        <select
+          value={accountType === "seeker" ? "seeker" : "professional"}
+          onChange={(e) => {
+            setAccountType(e.target.value);
+            setError("");
+          }}
+          className={inputClass}
+        >
+          <option value="seeker">{t("auth.seeker", "Client / looking for services")}</option>
+          <option value="professional">Attorney and / or service provider</option>
+        </select>
+      </Field>
+      <Field label={t("auth.fullName", "Full name")} className="mb-4">
+        <input
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Jane Smith"
+          className={inputClass}
+        />
+      </Field>
+      {emailField}
+      {passwordField}
+    </>
+  );
+
+  const offerOptions = [
+    { key: "attorney", label: "Immigration attorney", checked: offerAttorney, toggle: setOfferAttorney },
+    ...categories.map((c) => ({
+      key: String(c.id),
+      label: c.name,
+      checked: selectedCategoryIds.includes(String(c.id)),
+      toggle: (on) =>
+        setSelectedCategoryIds((prev) =>
+          on ? [...prev, String(c.id)] : prev.filter((item) => item !== String(c.id))
+        ),
+    })),
+  ];
+
+  const servicesStep = (
+    <>
+      <div className="text-xs font-medium text-muted mb-2">What will you offer? Choose any combination.</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+        {offerOptions.map((o) => (
+          <label
+            key={o.key}
+            className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+              o.checked
+                ? "border-green bg-green-light/50 text-text"
+                : "border-[rgba(0,0,0,0.12)] text-text hover:border-green/50"
+            }`}
           >
-            <Icon name="close" className="w-4 h-4" />
-          </button>
-        </div>
+            <input
+              type="checkbox"
+              checked={o.checked}
+              onChange={(e) => {
+                o.toggle(e.target.checked);
+                setError("");
+              }}
+              className="accent-green"
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted leading-relaxed mb-4">
+        Paid orders include ImmFlow commission. Pro is a separate subscription that lowers that rate.
+      </p>
 
-        {title && (
-          <h2 className="font-syne text-lg font-bold text-text mb-4">{title}</h2>
-        )}
-        {intentLabel && (mode === "signup" || mode === "login") && (
-          <p className="text-sm text-muted mb-4 leading-relaxed">{intentLabel}</p>
-        )}
-
-        {(mode === "signup" || mode === "login") && (
-          <div className="flex gap-1.5 mb-6">
-            {[
-              ["signup", "Create account"],
-              ["login", "Log in"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setMode(key);
-                  setError("");
-                  setSuccess("");
-                }}
-                className={`flex-1 py-2 px-3 rounded-lg border text-xs cursor-pointer font-medium transition-all duration-200 ${
-                  mode === key
-                    ? "border-green bg-green text-white"
-                    : "border-[rgba(0,0,0,0.09)] bg-transparent text-muted hover:text-text"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {mode === "signup" && (
-          <>
-            <div className="mb-4">
-              <div className="text-xs font-medium text-muted mb-1">{t("auth.signupAs", "Sign up as")}</div>
-              <select
-                value={accountType === "seeker" ? "seeker" : "professional"}
-                onChange={(e) => setAccountType(e.target.value)}
-                className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white text-text focus:outline-none focus:border-green"
-              >
-                <option value="seeker">{t("auth.seeker", "Client / looking for services")}</option>
-                <option value="professional">Attorney and / or service provider</option>
-              </select>
-            </div>
-            <div className="mb-4">
-              <div className="text-xs font-medium text-muted mb-1">{t("auth.fullName", "Full name")}</div>
+      {offerAttorney && (
+        <section className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+          <div className="text-xs font-semibold text-text mb-2">Attorney details</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field label={t("auth.barNumber", "Bar number")}>
               <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jane Smith"
-                className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
+                value={barNumber}
+                onChange={(e) => setBarNumber(e.target.value)}
+                placeholder="e.g. 123456"
+                className={inputClass}
               />
+            </Field>
+            <Field label={t("auth.stateBar", "State bar")}>
+              <input
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                placeholder="e.g. CA"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </section>
+      )}
+
+      {isTranslationSignup && (
+        <section className="mb-4 space-y-3 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+          <div className="text-xs font-semibold text-text">Translator details</div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Source language">
+              <input
+                value={sourceLang}
+                onChange={(e) => setSourceLang(e.target.value)}
+                placeholder="e.g. Hindi"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Target language">
+              <input
+                value={targetLang}
+                onChange={(e) => setTargetLang(e.target.value)}
+                placeholder="e.g. English"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <details className="group">
+            <summary className="text-xs font-medium text-green cursor-pointer list-none flex items-center justify-between">
+              Pricing and type
+              <span className="text-muted group-open:rotate-180 transition-transform">▾</span>
+            </summary>
+            <div className="mt-3 space-y-3">
+              <Field label="Provider type">
+                <select
+                  value={translatorType}
+                  onChange={(e) => setTranslatorType(e.target.value)}
+                  className={inputClass}
+                >
+                  <option>Certified Translator</option>
+                  <option>Professional Translator</option>
+                  <option>Translation Agency</option>
+                </select>
+              </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Base price (USD)">
+                  <input
+                    type="number"
+                    min="15"
+                    inputMode="decimal"
+                    value={basePrice}
+                    onChange={(e) => setBasePrice(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Turnaround (days)">
+                  <input
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={turnaroundDays}
+                    onChange={(e) => setTurnaroundDays(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-text">
+                <input
+                  type="checkbox"
+                  checked={offersCertified}
+                  onChange={(e) => setOffersCertified(e.target.checked)}
+                />
+                I offer certified / attested translations
+              </label>
             </div>
-            {accountType === "professional" && (
-              <div className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3 space-y-2">
-                <div className="text-xs font-medium text-muted">What will you offer? Choose any combination.</div>
-                <label className="flex items-center gap-2 text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={offerAttorney}
-                    onChange={(e) => setOfferAttorney(e.target.checked)}
-                  />
-                  Immigration attorney
-                </label>
-                {categories.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm text-text">
-                    <input
-                      type="checkbox"
-                      checked={selectedCategoryIds.includes(String(c.id))}
-                      onChange={(e) => {
-                        const id = String(c.id);
-                        setSelectedCategoryIds((prev) =>
-                          e.target.checked ? [...prev, id] : prev.filter((item) => item !== id)
-                        );
-                      }}
-                    />
-                    {c.name}
-                  </label>
-                ))}
-                <p className="text-[11px] text-muted leading-relaxed">
-                  One account can be an attorney and also offer translation, interpreting, or evaluations.
-                  Paid orders include ImmFlow commission. Pro is a separate subscription that lowers that rate.
-                </p>
-              </div>
-            )}
-            {accountType === "professional" && offerAttorney && (
-              <div className="grid grid-cols-2 gap-2.5 mb-4">
-                <div>
-                  <div className="text-xs font-medium text-muted mb-1">{t("auth.barNumber", "Bar number")}</div>
-                  <input
-                    value={barNumber}
-                    onChange={(e) => setBarNumber(e.target.value)}
-                    placeholder="e.g. 123456"
-                    className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-                  />
-                </div>
-                <div>
-                  <div className="text-xs font-medium text-muted mb-1">{t("auth.stateBar", "State bar")}</div>
-                  <input
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="e.g. CA"
-                    className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <VerificationUpload
-                    label="Attorney verification document"
-                    required
-                    value={verificationFiles.attorney}
-                    onChange={(file) => setVerificationFile("attorney", file)}
-                    onError={setError}
-                  />
-                </div>
-              </div>
-            )}
-            {accountType === "professional" && selectedCategories.length > 0 && (
-              <div className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
-                <div className="text-xs font-semibold text-text">Verification documents</div>
-                {selectedCategories.map((category) => (
-                  <VerificationUpload
-                    key={category.id}
-                    label={category.name}
-                    required={DOCUMENT_REQUIRED_SLUGS.has(category.slug)}
-                    value={verificationFiles[category.id]}
-                    onChange={(file) => setVerificationFile(category.id, file)}
-                    onError={setError}
-                  />
-                ))}
-              </div>
-            )}
-            {isTranslationSignup && (
-              <div className="mb-4 space-y-3 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
-                <div className="text-xs font-semibold text-text">Translator details</div>
-                <div>
-                  <div className="text-xs font-medium text-muted mb-1">Provider type</div>
-                  <select
-                    value={translatorType}
-                    onChange={(e) => setTranslatorType(e.target.value)}
-                    className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg bg-white"
-                  >
-                    <option>Certified Translator</option>
-                    <option>Professional Translator</option>
-                    <option>Translation Agency</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-xs font-medium text-muted mb-1">Source language</div>
-                    <input
-                      value={sourceLang}
-                      onChange={(e) => setSourceLang(e.target.value)}
-                      placeholder="e.g. Hindi"
-                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-muted mb-1">Target language</div>
-                    <input
-                      value={targetLang}
-                      onChange={(e) => setTargetLang(e.target.value)}
-                      placeholder="e.g. English"
-                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-xs font-medium text-muted mb-1">Base price (USD)</div>
-                    <input
-                      type="number"
-                      min="15"
-                      value={basePrice}
-                      onChange={(e) => setBasePrice(e.target.value)}
-                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-muted mb-1">Turnaround (days)</div>
-                    <input
-                      type="number"
-                      min="1"
-                      value={turnaroundDays}
-                      onChange={(e) => setTurnaroundDays(e.target.value)}
-                      className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg"
-                    />
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-xs text-text">
-                  <input
-                    type="checkbox"
-                    checked={offersCertified}
-                    onChange={(e) => setOffersCertified(e.target.checked)}
-                  />
-                  I offer certified / attested translations
-                </label>
-                <p className="text-[10px] text-muted leading-relaxed">
-                  Do not claim blanket “USCIS certified” status. Verification is granted by ImmFlow admins after review.
-                </p>
-              </div>
-            )}
-            {selectedCategories
-              .filter((category) => category.profileSchema)
-              .map((category) => (
-              <div key={category.id} className="mb-4 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
-                <div className="text-xs font-semibold text-text mb-3">
-                  {category.name} profile
-                </div>
+          </details>
+        </section>
+      )}
+
+      {selectedCategories.some((category) => category.profileSchema) && (
+        <details className="mb-2 border border-[rgba(0,0,0,0.08)] rounded-lg p-3">
+          <summary className="text-xs font-medium text-green cursor-pointer list-none flex items-center justify-between">
+            Extra profile details (optional)
+            <span className="text-muted">▾</span>
+          </summary>
+          <p className="text-[11px] text-muted mt-2 mb-3">
+            You can skip this and finish it later from your dashboard.
+          </p>
+          {selectedCategories
+            .filter((category) => category.profileSchema)
+            .map((category) => (
+              <section key={category.id} className="mb-3 last:mb-0">
+                <div className="text-xs font-semibold text-text mb-2">{category.name}</div>
                 <DynamicProfileFields
                   schema={category.profileSchema}
                   values={dynamicProfileData}
                   onChange={setDynamicProfileData}
                   excludeKeys={
                     category.slug === "translation"
-                      ? [
-                          "translatorType",
-                          "languagePairs",
-                          "turnaround",
-                          "rushAvailable",
-                        ]
+                      ? ["translatorType", "languagePairs", "turnaround", "rushAvailable"]
                       : []
                   }
                 />
-              </div>
+              </section>
             ))}
-          </>
-        )}
+        </details>
+      )}
+    </>
+  );
 
-        {(mode === "signup" || mode === "login" || mode === "forgot" || mode === "verify") && (
-          <div className="mb-4">
-            <div className="text-xs font-medium text-muted mb-1">Email</div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              readOnly={mode === "verify" && Boolean(email)}
-              className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-            />
-          </div>
+  const verificationStep = (
+    <>
+      <p className="text-xs text-muted leading-relaxed mb-3">
+        Each profile is reviewed before it goes live. {VERIFICATION_HINT}
+      </p>
+      <div className="space-y-2">
+        {offerAttorney && (
+          <VerificationUpload
+            label="Immigration attorney"
+            required
+            value={verificationFiles.attorney}
+            onChange={(file) => setVerificationFile("attorney", file)}
+            onError={setError}
+          />
         )}
+        {selectedCategories.map((category) => (
+          <VerificationUpload
+            key={category.id}
+            label={category.name}
+            required={DOCUMENT_REQUIRED_SLUGS.has(category.slug)}
+            value={verificationFiles[category.id]}
+            onChange={(file) => setVerificationFile(category.id, file)}
+            onError={setError}
+          />
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-high mt-3 leading-relaxed">
+        Optional documents can also be added later from your dashboard.
+      </p>
+    </>
+  );
 
-        {mode === "verify" && (
-          <p className="text-xs text-muted-high mb-4 leading-relaxed">
-            We sent a verification link to your inbox. Click the link to activate your account, then log in.
-            Did not receive it? Resend below.
-          </p>
-        )}
+  const submitLabel = loading
+    ? "Please wait…"
+    : mode === "signup"
+    ? accountType === "seeker"
+      ? "Create client account"
+      : step < lastStep
+      ? "Continue"
+      : "Create account"
+    : mode === "login"
+    ? "Log in"
+    : mode === "forgot"
+    ? "Send reset link"
+    : mode === "verify"
+    ? "Resend verification email"
+    : "Update password";
 
-        {(mode === "signup" || mode === "login" || mode === "reset") && (
-          <div className="mb-5">
-            <div className="text-xs font-medium text-muted mb-1">
-              {mode === "reset" ? "New password" : "Password"}
+  return (
+    <div
+      className="fixed inset-0 z-[1000] overflow-hidden flex items-stretch sm:items-center justify-center bg-black/50 backdrop-blur-xs sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+    >
+      <div
+        className={`bg-white shadow-xl flex flex-col overflow-hidden min-h-0 w-full max-h-dvh ${
+          isWizard
+            ? "h-dvh sm:h-[min(38rem,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:w-[32rem]"
+            : "mt-auto sm:mt-0 h-auto max-h-dvh rounded-t-2xl sm:rounded-2xl sm:w-[27.5rem]"
+        }`}
+      >
+        <header className="shrink-0 px-5 sm:px-7 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-5 pb-3 border-b border-[rgba(0,0,0,0.06)]">
+          <div className="flex justify-between items-center">
+            <div className="font-syne text-xl font-extrabold text-text">
+              Imm<span className="text-green">Flow</span>
             </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 8 characters"
-              className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-            />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-2 p-2 bg-transparent border-none cursor-pointer text-muted hover:text-text rounded-lg"
+            >
+              <Icon name="close" className="w-4 h-4" />
+            </button>
           </div>
-        )}
 
-        {mode === "reset" && (
-          <>
-            <div className="mb-4">
-              <div className="text-xs font-medium text-muted mb-1">Reset token</div>
-              <input
-                value={resetToken}
-                onChange={(e) => setResetToken(e.target.value)}
-                placeholder="Paste token from your reset email"
-                className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-              />
+          {title && <h2 className="font-syne text-lg font-bold text-text mt-3">{title}</h2>}
+          {intentLabel && (mode === "signup" || mode === "login") && (
+            <p className="text-sm text-muted mt-2 leading-relaxed">{intentLabel}</p>
+          )}
+
+          {(mode === "signup" || mode === "login") && (
+            <div className="flex gap-1.5 mt-4">
+              {[
+                ["signup", "Create account"],
+                ["login", "Log in"],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setMode(key);
+                    setError("");
+                    setSuccess("");
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-lg border text-xs cursor-pointer font-medium transition-all duration-200 ${
+                    mode === key
+                      ? "border-green bg-green text-white"
+                      : "border-[rgba(0,0,0,0.09)] bg-transparent text-muted hover:text-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div className="mb-5">
-              <div className="text-xs font-medium text-muted mb-1">Confirm password</div>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter password"
-                className="w-full text-sm py-2 px-3 border border-[rgba(0,0,0,0.15)] rounded-lg text-text bg-transparent focus:outline-none focus:border-green"
-              />
-            </div>
-          </>
-        )}
+          )}
 
-        {error && (
-          <div className="bg-red-light text-red py-2.5 px-3 rounded-lg text-[13px] mb-4">
-            <span className="inline-flex items-center gap-2"><Icon name="alert" className="w-4 h-4" /> {error}</span>
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-light text-green-dark py-2.5 px-3 rounded-lg text-[13px] mb-4 break-words">
-            <span className="inline-flex items-center gap-2"><Icon name="check" className="w-4 h-4" /> {success}</span>
-          </div>
-        )}
+          {isWizard && (
+            <ol className="flex items-center gap-2 mt-4" aria-label="Signup progress">
+              {SIGNUP_STEPS.map((label, i) => (
+                <li key={label} className="flex-1 min-w-0">
+                  <button
+                    type="button"
+                    disabled={i > step}
+                    onClick={() => {
+                      setError("");
+                      setStep(i);
+                    }}
+                    className="w-full text-left bg-transparent border-none p-0 cursor-pointer disabled:cursor-default"
+                    aria-current={i === step ? "step" : undefined}
+                  >
+                    <span
+                      className={`block h-1 rounded-full transition-colors ${
+                        i <= step ? "bg-green" : "bg-[rgba(0,0,0,0.08)]"
+                      }`}
+                    />
+                    <span
+                      className={`block text-[11px] mt-1.5 truncate ${
+                        i === step ? "text-text font-semibold" : "text-muted"
+                      }`}
+                    >
+                      {i + 1}. {label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </header>
 
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="bg-green text-white w-full py-3 rounded-lg border-none text-[15px] font-medium transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 hover:bg-green-dark"
+        <form
+          className="flex-1 min-h-0 flex flex-col overflow-hidden"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          noValidate
         >
-          {loading
-            ? "Please wait…"
-            : mode === "signup"
-            ? accountType === "seeker"
-              ? "Create client account"
-              : "Create account"
-            : mode === "login"
-            ? "Log in"
-            : mode === "forgot"
-            ? "Send reset link"
-            : mode === "verify"
-            ? "Resend verification email"
-            : "Update password"}
-        </button>
-
-        {mode === "login" && (
-          <button
-            type="button"
-            onClick={() => {
-              setMode("forgot");
-              setError("");
-              setSuccess("");
-            }}
-            className="w-full mt-3 bg-transparent border-none text-xs text-green hover:underline cursor-pointer"
+          <div
+            className={
+              isWizard
+                ? "relative flex-1 min-h-0 overflow-hidden"
+                : "relative min-h-0 overflow-hidden"
+            }
           >
-            Forgot your password?
-          </button>
-        )}
-
-        {(mode === "forgot" || mode === "reset" || mode === "verify") && (
-          <button
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setError("");
-              setSuccess("");
-            }}
-            className="w-full mt-3 bg-transparent border-none text-xs text-muted hover:text-text cursor-pointer"
+          <div
+            ref={bodyRef}
+            className={`overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] px-5 sm:px-7 py-4 ${
+              isWizard ? "h-full" : "max-h-[min(60dvh,28rem)]"
+            }`}
           >
-            ← Back to log in
-          </button>
-        )}
+            {mode === "signup" && (!isWizard || step === 0) && accountStep}
+            {isWizard && step === 1 && servicesStep}
+            {isWizard && step === 2 && verificationStep}
 
-        {(mode === "signup" || mode === "login") && (
-          <p className="text-xs text-muted-high text-center mt-4 leading-relaxed">
-            {mode === "login"
-              ? "Clients, attorneys, providers, and administrators can log in here."
-              : accountType === "seeker"
-                ? "Client accounts are free. Verify your email to continue."
-                : "One account can include an attorney profile and any services you offer. Each new profile is reviewed before it goes live."}
-          </p>
-        )}
+            {(mode === "login" || mode === "forgot" || mode === "verify") && emailField}
+
+            {mode === "verify" && (
+              <p className="text-xs text-muted-high mb-4 leading-relaxed">
+                We sent a verification link to your inbox. Click the link to activate your account, then log in.
+                Did not receive it? Resend below.
+              </p>
+            )}
+
+            {(mode === "login" || mode === "reset") && passwordField}
+
+            {mode === "reset" && (
+              <>
+                <Field label="Reset token" className="mb-4">
+                  <input
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    placeholder="Paste token from your reset email"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Confirm password" className="mb-4">
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    className={inputClass}
+                  />
+                </Field>
+              </>
+            )}
+
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("forgot");
+                  setError("");
+                  setSuccess("");
+                }}
+                className="w-full bg-transparent border-none text-xs text-green hover:underline cursor-pointer"
+              >
+                Forgot your password?
+              </button>
+            )}
+
+            {(mode === "signup" || mode === "login") && (!isWizard || step === 0) && (
+              <p className="text-xs text-muted-high text-center mt-2 leading-relaxed">
+                {mode === "login"
+                  ? "Clients, attorneys, providers, and administrators can log in here."
+                  : accountType === "seeker"
+                    ? "Client accounts are free. Verify your email to continue."
+                    : "One account can include an attorney profile and any services you offer."}
+              </p>
+            )}
+          </div>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-white to-transparent"
+          />
+          </div>
+
+          <footer className="shrink-0 px-5 sm:px-7 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-5 border-t border-[rgba(0,0,0,0.06)] bg-white sm:rounded-b-2xl">
+            {error && (
+              <div role="alert" className="bg-red-light text-red py-2.5 px-3 rounded-lg text-[13px] mb-3">
+                <span className="inline-flex items-start gap-2">
+                  <Icon name="alert" className="w-4 h-4 shrink-0 mt-px" /> {error}
+                </span>
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-light text-green-dark py-2.5 px-3 rounded-lg text-[13px] mb-3 break-words">
+                <span className="inline-flex items-start gap-2">
+                  <Icon name="check" className="w-4 h-4 shrink-0 mt-px" /> {success}
+                </span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {isWizard && step > 0 && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={loading}
+                  className="shrink-0 px-5 py-3 rounded-lg border border-[rgba(0,0,0,0.12)] bg-white text-sm font-medium text-text cursor-pointer hover:bg-bg disabled:opacity-60"
+                >
+                  Back
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-green text-white py-3 rounded-lg border-none text-[15px] font-medium transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 hover:bg-green-dark"
+              >
+                {submitLabel}
+              </button>
+            </div>
+
+            {(mode === "forgot" || mode === "reset" || mode === "verify") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                  setSuccess("");
+                }}
+                className="w-full mt-3 bg-transparent border-none text-xs text-muted hover:text-text cursor-pointer"
+              >
+                ← Back to log in
+              </button>
+            )}
+          </footer>
+        </form>
       </div>
     </div>
   );
