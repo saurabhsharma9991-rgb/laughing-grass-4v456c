@@ -151,6 +151,7 @@ export default function AddServicePanel({ user, setUser }) {
             value={serviceDoc}
             onChange={setServiceDoc}
             onError={toastError}
+            showHint
           />
         </div>
       )}
@@ -162,6 +163,7 @@ export default function AddServicePanel({ user, setUser }) {
             value={attorneyDoc}
             onChange={setAttorneyDoc}
             onError={toastError}
+            showHint
           />
         </div>
       )}
